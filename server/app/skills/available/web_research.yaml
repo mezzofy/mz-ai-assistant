@@ -1,0 +1,27 @@
+name: "web_research"
+version: "1.0.0"
+description: "Research companies, competitors, and markets via web scraping"
+agent: "sales"
+
+dependencies:
+  - playwright>=1.40.0
+  - beautifulsoup4>=4.12.0
+
+capabilities:
+  - research_company
+  - search_competitors
+  - extract_market_data
+
+tools:
+  - name: "research_company"
+    description: "Research a company by scraping their website and public data"
+    parameters:
+      company_name: { type: "string", required: true }
+      website_url: { type: "string", required: false }
+      focus_areas: { type: "array", required: false }   # products, team, funding, news
+
+  - name: "search_web"
+    description: "General web search and extract relevant information"
+    parameters:
+      query: { type: "string", required: true }
+      max_results: { type: "integer", required: false }

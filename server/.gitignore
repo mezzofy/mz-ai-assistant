@@ -1,0 +1,28 @@
+# Secrets — NEVER commit
+config/.env
+config/config.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+venv/
+.venv/
+*.pyc
+
+# Runtime data
+logs/*.log
+data/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+tests/results/
+
+# OS
+.DS_Store
+Thumbs.db

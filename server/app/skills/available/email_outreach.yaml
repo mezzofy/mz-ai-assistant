@@ -1,0 +1,33 @@
+name: "email_outreach"
+version: "1.0.0"
+description: "Compose and send professional emails via Outlook (MS Graph) with templates and personalization"
+agent: "sales"
+
+dependencies:
+  - msgraph-sdk>=1.2.0
+  - jinja2>=3.1.0
+
+capabilities:
+  - compose_intro_email
+  - compose_followup_email
+  - compose_proposal_email
+  - batch_send
+
+tools:
+  - name: "compose_email"
+    description: "Draft a professional email from template with personalization"
+    parameters:
+      template: { type: "string", required: true }      # intro, followup, proposal, custom
+      recipient_name: { type: "string", required: true }
+      recipient_email: { type: "string", required: true }
+      company_name: { type: "string", required: false }
+      custom_context: { type: "string", required: false }
+
+  - name: "send_email"
+    description: "Send composed email via Outlook (MS Graph API)"
+    parameters:
+      to: { type: "string", required: true }
+      subject: { type: "string", required: true }
+      body_html: { type: "string", required: true }
+      cc: { type: "array", required: false }
+      attachments: { type: "array", required: false }

@@ -1,0 +1,28 @@
+name: "pitch_deck_generation"
+version: "1.0.0"
+description: "Create sales pitch decks using Mezzofy product data and customer research"
+agent: "sales"
+
+dependencies:
+  - python-pptx>=0.6.21
+
+capabilities:
+  - generate_pitch_deck
+  - customize_template
+  - insert_case_studies
+  - add_pricing_slide
+
+tools:
+  - name: "create_pitch_deck"
+    description: "Generate PPTX pitch deck for a specific customer/prospect"
+    parameters:
+      customer_name: { type: "string", required: true }
+      industry: { type: "string", required: false }
+      focus_products: { type: "array", required: false }
+      include_pricing: { type: "boolean", required: false }
+      include_case_studies: { type: "boolean", required: false }
+
+  - name: "get_mezzofy_products"
+    description: "Fetch latest Mezzofy product data, features, and pricing"
+    parameters:
+      product_category: { type: "string", required: false }

@@ -1,0 +1,158 @@
+# ============================================================
+# Mezzofy AI Assistant — RBAC Role Definitions
+# Source: SECURITY.md
+# ============================================================
+
+departments:
+  - finance
+  - sales
+  - marketing
+  - support
+  - management
+
+roles:
+  # ── Finance Department ───────────────────────────────────
+  finance_viewer:
+    department: finance
+    permissions:
+      - finance_read
+
+  finance_manager:
+    department: finance
+    permissions:
+      - finance_read
+      - finance_write
+      - email_send
+      - calendar_access
+      - scheduler_manage         # Can create scheduled finance reports
+
+  # ── Sales Department ─────────────────────────────────────
+  sales_rep:
+    department: sales
+    permissions:
+      - sales_read
+      - sales_write
+      - email_send
+      - linkedin_access
+      - calendar_access
+
+  sales_manager:
+    department: sales
+    permissions:
+      - sales_read
+      - sales_write
+      - email_send
+      - linkedin_access
+      - calendar_access
+      - sales_admin
+      - scheduler_manage
+
+  # ── Marketing Department ─────────────────────────────────
+  marketing_creator:
+    department: marketing
+    permissions:
+      - marketing_read
+      - marketing_write
+      - email_send
+
+  marketing_manager:
+    department: marketing
+    permissions:
+      - marketing_read
+      - marketing_write
+      - email_send
+      - marketing_admin
+      - scheduler_manage
+
+  # ── Support Department ───────────────────────────────────
+  support_agent:
+    department: support
+    permissions:
+      - support_read
+      - support_write
+      - email_send
+
+  support_manager:
+    department: support
+    permissions:
+      - support_read
+      - support_write
+      - email_send
+      - support_admin
+      - scheduler_manage
+
+  # ── Management ───────────────────────────────────────────
+  executive:
+    department: management
+    permissions:
+      - management_read
+      - management_admin
+      - finance_read
+      - sales_read
+      - marketing_read
+      - support_read
+      - audit_read
+      - email_send
+      - calendar_access
+      - scheduler_manage
+      - teams_post              # Can post to any Teams channel
+
+  admin:
+    department: management
+    permissions:
+      - "*"                     # All permissions
+
+# ── Permission → Tool Mapping ────────────────────────────────
+# (Reference for backend RBAC enforcement)
+permission_tool_map:
+  finance_read:
+    - query_financial
+    - financial_query
+    - financial_format
+  finance_write:
+    - create_invoice
+    - update_financial_record
+  sales_read:
+    - search_leads
+    - get_lead
+    - get_pipeline
+    - export_leads
+  sales_write:
+    - create_lead
+    - update_lead
+  linkedin_access:
+    - linkedin_search
+    - linkedin_extract
+  email_send:
+    - outlook_send_email
+    - outlook_batch_send
+    - outlook_reply_email
+  calendar_access:
+    - outlook_create_event
+    - outlook_get_events
+    - outlook_find_free_slots
+  teams_post:
+    - teams_post_message
+  scheduler_manage:
+    - create_scheduled_job
+    - delete_scheduled_job
+  marketing_read:
+    - get_products
+    - search_knowledge
+    - get_brand_guidelines
+  marketing_write:
+    - generate_content
+    - create_pdf
+    - create_docx
+  support_read:
+    - query_tickets
+  support_write:
+    - update_ticket
+    - add_ticket_note
+  management_read:
+    - aggregate_by_dept
+    - get_kpi_metrics
+    - get_all_leads
+    - get_all_reports
+  audit_read:
+    - query_audit_log

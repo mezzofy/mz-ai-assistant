@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test:*)",
+      "Bash(.gradlew.bat assembleDebug:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(\"C:\\\\Users\\\\eric\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\cmdline-tools\\\\latest\\\\bin\\\\sdkmanager.bat\" emulator:*)",
+      "Bash(\"C:\\\\Users\\\\eric\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\cmdline-tools\\\\latest\\\\bin\\\\sdkmanager.bat\":*)",
+      "Bash(npx react-native:*)",
+      "Bash(./gradlew assembleDebug:*)"
+    ]
+  }
+}

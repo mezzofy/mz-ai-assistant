@@ -1,0 +1,226 @@
+# ============================================================
+# Mezzofy AI Assistant — Configuration Template
+# Copy to config.yaml and fill in real values
+# NEVER commit config.yaml or .env to git
+# ============================================================
+
+# LLM Configuration
+llm:
+  default_model: "claude"
+  fallback_model: "kimi"
+
+  claude:
+    provider: "anthropic"
+    model: "claude-sonnet-4-5-20250929"
+    api_key: "${ANTHROPIC_API_KEY}"
+    max_tokens: 4096
+    temperature: 0.7
+
+  kimi:
+    provider: "moonshot"
+    model: "moonshot-v1-128k"
+    api_key: "${KIMI_API_KEY}"
+    base_url: "https://api.moonshot.cn/v1"
+    max_tokens: 4096
+    temperature: 0.7
+
+  routing:
+    chinese_content: "kimi"       # Route Chinese text to Kimi
+    apac_research: "kimi"         # Route APAC research queries to Kimi
+    default: "claude"             # Default to Claude for all other requests
+
+# API Server
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4                      # Uvicorn workers
+  debug: false
+
+  nginx:
+    ssl_cert: "/etc/letsencrypt/live/api.mezzofy.com/fullchain.pem"
+    ssl_key: "/etc/letsencrypt/live/api.mezzofy.com/privkey.pem"
+
+# Database
+database:
+  url: "${DATABASE_URL}"          # postgresql+asyncpg://user:pass@localhost:5432/mezzofy_ai
+  pool_size: 10
+  max_overflow: 20
+
+# Redis
+redis:
+  url: "${REDIS_URL}"             # redis://localhost:6379/0
+
+# Security / JWT
+security:
+  jwt:
+    secret: "${JWT_SECRET}"
+    algorithm: "HS256"
+    access_token_expiry_minutes: 60
+    refresh_token_expiry_days: 7
+
+  rate_limiting:
+    requests_per_minute: 30
+    email_sends_per_hour: 30
+    linkedin_searches_per_hour: 20
+    file_generations_per_hour: 50
+    webhook_events_per_minute: 100
+
+  max_request_size_mb: 10
+  max_upload_size_mb: 100
+  allowed_upload_types:
+    # Images
+    - "image/jpeg"
+    - "image/png"
+    - "image/heic"
+    - "image/webp"
+    # Video
+    - "video/mp4"
+    - "video/quicktime"
+    - "video/x-msvideo"
+    # Audio
+    - "audio/mpeg"
+    - "audio/wav"
+    - "audio/x-m4a"
+    - "audio/ogg"
+    # Documents
+    - "application/pdf"
+    - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    - "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    - "text/csv"
+    - "text/plain"
+
+# Microsoft 365 (Outlook Email + Calendar)
+ms365:
+  enabled: true
+  tenant_id: "${MS365_TENANT_ID}"
+  client_id: "${MS365_CLIENT_ID}"
+  client_secret: "${MS365_CLIENT_SECRET}"
+  sender_email: "ai-assistant@mezzofy.com"
+  rate_limit_emails_per_hour: 30
+  calendar_default_timezone: "Asia/Singapore"
+  calendar_reminder_minutes: 15
+
+# Microsoft Teams
+teams:
+  enabled: true
+  team_id: "${MS_TEAMS_TEAM_ID}"
+  bot_name: "MezzofyAI"
+  sender_user_id: "${MS_TEAMS_SENDER_USER_ID}"   # Azure AD object ID of the DM sender user
+  channels:
+    general: "19:general@thread.tacv2"
+    sales: "19:sales@thread.tacv2"
+    finance: "19:finance@thread.tacv2"
+    marketing: "19:marketing@thread.tacv2"
+    support: "19:support@thread.tacv2"
+    management: "19:management@thread.tacv2"
+
+# Task Queue (Celery + Redis)
+celery:
+  broker_url: "redis://localhost:6379/0"
+  result_backend: "redis://localhost:6379/1"
+  timezone: "Asia/Singapore"
+  worker_concurrency: 4
+  task_time_limit: 600            # 10 min hard limit
+  task_soft_time_limit: 540       # 9 min soft limit
+
+# Webhooks
+webhooks:
+  enabled: true
+  secret_key: "${WEBHOOK_SECRET}"
+
+  sources:
+    mezzofy:
+      enabled: true
+      events:
+        - customer_signed_up
+        - customer_churned
+        - order_completed
+        - support_ticket_created
+        - feature_released
+
+    teams:
+      enabled: true
+
+    custom:
+      enabled: true
+      allowed_sources: ["zapier", "github", "stripe"]
+
+# Scheduler
+scheduler:
+  enabled: true
+  max_jobs_per_user: 10
+  min_interval_minutes: 15
+  default_timezone: "Asia/Singapore"
+
+# Tools
+tools:
+  browser:
+    enabled: true
+    headless: true
+    timeout_seconds: 30
+
+  linkedin:
+    enabled: true
+    rate_limit_per_session: 50
+    session_cookie: "${LINKEDIN_COOKIE}"
+
+  database:
+    enabled: true
+    read_only: true
+
+  knowledge_base:
+    enabled: true
+    directory: "knowledge"
+
+  media_processing:
+    enabled: true
+    max_image_size_mb: 20
+    max_video_size_mb: 100
+    max_audio_size_mb: 50
+    max_video_duration_seconds: 300
+    image_max_dimension: 2048
+    video_key_frame_interval: 5
+    whisper_model: "base"         # tiny | base | small | medium | large
+    supported_languages:
+      - "en"
+      - "zh"
+      - "ms"
+    vision_provider: "anthropic"
+
+# Agents
+agents:
+  enabled: true
+  auto_select: true
+  available:
+    - finance
+    - sales
+    - marketing
+    - support
+    - management
+
+# File Storage
+storage:
+  type: "local"                   # "local" (EBS) or "s3"
+  local_path: "/data/artifacts"
+  max_file_size_mb: 100
+
+  s3:
+    bucket: "mezzofy-ai-artifacts"
+    region: "ap-southeast-1"
+    access_key: "${AWS_ACCESS_KEY}"
+    secret_key: "${AWS_SECRET_KEY}"
+
+# Logging
+logging:
+  level: "INFO"
+  file: "logs/app.log"
+  max_bytes: 10485760             # 10 MB
+  backup_count: 10
+  audit_retention_days: 90
+
+# CORS
+cors:
+  allowed_origins:
+    - "http://localhost:8081"     # React Native Metro bundler
+    - "https://api.mezzofy.com"

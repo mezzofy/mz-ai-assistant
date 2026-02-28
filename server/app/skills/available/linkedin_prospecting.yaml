@@ -1,0 +1,29 @@
+name: "linkedin_prospecting"
+version: "1.0.0"
+description: "Search LinkedIn for leads, extract profiles, and research companies"
+agent: "sales"
+
+dependencies:
+  - playwright>=1.40.0
+  - beautifulsoup4>=4.12.0
+
+capabilities:
+  - search_linkedin_companies
+  - search_linkedin_people
+  - extract_company_info
+  - extract_contact_info
+
+tools:
+  - name: "linkedin_search"
+    description: "Search LinkedIn for companies or people by industry, location, size"
+    parameters:
+      query: { type: "string", required: true }
+      search_type: { type: "string", required: true }   # "company" or "people"
+      location: { type: "string", required: false }
+      industry: { type: "string", required: false }
+      max_results: { type: "integer", required: false }
+
+  - name: "linkedin_extract_profile"
+    description: "Extract details from a LinkedIn company or person profile URL"
+    parameters:
+      url: { type: "string", required: true }

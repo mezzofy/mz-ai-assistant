@@ -1,0 +1,21 @@
+name: "data_analysis"
+version: "1.0.0"
+description: "Analyze datasets, generate summaries, identify trends and patterns"
+agent: "management"
+
+dependencies:
+  - pandas>=2.0.0
+
+capabilities:
+  - analyze_dataset
+  - generate_summary
+  - identify_trends
+  - compare_periods
+
+tools:
+  - name: "analyze_data"
+    description: "Analyze a dataset and return summary statistics and insights"
+    parameters:
+      query: { type: "string", required: true }         # SQL or natural language description
+      analysis_type: { type: "string", required: false } # summary, trend, comparison
+      date_range: { type: "string", required: false }

@@ -1,0 +1,30 @@
+name: "financial_reporting"
+version: "1.0.0"
+description: "Generate financial statements, reports, and analyses from database"
+agent: "finance"
+
+dependencies:
+  - reportlab>=4.0.0
+  - pandas>=2.0.0
+
+capabilities:
+  - generate_pnl_statement
+  - generate_balance_sheet
+  - generate_cash_flow
+  - generate_expense_report
+  - calculate_financial_ratios
+
+tools:
+  - name: "financial_query"
+    description: "Query financial data by date range, category, and type"
+    parameters:
+      report_type: { type: "string", required: true }   # pnl, balance_sheet, cash_flow, expenses
+      start_date: { type: "string", required: true }
+      end_date: { type: "string", required: true }
+      department: { type: "string", required: false }
+
+  - name: "financial_format"
+    description: "Format financial data into a professional statement structure"
+    parameters:
+      data: { type: "object", required: true }
+      format: { type: "string", required: true }         # pdf, csv, json

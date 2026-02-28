@@ -1,0 +1,21 @@
+name: "content_generation"
+version: "1.0.0"
+description: "Generate marketing content — website copy, playbooks, blogs, social media"
+agent: "marketing"
+
+capabilities:
+  - generate_website_copy
+  - generate_playbook
+  - generate_blog_post
+  - generate_social_posts
+  - generate_newsletter
+
+tools:
+  - name: "generate_content"
+    description: "Create marketing content of specified type"
+    parameters:
+      content_type: { type: "string", required: true }  # website, playbook, blog, social, newsletter
+      topic: { type: "string", required: true }
+      audience: { type: "string", required: false }      # prospects, customers, partners
+      tone: { type: "string", required: false }          # professional, casual, technical
+      length: { type: "string", required: false }        # short, medium, long
