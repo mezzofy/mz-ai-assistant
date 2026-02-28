@@ -54,12 +54,10 @@ def run_migrations(conn):
         CREATE TABLE IF NOT EXISTS conversations (
             id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            session_id  UUID NOT NULL,
-            role        TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-            content     TEXT NOT NULL,
-            content_type TEXT DEFAULT 'text',
-            metadata    JSONB,
-            created_at  TIMESTAMPTZ DEFAULT NOW()
+            department  TEXT DEFAULT '',
+            messages    JSONB DEFAULT '[]',
+            created_at  TIMESTAMPTZ DEFAULT NOW(),
+            updated_at  TIMESTAMPTZ DEFAULT NOW()
         )
     """)
     print("  ✅ conversations")
@@ -108,16 +106,18 @@ def run_migrations(conn):
     # ── 5. audit_log ─────────────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS audit_log (
-            id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id     UUID REFERENCES users(id),  -- NULL for system/scheduler
-            department  TEXT,
-            action      TEXT NOT NULL,
-            source      TEXT DEFAULT 'mobile'
-                            CHECK (source IN ('mobile', 'webhook', 'scheduler', 'teams')),
-            details     JSONB,
-            ip_address  TEXT,
-            user_agent  TEXT,
-            created_at  TIMESTAMPTZ DEFAULT NOW()
+            id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id       UUID REFERENCES users(id),  -- NULL for system/scheduler
+            session_id    UUID,
+            action        TEXT NOT NULL,
+            resource      TEXT,
+            details       JSONB,
+            ip_address    TEXT,
+            user_agent    TEXT,
+            success       BOOLEAN DEFAULT TRUE,
+            error_message TEXT,
+            duration_ms   INTEGER,
+            created_at    TIMESTAMPTZ DEFAULT NOW()
         )
     """)
     print("  ✅ audit_log")
