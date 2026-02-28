@@ -105,19 +105,8 @@ sudo systemctl enable redis-server
 # Test Redis
 redis-cli ping > /dev/null 2>&1 && echo "✅ Redis running" || echo "⚠️  Redis may need manual configuration"
 
-# ── 6. Database migrations ────────────────────────────────
-echo ""
-echo "📊 [6/10] Running database migrations..."
-python scripts/migrate.py
-echo "✅ Database schema created"
-
-# ── 7. Seed initial users ─────────────────────────────────
-echo ""
-echo "👤 [7/10] Seeding initial admin user..."
-python scripts/seed.py
-echo "✅ Initial users seeded"
-
-# ── 8. Create data directories ────────────────────────────
+# ── 8+9 moved before migrations: config files & directories ─
+# (migrations need DATABASE_URL from config/.env)
 echo ""
 echo "📁 [8/10] Creating data and log directories..."
 sudo mkdir -p /data/artifacts/{documents,presentations,exports,uploads}
@@ -150,6 +139,18 @@ LOG_LEVEL=INFO
 EOF
     echo "   → config/.env created (EDIT THIS FILE)"
 fi
+
+# ── 6. Database migrations ────────────────────────────────
+echo ""
+echo "📊 [6/10] Running database migrations..."
+python scripts/migrate.py
+echo "✅ Database schema created"
+
+# ── 7. Seed initial users ─────────────────────────────────
+echo ""
+echo "👤 [7/10] Seeding initial admin user..."
+python scripts/seed.py
+echo "✅ Initial users seeded"
 
 # ── 10. Nginx + systemd services ──────────────────────────
 echo ""
