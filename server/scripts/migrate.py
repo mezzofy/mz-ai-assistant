@@ -96,9 +96,9 @@ def run_migrations(conn):
             id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             session_id  UUID,
-            type        TEXT NOT NULL,       -- pdf, pptx, docx, csv, image
-            name        TEXT NOT NULL,
-            path        TEXT NOT NULL,
+            file_type   TEXT NOT NULL,       -- pdf, pptx, docx, csv, image
+            filename    TEXT NOT NULL,
+            file_path   TEXT NOT NULL,
             size_bytes  BIGINT,
             created_at  TIMESTAMPTZ DEFAULT NOW()
         )
