@@ -14,7 +14,7 @@
 | Disk | 30 GB+ EBS | `/data/artifacts` needs space for uploads |
 | Security group | Inbound 80, 443, 22 | 80/443 for HTTPS; 22 for SSH |
 | Elastic IP | Recommended | Stable IP for DNS |
-| Domain | Required for SSL | e.g. `api.mezzofy.com` |
+| Domain | Required for SSL | e.g. `assistant.mezzofy.com` |
 
 **API keys required before setup:**
 
@@ -155,7 +155,7 @@ Nginx is already configured as an SSL termination proxy. Obtain a certificate:
 
 ```bash
 # Point your domain's A record to the EC2 Elastic IP first
-sudo certbot --nginx -d api.mezzofy.com
+sudo certbot --nginx -d assistant.mezzofy.com
 ```
 
 Certbot auto-renews via a systemd timer. Verify:
@@ -188,7 +188,7 @@ sudo systemctl status mezzofy-api mezzofy-celery mezzofy-beat
 **Test the API:**
 
 ```bash
-curl https://api.mezzofy.com/health
+curl https://assistant.mezzofy.com/health
 # Expected: {"status": "ok", "database": "connected", "redis": "connected"}
 ```
 
@@ -203,7 +203,7 @@ The seed script creates a default admin. Log in and change the password immediat
 # Email: admin@mezzofy.com
 # Password: ChangeMe123!  ← Change this immediately
 
-curl -X POST https://api.mezzofy.com/auth/login \
+curl -X POST https://assistant.mezzofy.com/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@mezzofy.com","password":"ChangeMe123!"}'
 ```

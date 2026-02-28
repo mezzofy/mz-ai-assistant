@@ -37,8 +37,8 @@ server:
   debug: false
 
   nginx:
-    ssl_cert: "/etc/letsencrypt/live/api.mezzofy.com/fullchain.pem"
-    ssl_key: "/etc/letsencrypt/live/api.mezzofy.com/privkey.pem"
+    ssl_cert: "/etc/letsencrypt/live/assistant.mezzofy.com/fullchain.pem"
+    ssl_key: "/etc/letsencrypt/live/assistant.mezzofy.com/privkey.pem"
 
 # Database
 database:
@@ -223,4 +223,4 @@ logging:
 cors:
   allowed_origins:
     - "http://localhost:8081"     # React Native Metro bundler
-    - "https://api.mezzofy.com"
+    - "https://assistant.mezzofy.com"
