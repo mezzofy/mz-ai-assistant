@@ -38,7 +38,10 @@ sudo apt install -y \
     tesseract-ocr-chi-sim \
     tesseract-ocr-chi-tra \
     tesseract-ocr-msa \
-    libreoffice-headless \
+    libreoffice-common \
+    libreoffice-writer \
+    libreoffice-calc \
+    libreoffice-impress \
     libmagic1 \
     build-essential \
     libpq-dev \
