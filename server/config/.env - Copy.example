@@ -1,0 +1,40 @@
+# ============================================================
+# Mezzofy AI Assistant — Environment Variables Template
+# Copy to .env and fill in real values
+# NEVER commit .env to git
+# ============================================================
+
+# JWT (generate with: openssl rand -hex 32)
+JWT_SECRET=CHANGE_ME_GENERATE_256_BIT_RANDOM_KEY
+
+# LLM APIs
+ANTHROPIC_API_KEY=sk-ant-CHANGE_ME
+KIMI_API_KEY=sk-CHANGE_ME
+
+# Database
+DATABASE_URL=postgresql+asyncpg://mezzofy_ai:CHANGE_ME@localhost:5432/mezzofy_ai
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# Microsoft 365 (Azure AD App Registration)
+MS365_TENANT_ID=CHANGE_ME_AZURE_TENANT_ID
+MS365_CLIENT_ID=CHANGE_ME_APP_CLIENT_ID
+MS365_CLIENT_SECRET=CHANGE_ME_APP_CLIENT_SECRET
+
+# Microsoft Teams
+MS_TEAMS_TEAM_ID=CHANGE_ME_TEAMS_TEAM_ID
+
+# LinkedIn (for Sales agent scraping)
+LINKEDIN_COOKIE=CHANGE_ME_SESSION_COOKIE
+
+# Webhooks (HMAC verification secret)
+WEBHOOK_SECRET=CHANGE_ME_GENERATE_SECRET
+
+# AWS (optional — only if using S3 for artifact storage)
+AWS_ACCESS_KEY=AKIA_CHANGE_ME
+AWS_SECRET_KEY=CHANGE_ME
+AWS_REGION=ap-southeast-1
+
+# Logging
+LOG_LEVEL=INFO
