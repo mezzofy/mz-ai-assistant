@@ -16,12 +16,16 @@ echo "📦 [1/10] Installing system packages..."
 sudo apt update && sudo apt upgrade -y
 
 # Add PostgreSQL 15 official APT repository (not in Ubuntu 22.04 default repos)
-echo "   → Adding PostgreSQL PGDG repository..."
-curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-    | sudo gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
-    | sudo tee /etc/apt/sources.list.d/pgdg.list
-sudo apt update
+if [ ! -f /usr/share/keyrings/postgresql-archive-keyring.gpg ]; then
+    echo "   → Adding PostgreSQL PGDG repository..."
+    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+        | sudo tee /etc/apt/sources.list.d/pgdg.list
+    sudo apt update
+else
+    echo "   → PostgreSQL PGDG repository already configured"
+fi
 
 sudo apt install -y \
     python3.11 \
