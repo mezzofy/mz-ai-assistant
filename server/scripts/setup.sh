@@ -60,6 +60,8 @@ echo "🐍 [2/10] Creating Python virtual environment..."
 python3.11 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip wheel setuptools
+# openai-whisper uses setup.py with pkg_resources — must bypass build isolation
+pip install --no-build-isolation openai-whisper==20231117
 pip install -r requirements.txt
 echo "✅ Python environment ready"
 
