@@ -201,11 +201,11 @@ The seed script creates a default admin. Log in and change the password immediat
 ```bash
 # Default admin credentials (from scripts/seed.py)
 # Email: admin@mezzofy.com
-# Password: ChangeMe123!  ← Change this immediately
+# Password: MezzofyAI2024!  ← Change this immediately after first login
 
 curl -X POST https://assistant.mezzofy.com/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@mezzofy.com","password":"ChangeMe123!"}'
+  -d '{"email":"admin@mezzofy.com","password":"MezzofyAI2024!"}'
 ```
 
 Use the returned `access_token` to create real user accounts via `POST /admin/users`.

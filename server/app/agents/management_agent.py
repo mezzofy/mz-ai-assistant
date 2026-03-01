@@ -10,6 +10,7 @@ Sources:
 """
 
 import logging
+from datetime import date
 
 from app.agents.base_agent import BaseAgent
 from app.llm import llm_manager as llm_mod
@@ -20,6 +21,13 @@ _TRIGGER_KEYWORDS = {
     "kpi", "dashboard", "report", "overview", "performance", "cross-department",
     "audit", "cost", "usage", "management", "executive", "ceo", "summary",
     "all departments", "company-wide", "metrics", "revenue", "team",
+}
+
+# Subset of keywords that indicate an explicit KPI/dashboard request in execute()
+_KPI_KEYWORDS = {
+    "kpi", "dashboard", "report", "overview", "performance", "metrics", "executive",
+    "audit", "cost", "usage", "cross-department", "all departments", "company-wide",
+    "revenue", "summary", "weekly",
 }
 
 
@@ -36,21 +44,38 @@ class ManagementAgent(BaseAgent):
     """
 
     def can_handle(self, task: dict) -> bool:
-        department = task.get("department", "").lower()
-        if department == "management":
-            return True
         message = task.get("message", "").lower()
-        return any(kw in message for kw in _TRIGGER_KEYWORDS)
+        is_management_user = task.get("department", "").lower() == "management"
+        has_keyword = any(kw in message for kw in _TRIGGER_KEYWORDS)
+        # Department alone is not enough — message must also contain a management keyword
+        return is_management_user and has_keyword
 
     async def execute(self, task: dict) -> dict:
         source = task.get("source", "mobile")
         event = task.get("event", "")
+        message = task.get("message", "").lower()
 
+        # Scheduler: weekly KPI report
         if source == "scheduler" and "kpi_report" in event:
             return await self._weekly_kpi_workflow(task)
-        return await self._kpi_dashboard_workflow(task)
+
+        # Mobile/Teams: only run KPI workflow if message is clearly about KPIs
+        if any(kw in message for kw in _KPI_KEYWORDS):
+            return await self._kpi_dashboard_workflow(task)
+
+        # General question — respond directly via LLM without KPI workflow
+        return await self._general_response(task)
 
     # ── Sub-workflows ─────────────────────────────────────────────────────────
+
+    async def _general_response(self, task: dict) -> dict:
+        """General question — answer directly via LLM without triggering KPI workflow."""
+        llm_result = await llm_mod.get().chat(
+            messages=[{"role": "user", "content": task.get("message", "")}],
+            task_context=task,
+        )
+        content = llm_result.get("content", "I'm here to help. Could you clarify your request?")
+        return self._ok(content=content)
 
     async def _kpi_dashboard_workflow(self, task: dict) -> dict:
         """Mobile: generate cross-department KPI dashboard."""
@@ -89,6 +114,7 @@ class ManagementAgent(BaseAgent):
             department_data["llm_usage"] = usage_result.get("output", {})
 
         # LLM synthesizes into executive summary
+        today = date.today().strftime("%B %d, %Y")
         llm_prompt = (
             f"You are the COO of Mezzofy. Write an executive KPI dashboard summary "
             f"covering all departments. Include:\n"
@@ -97,6 +123,7 @@ class ManagementAgent(BaseAgent):
             f"3. Finance: revenue, expenses, key ratios\n"
             f"4. AI usage: tokens consumed, estimated cost\n"
             f"5. Overall health assessment and top 3 recommendations\n\n"
+            f"Generated: {today}\n"
             f"Data: {str(department_data)[:4000]}"
         )
         llm_result = await llm_mod.get().chat(
