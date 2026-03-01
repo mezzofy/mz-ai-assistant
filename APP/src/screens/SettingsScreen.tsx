@@ -1,8 +1,9 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {View, Text, ScrollView, TouchableOpacity, StyleSheet} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {BRAND} from '../utils/theme';
 import {useAuthStore} from '../stores/authStore';
+import {useSettingsStore} from '../stores/settingsStore';
 import {DeptBadge} from '../components/shared/DeptBadge';
 
 type RowProps = {
@@ -28,6 +29,16 @@ const SettingsRow: React.FC<RowProps> = ({icon, label, value, accent, danger, on
 export const SettingsScreen: React.FC = () => {
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
+  const {
+    notifications, speechLanguage, appearance, fileCount,
+    toggleNotifications, loadSettings, loadFileCount,
+  } = useSettingsStore();
+
+  useEffect(() => {
+    loadSettings();
+    loadFileCount();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!user) {
     return null;
@@ -55,14 +66,14 @@ export const SettingsScreen: React.FC = () => {
 
         <View style={styles.group}>
           <SettingsRow icon="person-outline" label="Edit Profile" />
-          <SettingsRow icon="notifications-outline" label="Notifications" value="On" />
-          <SettingsRow icon="mic-outline" label="Speech Language" value="English" />
-          <SettingsRow icon="eye-outline" label="Appearance" value="Dark" />
+          <SettingsRow icon="notifications-outline" label="Notifications" value={notifications ? 'On' : 'Off'} onPress={toggleNotifications} />
+          <SettingsRow icon="mic-outline" label="Speech Language" value={speechLanguage} />
+          <SettingsRow icon="eye-outline" label="Appearance" value={appearance} />
         </View>
 
         <View style={styles.group}>
           <SettingsRow icon="shield-outline" label="Privacy & Security" accent />
-          <SettingsRow icon="document-outline" label="Storage & Data" value="142 MB" />
+          <SettingsRow icon="document-outline" label="Storage & Data" value={fileCount !== null ? `${fileCount} files` : '—'} />
           <SettingsRow icon="time-outline" label="AI Usage Stats" accent />
         </View>
 

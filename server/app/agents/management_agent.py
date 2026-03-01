@@ -70,8 +70,9 @@ class ManagementAgent(BaseAgent):
 
     async def _general_response(self, task: dict) -> dict:
         """General question — answer directly via LLM without triggering KPI workflow."""
+        content = task.get("extracted_text") or task.get("message", "")
         llm_result = await llm_mod.get().chat(
-            messages=[{"role": "user", "content": task.get("message", "")}],
+            messages=[{"role": "user", "content": content}],
             task_context=task,
         )
         content = llm_result.get("content", "I'm here to help. Could you clarify your request?")

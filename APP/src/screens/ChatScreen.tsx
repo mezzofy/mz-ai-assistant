@@ -4,10 +4,20 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import {launchImageLibrary, MediaType} from 'react-native-image-picker';
+import DocumentPicker, {types as DocTypes, isCancel as isDocPickerCancel} from 'react-native-document-picker';
+import Voice, {SpeechResultsEvent} from '@react-native-voice/voice';
 import {BRAND, INPUT_MODES, FILE_TYPE_STYLES} from '../utils/theme';
 import {useAuthStore} from '../stores/authStore';
 import {useChatStore, Message, MediaInfo} from '../stores/chatStore';
 import {DeptBadge} from '../components/shared/DeptBadge';
+
+const formatBytes = (bytes?: number): string => {
+  if (!bytes) {return '—';}
+  if (bytes < 1024) {return `${bytes} B`;}
+  if (bytes < 1024 * 1024) {return `${(bytes / 1024).toFixed(1)} KB`;}
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
   // ── All hooks MUST be called unconditionally (Rules of Hooks) ──────────────
@@ -19,6 +29,8 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
     sendToServer, clearError, resetChat, setSessionId,
   } = useChatStore();
   const [input, setInput] = useState('');
+  const [mediaUri, setMediaUri] = useState<string | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState('');
   const scrollRef = useRef<ScrollView>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -47,6 +59,17 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
     };
   }, [recording]);
 
+  useEffect(() => {
+    Voice.onSpeechResults = (e: SpeechResultsEvent) => {
+      if (e.value?.[0]) {
+        setLiveTranscript(e.value[0]);
+      }
+    };
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+    };
+  }, []);
+
   // ── Null guard AFTER all hooks ─────────────────────────────────────────────
   if (!user) {
     return null;
@@ -59,14 +82,21 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  const handleSend = (text: string, mode = 'text', media: MediaInfo | null = null) => {
+  const handleSend = (
+    text: string,
+    mode = 'text',
+    media: MediaInfo | null = null,
+    uri: string | null = null,
+  ) => {
     if (!text && !media) {
       return;
     }
     setInput('');
     setMediaPreview(null);
+    setMediaUri(null);
+    setLiveTranscript('');
     // sendToServer handles isTyping, optimistic user message, and API call
-    sendToServer(text, mode, media);
+    sendToServer(text, mode, media, uri);
   };
 
   const handleNewChat = () => {
@@ -74,22 +104,77 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
     setSessionId(null);
   };
 
-  const handleModeAction = (mode: string) => {
+  const handleModeAction = async (mode: string) => {
     setInputMode(mode);
     setShowModes(false);
-    // In 8B: media modes set a fake preview — real file picker wired in 8C
-    if (mode === 'image') {
-      setMediaPreview({type: 'image', name: 'receipt_photo.jpg', size: '1.2 MB', emoji: '📷'});
-    } else if (mode === 'video') {
-      setMediaPreview({type: 'video', name: 'product_demo.mp4', size: '24 MB', emoji: '🎥'});
-    } else if (mode === 'file') {
-      setMediaPreview({type: 'file', name: 'Q4_Report.pdf', size: '2.1 MB', emoji: '📎'});
+
+    if (mode === 'image' || mode === 'video') {
+      const mediaType: MediaType = mode === 'image' ? 'photo' : 'video';
+      launchImageLibrary({mediaType, selectionLimit: 1}, response => {
+        if (response.didCancel || response.errorCode || !response.assets?.length) {
+          return;
+        }
+        const asset = response.assets[0];
+        if (!asset.uri) {return;}
+        setMediaUri(asset.uri);
+        setMediaPreview({
+          type: mode,
+          name: asset.fileName || `media_${Date.now()}.${mode === 'image' ? 'jpg' : 'mp4'}`,
+          size: formatBytes(asset.fileSize),
+          emoji: mode === 'image' ? '📷' : '🎥',
+          mimeType: asset.type || (mode === 'image' ? 'image/jpeg' : 'video/mp4'),
+        });
+      });
+    } else if (mode === 'file' || mode === 'audio') {
+      try {
+        const results = await DocumentPicker.pick({
+          type: mode === 'audio' ? [DocTypes.audio] : [DocTypes.allFiles],
+        });
+        const result = results[0];
+        setMediaUri(result.uri);
+        setMediaPreview({
+          type: mode,
+          name: result.name || `file_${Date.now()}`,
+          size: result.size ? formatBytes(result.size) : '—',
+          emoji: mode === 'audio' ? '🔊' : '📎',
+          mimeType: result.type || (mode === 'audio' ? 'audio/m4a' : 'application/octet-stream'),
+        });
+      } catch (e) {
+        if (!isDocPickerCancel(e)) {
+          console.warn('DocumentPicker error:', e);
+        }
+      }
     } else if (mode === 'url') {
       setInput('https://');
-    } else if (mode === 'audio') {
-      setMediaPreview({type: 'audio', name: 'voice_memo.m4a', size: '340 KB', emoji: '🔊'});
     } else if (mode === 'camera') {
       navigation.navigate('Camera');
+    }
+  };
+
+  const handleStartRecording = async () => {
+    setLiveTranscript('');
+    setRecording(true);
+    try {
+      await Voice.start('en-US');
+    } catch (e) {
+      console.warn('Voice.start error:', e);
+    }
+  };
+
+  const handleStopRecording = async () => {
+    try {
+      await Voice.stop();
+    } catch (e) {
+      console.warn('Voice.stop error:', e);
+    }
+    setRecording(false);
+    const transcript = liveTranscript || useChatStore.getState().mediaPreview?.name || '';
+    if (transcript) {
+      handleSend(
+        transcript,
+        'speech',
+        {type: 'speech', name: 'Voice message', size: formatSecs(recordTime), emoji: '🎤'},
+      );
     }
   };
 
@@ -217,6 +302,7 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <TouchableOpacity
             onPress={() => {
               setMediaPreview(null);
+              setMediaUri(null);
               setInputMode('text');
             }}>
             <Text style={styles.previewClose}>✕</Text>
@@ -252,18 +338,11 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
             <Icon name="mic" size={28} color={BRAND.danger} />
           </View>
           <Text style={styles.recordTimer}>{formatSecs(recordTime)}</Text>
-          <Text style={styles.recordHint}>Listening... Release to send</Text>
+          <Text style={styles.recordHint}>
+            {liveTranscript || 'Listening...'}
+          </Text>
           <TouchableOpacity
-            onPress={() => {
-              setRecording(false);
-              // In 8B: sends transcription placeholder via real REST API.
-              // Full WS speech-to-text (sendSpeechStart/Audio/End) in 8C.
-              handleSend(
-                'Generate the latest financial statement and send to CEO',
-                'speech',
-                {type: 'speech', name: 'Voice message', size: formatSecs(recordTime), emoji: '🎤'},
-              );
-            }}
+            onPress={handleStopRecording}
             style={styles.recordStop}>
             <Icon name="stop" size={16} color="#fff" />
             <Text style={styles.recordStopText}>Stop & Send</Text>
@@ -286,7 +365,7 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
           {inputMode === 'speech' ? (
             <TouchableOpacity
-              onPressIn={() => setRecording(true)}
+              onPressIn={handleStartRecording}
               style={styles.holdBtn}>
               <Text style={styles.holdBtnText}>🎤 Hold to Speak</Text>
             </TouchableOpacity>
@@ -294,8 +373,9 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
             <TextInput
               value={input}
               onChangeText={setInput}
+              editable={!isTyping}
               onSubmitEditing={() => {
-                handleSend(input, inputMode, mediaPreview);
+                if (!isTyping) handleSend(input, inputMode, mediaPreview, mediaUri);
               }}
               placeholder={
                 inputMode === 'url'
@@ -305,16 +385,17 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
                   : 'Message Mezzofy AI...'
               }
               placeholderTextColor={BRAND.textDim}
-              style={styles.textInput}
+              style={[styles.textInput, isTyping && styles.textInputDisabled]}
               returnKeyType="send"
             />
           )}
 
           <TouchableOpacity
             onPress={() => {
-              handleSend(input, inputMode, mediaPreview);
+              if (!isTyping) handleSend(input, inputMode, mediaPreview, mediaUri);
             }}
-            style={styles.sendBtn}>
+            disabled={isTyping}
+            style={[styles.sendBtn, isTyping && {opacity: 0.4}]}>
             <Icon name="send" size={18} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -375,14 +456,15 @@ const styles = StyleSheet.create({
   recordPanel: {margin: 16, padding: 20, borderRadius: 16, backgroundColor: BRAND.card, borderWidth: 1, borderColor: BRAND.danger + '33', alignItems: 'center', gap: 12},
   recordMic: {width: 64, height: 64, borderRadius: 32, backgroundColor: BRAND.danger + '22', alignItems: 'center', justifyContent: 'center'},
   recordTimer: {color: BRAND.text, fontSize: 22, fontWeight: '700', fontVariant: ['tabular-nums']},
-  recordHint: {color: BRAND.textMuted, fontSize: 12},
+  recordHint: {color: BRAND.textMuted, fontSize: 12, textAlign: 'center', paddingHorizontal: 16},
   recordStop: {flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: BRAND.danger, borderRadius: 12, paddingHorizontal: 32, paddingVertical: 10},
   recordStopText: {color: '#fff', fontSize: 14, fontWeight: '700'},
-  inputBar: {flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: BRAND.border},
-  plusBtn: {backgroundColor: BRAND.surfaceLight, borderWidth: 1, borderColor: BRAND.border, borderRadius: 12, padding: 10},
+  inputBar: {flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: BRAND.border},
+  plusBtn: {backgroundColor: BRAND.surfaceLight, borderWidth: 1, borderColor: BRAND.border, borderRadius: 12, width: 48, height: 48, alignItems: 'center', justifyContent: 'center'},
   plusBtnActive: {backgroundColor: BRAND.accent + '22', borderColor: BRAND.accent + '44'},
   holdBtn: {flex: 1, padding: 14, borderRadius: 14, borderWidth: 2, borderColor: BRAND.accent + '44', borderStyle: 'dashed', backgroundColor: BRAND.accentSoft, alignItems: 'center'},
   holdBtnText: {color: BRAND.accent, fontSize: 14, fontWeight: '600'},
-  textInput: {flex: 1, padding: 14, paddingHorizontal: 16, borderRadius: 14, backgroundColor: BRAND.surfaceLight, borderWidth: 1, borderColor: BRAND.border, color: BRAND.text, fontSize: 14},
-  sendBtn: {backgroundColor: BRAND.accent, borderRadius: 12, padding: 12, shadowColor: BRAND.accent, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6},
+  textInput: {flex: 1, paddingVertical: 13, paddingHorizontal: 16, borderRadius: 14, backgroundColor: BRAND.surfaceLight, borderWidth: 1, borderColor: BRAND.border, color: BRAND.text, fontSize: 14, minHeight: 48},
+  textInputDisabled: {opacity: 0.5},
+  sendBtn: {backgroundColor: BRAND.accent, borderRadius: 12, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', shadowColor: BRAND.accent, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6},
 });

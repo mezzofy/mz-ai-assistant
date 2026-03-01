@@ -142,7 +142,7 @@ class SalesAgent(BaseAgent):
         except ValueError as e:
             return self._err(str(e))
 
-        message = task.get("message", "")
+        user_input = task.get("extracted_text") or task.get("message", "")
         tools_called = []
 
         # Extract customer name from message using LLM
@@ -151,7 +151,7 @@ class SalesAgent(BaseAgent):
                 "role": "user",
                 "content": (
                     f"Extract the company/customer name from this message. "
-                    f"Return ONLY the name, nothing else.\n\nMessage: {message}"
+                    f"Return ONLY the name, nothing else.\n\nMessage: {user_input}"
                 ),
             }],
             task_context=task,

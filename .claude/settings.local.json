@@ -12,7 +12,28 @@
       "Bash(node:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(gh auth:*)",
+      "Bash(sed:*)",
+      "Bash(chmod 600:*)",
+      "Bash(ssh:*)",
+      "Bash(nslookup:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(npx react-native:*)",
+      "Bash(./gradlew.bat assembleDebug:*)",
+      "Bash(grep:*)",
+      "Bash(./gradlew.bat assembleRelease:*)",
+      "Bash(curl:*)",
+      "Bash(aws:*)",
+      "Bash(.gradlew.bat assembleRelease:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(cat:*)",
+      "Bash(where aws:*)",
+      "Bash(GIT_ASKPASS=echo git push:*)",
+      "Bash(cmdkey:*)",
+      "Bash(source:*)"
     ]
   }
 }
