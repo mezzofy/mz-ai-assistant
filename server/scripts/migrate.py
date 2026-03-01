@@ -193,8 +193,6 @@ def run_migrations(conn):
     print("\nCreating indexes...")
 
     indexes = [
-        ("idx_conversations_session",
-         "CREATE INDEX IF NOT EXISTS idx_conversations_session ON conversations(session_id, created_at)"),
         ("idx_conversations_user",
          "CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, created_at DESC)"),
         ("idx_leads_status",
