@@ -161,64 +161,10 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl restart nginx
 
 # Install systemd services
-INSTALL_DIR=$(pwd)
-
-sudo bash -c "cat > /etc/systemd/system/mezzofy-api.service << 'SERVICE'
-[Unit]
-Description=Mezzofy AI Assistant API
-After=network.target postgresql.service redis.service
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=${INSTALL_DIR}
-EnvironmentFile=${INSTALL_DIR}/config/.env
-Environment=PATH=${INSTALL_DIR}/venv/bin
-ExecStart=${INSTALL_DIR}/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SERVICE"
-
-sudo bash -c "cat > /etc/systemd/system/mezzofy-celery.service << 'SERVICE'
-[Unit]
-Description=Mezzofy AI Celery Workers
-After=network.target redis.service
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=${INSTALL_DIR}
-EnvironmentFile=${INSTALL_DIR}/config/.env
-Environment=PATH=${INSTALL_DIR}/venv/bin
-ExecStart=${INSTALL_DIR}/venv/bin/celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SERVICE"
-
-sudo bash -c "cat > /etc/systemd/system/mezzofy-beat.service << 'SERVICE'
-[Unit]
-Description=Mezzofy AI Celery Beat Scheduler
-After=network.target redis.service
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=${INSTALL_DIR}
-EnvironmentFile=${INSTALL_DIR}/config/.env
-Environment=PATH=${INSTALL_DIR}/venv/bin
-ExecStart=${INSTALL_DIR}/venv/bin/celery -A app.tasks.celery_app beat --loglevel=info
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SERVICE"
+echo "   → Copying service files from config/..."
+sudo cp config/mezzofy-api.service    /etc/systemd/system/mezzofy-api.service
+sudo cp config/mezzofy-celery.service /etc/systemd/system/mezzofy-celery.service
+sudo cp config/mezzofy-beat.service   /etc/systemd/system/mezzofy-beat.service
 
 sudo systemctl daemon-reload
 sudo systemctl enable mezzofy-api mezzofy-celery mezzofy-beat
