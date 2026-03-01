@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {
   sendTextApi,
   sendUrlApi,
+  sendMediaApi,
   getSessionsApi,
   getHistoryApi,
   ChatResponse,
@@ -13,6 +14,7 @@ export type MediaInfo = {
   name: string;
   size: string;
   emoji: string;
+  mimeType?: string;
 };
 
 // Matches server artifact shape from processor.py process_result()
@@ -57,7 +59,7 @@ type ChatState = {
   setSessionId: (id: string | null) => void;
   clearError: () => void;
   // API actions
-  sendToServer: (text: string, mode: string, media: MediaInfo | null) => Promise<void>;
+  sendToServer: (text: string, mode: string, media: MediaInfo | null, mediaUri?: string | null) => Promise<void>;
   loadSessions: () => Promise<void>;
   loadHistory: (sessionId: string) => Promise<void>;
   resetChat: () => void;
@@ -96,7 +98,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setSessionId: id => set({sessionId: id}),
   clearError: () => set({error: null}),
 
-  sendToServer: async (text, mode, media) => {
+  sendToServer: async (text, mode, media, mediaUri) => {
     if (!text && !media) {
       return;
     }
@@ -127,11 +129,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (mode === 'url') {
         // URL mode: text field contains the URL the user pasted
         response = await sendUrlApi(text, undefined, sessionId);
-      } else if (media && mode !== 'text' && mode !== 'speech') {
-        // Media mode without real file picker (8B): describe attachment as text.
-        // Real sendMediaApi with file URI will be wired in 8C with react-native-document-picker.
-        const descriptionMsg = `[${mode}: ${media.name}]${text ? ' ' + text : ''}`;
-        response = await sendTextApi(descriptionMsg, sessionId);
+      } else if (media && mediaUri && mode !== 'text' && mode !== 'speech') {
+        // Real file upload via sendMediaApi
+        const mimeType =
+          mode === 'image' ? 'image/jpeg'
+          : mode === 'video' ? 'video/mp4'
+          : mode === 'audio' ? 'audio/m4a'
+          : media.mimeType || 'application/octet-stream';
+        response = await sendMediaApi(
+          mediaUri,
+          media.name,
+          mimeType,
+          mode as 'image' | 'video' | 'audio' | 'file',
+          text || null,
+          sessionId,
+        );
       } else {
         // Text and speech modes → POST /chat/send
         response = await sendTextApi(text, sessionId);

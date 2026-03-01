@@ -518,3 +518,112 @@ class TestManagementWorkflow:
         assert "sales_read" in permissions
         assert "marketing_read" in permissions
         assert "support_read" in permissions
+
+
+# ── BUG-002 regression: ManagementAgent unit tests (no HTTP layer) ─────────────
+
+class TestManagementAgentUnit:
+    """BUG-002 regression — direct unit tests on ManagementAgent (no HTTP layer)."""
+
+    def _make_task(self, message, department="management", source="mobile"):
+        return {"message": message, "department": department,
+                "source": source, "event": "", "_config": TEST_CONFIG}
+
+    # ── can_handle() tests ────────────────────────────────────────────────────
+
+    def test_can_handle_management_with_kpi_keyword_true(self):
+        from app.agents.management_agent import ManagementAgent
+        assert ManagementAgent(TEST_CONFIG).can_handle(
+            self._make_task("Show me the KPI dashboard")) is True
+
+    def test_can_handle_management_no_keyword_false(self):
+        # BUG-002 core regression: weather question from management user must NOT match
+        from app.agents.management_agent import ManagementAgent
+        assert ManagementAgent(TEST_CONFIG).can_handle(
+            self._make_task("Weather today in singapore")) is False
+
+    def test_can_handle_non_management_with_keyword_false(self):
+        # Department required — keywords alone not sufficient
+        from app.agents.management_agent import ManagementAgent
+        task = self._make_task("Show me the executive dashboard", department="sales")
+        assert ManagementAgent(TEST_CONFIG).can_handle(task) is False
+
+    def test_can_handle_matches_all_trigger_keywords(self):
+        from app.agents.management_agent import ManagementAgent
+        agent = ManagementAgent(TEST_CONFIG)
+        for kw in ("kpi", "dashboard", "report", "metrics", "executive", "overview"):
+            assert agent.can_handle(self._make_task(f"Give me the {kw}")) is True
+
+    # ── execute() routing tests ───────────────────────────────────────────────
+
+    async def test_execute_non_kpi_message_routes_to_general(self):
+        # BUG-002 core regression: non-KPI message must NOT call _kpi_dashboard_workflow
+        from app.agents.management_agent import ManagementAgent
+        agent = ManagementAgent(TEST_CONFIG)
+        with patch.object(agent, "_general_response", new_callable=AsyncMock,
+                          return_value={"success": True, "content": "ok",
+                                        "artifacts": [], "tools_called": []}) as mock_g, \
+             patch.object(agent, "_kpi_dashboard_workflow", new_callable=AsyncMock) as mock_k:
+            await agent.execute(self._make_task("Weather today in singapore"))
+        mock_g.assert_called_once()
+        mock_k.assert_not_called()
+
+    async def test_execute_kpi_keyword_routes_to_kpi_workflow(self):
+        from app.agents.management_agent import ManagementAgent
+        agent = ManagementAgent(TEST_CONFIG)
+        with patch.object(agent, "_kpi_dashboard_workflow", new_callable=AsyncMock,
+                          return_value={"success": True, "content": "kpi",
+                                        "artifacts": [], "tools_called": []}) as mock_k, \
+             patch.object(agent, "_general_response", new_callable=AsyncMock) as mock_g:
+            await agent.execute(self._make_task("Show me the KPI dashboard"))
+        mock_k.assert_called_once()
+        mock_g.assert_not_called()
+
+    async def test_execute_scheduler_event_routes_to_weekly_kpi(self):
+        from app.agents.management_agent import ManagementAgent
+        agent = ManagementAgent(TEST_CONFIG)
+        with patch.object(agent, "_weekly_kpi_workflow", new_callable=AsyncMock,
+                          return_value={"success": True, "content": "weekly",
+                                        "artifacts": [], "tools_called": []}) as mock_w, \
+             patch.object(agent, "_kpi_dashboard_workflow", new_callable=AsyncMock) as mock_k, \
+             patch.object(agent, "_general_response", new_callable=AsyncMock) as mock_g:
+            await agent.execute({**self._make_task(""), "source": "scheduler",
+                                  "event": "weekly_kpi_report"})
+        mock_w.assert_called_once()
+        mock_k.assert_not_called()
+        mock_g.assert_not_called()
+
+    # ── Date injection tests ──────────────────────────────────────────────────
+
+    async def test_kpi_prompt_injects_real_date_not_placeholder(self):
+        # BUG-002 regression: ensure {Current Date} never appears in KPI prompt
+        from app.agents.management_agent import ManagementAgent
+        from datetime import date
+        agent = ManagementAgent(TEST_CONFIG)
+        captured = []
+
+        async def capture_chat(messages, task_context=None, stream=False):
+            for m in messages:
+                if "content" in m:
+                    captured.append(m["content"])
+            return {"content": "KPI report.", "usage": {}}
+
+        with patch("app.agents.management_agent.llm_mod") as mock_llm, \
+             patch.object(agent, "_load_skill") as mock_skill, \
+             patch("app.tools.database.db_ops.DatabaseOps") as mock_db, \
+             patch("app.tools.document.pdf_ops.PDFOps") as mock_pdf:
+            mock_llm.get.return_value.chat = AsyncMock(side_effect=capture_chat)
+            mock_skill.return_value.analyze_data = AsyncMock(
+                return_value={"success": True, "output": {}})
+            mock_db.return_value.execute = AsyncMock(
+                return_value={"success": True, "output": {}})
+            mock_pdf.return_value.execute = AsyncMock(
+                return_value={"success": False, "output": None})
+            await agent._kpi_dashboard_workflow(
+                self._make_task("Show me the KPI dashboard"))
+
+        today = date.today().strftime("%B %d, %Y")
+        assert any(today in p for p in captured), \
+            f"Real date '{today}' not found in KPI prompt"
+        assert not any("{Current Date}" in p for p in captured), \
+            "Literal '{Current Date}' placeholder found — date injection failed"

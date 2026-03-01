@@ -1,0 +1,17 @@
+[Unit]
+Description=Mezzofy AI Assistant API
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/mz-ai-assistant/server
+EnvironmentFile=/home/ubuntu/mz-ai-assistant/server/config/.env
+Environment=PATH=/home/ubuntu/mz-ai-assistant/server/venv/bin
+ExecStart=/home/ubuntu/mz-ai-assistant/server/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+Restart=always
+RestartSec=5
+SyslogIdentifier=mezzofy-api
+
+[Install]
+WantedBy=multi-user.target

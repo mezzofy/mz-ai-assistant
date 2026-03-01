@@ -1,0 +1,17 @@
+[Unit]
+Description=Mezzofy AI Celery Workers
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/mz-ai-assistant/server
+EnvironmentFile=/home/ubuntu/mz-ai-assistant/server/config/.env
+Environment=PATH=/home/ubuntu/mz-ai-assistant/server/venv/bin
+ExecStart=/home/ubuntu/mz-ai-assistant/server/venv/bin/celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
+Restart=always
+RestartSec=10
+SyslogIdentifier=mezzofy-celery
+
+[Install]
+WantedBy=multi-user.target

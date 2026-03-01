@@ -4,7 +4,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {BRAND} from './src/utils/theme';
 import {useAuthStore} from './src/stores/authStore';
@@ -26,6 +26,9 @@ const TAB_ICONS: Record<string, {active: string; inactive: string}> = {
 };
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const bottomPad = insets.bottom > 0 ? insets.bottom : 8;
+
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
@@ -34,12 +37,13 @@ function MainTabs() {
           backgroundColor: BRAND.surface,
           borderTopColor: BRAND.border,
           borderTopWidth: 1,
-          paddingBottom: 26,
+          paddingBottom: bottomPad,
           paddingTop: 8,
-          height: 72,
+          height: 58 + bottomPad,
         },
         tabBarActiveTintColor: BRAND.accent,
         tabBarInactiveTintColor: BRAND.textDim,
+        tabBarIconStyle: {marginBottom: 4},
         tabBarLabelStyle: {fontSize: 10, fontWeight: '600', letterSpacing: 0.3},
         tabBarIcon: ({focused, color, size}) => {
           const icons = TAB_ICONS[route.name];

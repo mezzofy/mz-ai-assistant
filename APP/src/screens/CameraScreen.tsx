@@ -1,6 +1,7 @@
 import React, {useState, useEffect} from 'react';
-import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
+import {View, Text, TouchableOpacity, StyleSheet, Image, PermissionsAndroid, Platform} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import {launchCamera} from 'react-native-image-picker';
 import {BRAND} from '../utils/theme';
 import {mzWs} from '../api/websocket';
 
@@ -8,6 +9,7 @@ export const CameraScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [wsError, setWsError] = useState<string | null>(null);
+  const [capturedUri, setCapturedUri] = useState<string | null>(null);
 
   // Connect mzWs on mount; disconnect on unmount.
   // The singleton is shared with ChatScreen — disconnect here is safe because
@@ -47,18 +49,36 @@ export const CameraScreen: React.FC<{navigation: any}> = ({navigation}) => {
     };
   }, []);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     if (!mzWs.isConnected) {
       setWsError('Not connected to server. Please try again.');
       return;
     }
-    setAnalyzing(true);
-    setResult(null);
-    setWsError(null);
-    // Sends a camera frame to the AI via WebSocket.
-    // Real camera frame capture (react-native-vision-camera) integration is Phase 9+.
-    // The server processes the frame and returns onCameraAnalysis or onError.
-    mzWs.sendCameraFrame('');
+
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        setWsError('Camera permission denied.');
+        return;
+      }
+    }
+
+    launchCamera({mediaType: 'photo', includeBase64: true, cameraType: 'back', quality: 0.7}, result => {
+      if (result.didCancel || !result.assets?.[0]) return;
+      if (result.errorCode) {
+        setWsError(result.errorMessage ?? 'Camera error');
+        return;
+      }
+      const asset = result.assets[0];
+      const base64 = asset.base64 ?? '';
+      setCapturedUri(asset.uri ?? null);
+      setAnalyzing(true);
+      setResult(null);
+      setWsError(null);
+      mzWs.sendCameraFrame(base64);
+    });
   };
 
   return (
@@ -75,8 +95,18 @@ export const CameraScreen: React.FC<{navigation: any}> = ({navigation}) => {
       {/* Viewfinder */}
       <View style={[styles.viewfinder, analyzing && styles.viewfinderActive]}>
         <View style={styles.targetArea}>
-          <Icon name="camera-outline" size={48} color={BRAND.textDim} />
-          <Text style={styles.targetText}>Point camera at object</Text>
+          {capturedUri ? (
+            <Image
+              source={{uri: capturedUri}}
+              style={styles.capturedImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <>
+              <Icon name="camera-outline" size={48} color={BRAND.textDim} />
+              <Text style={styles.targetText}>Tap capture to take photo</Text>
+            </>
+          )}
 
           {/* Corner markers */}
           <View style={[styles.corner, styles.tl]} />
@@ -219,4 +249,5 @@ const styles = StyleSheet.create({
   },
   captureDisabled: {borderColor: BRAND.textDim, opacity: 0.5},
   captureInner: {width: 56, height: 56, borderRadius: 28, backgroundColor: BRAND.accent},
+  capturedImage: {width: '100%', height: '100%', borderRadius: 10},
 });
