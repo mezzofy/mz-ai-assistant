@@ -31,7 +31,7 @@
 
 | Layer | Status | Notes |
 |-------|--------|-------|
-| Mobile app (`APP/`) | ✅ UI prototype complete | 6 screens, 2 Zustand stores, all responses are `DEMO_RESPONSES` mock data |
+| Mobile app (`APP/`) | ✅ Phase 8 complete | 6 screens, real API calls throughout — all DEMO_* mocks removed. Native packages installed: image-picker, document-picker, voice. APK builds clean (2026-03-01). |
 | Server (`/server/`) | 🔄 In progress | Phase 0+1+2+3 complete — scaffold + auth + 40 tools built |
 | Documentation | ✅ Complete | APP.md, LLM.md, AGENTS.md, TOOLS.md, CONFIG.md, SECURITY.md, MEMORY.md, SKILLS.md, INFRASTRUCTURE.md, TESTING.md |
 | DB schema | ✅ Created | 9 PostgreSQL tables via `server/scripts/migrate.py` |
@@ -204,6 +204,17 @@ See `docs/RN-mz-ai-assistant-v1.0.md` for release notes.
 | Phase 7 | ✅ PASSED | 235 passed + 1 xfailed; all 5 dept workflows ✅; security ✅; core coverage 83–100% ✅; BUG-001 documented |
 | Phase 9 | ✅ PASSED | 247 passed, 0 failed; 11 E2E tests; all 8 API contracts verified ✅ |
 | Phase 10 | ✅ PASSED | API.md ✅; DEPLOYMENT.md ✅; openapi.yaml ✅; RN-mz-ai-assistant-v1.0.md ✅ |
+
+---
+
+## Post-Deployment (2026-03-01)
+
+- **BUG-002 FIXED:** ManagementAgent routing bug — AI always returned KPI dashboard
+  - **File:** `server/app/agents/management_agent.py`
+  - **Root causes (3):** (1) `can_handle()` returned `True` for ANY management-dept user with no keyword check; (2) `execute()` always called `_kpi_dashboard_workflow()` for all non-scheduler tasks; (3) KPI prompt had no real date → LLM output contained `{Current Date}` placeholder
+  - **Fix:** `can_handle()` now requires `is_management_user AND has_keyword`; `execute()` adds intent check routing non-KPI messages to `_general_response()`; `date.today().strftime(...)` injected into KPI prompt
+  - **Status:** Deployed and running on EC2 (`ubuntu@ip-172-31-27-67:8000`)
+  - **Regression tests:** `TestManagementAgentUnit` (9 tests) added to `server/tests/test_chat_workflow.py`
 
 ---
 

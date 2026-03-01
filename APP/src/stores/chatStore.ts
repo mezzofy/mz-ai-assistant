@@ -132,7 +132,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       } else if (media && mediaUri && mode !== 'text' && mode !== 'speech') {
         // Real file upload via sendMediaApi
         const mimeType =
-          mode === 'image' ? 'image/jpeg'
+          mode === 'image' ? (media.mimeType || 'image/jpeg')
           : mode === 'video' ? 'video/mp4'
           : mode === 'audio' ? 'audio/m4a'
           : media.mimeType || 'application/octet-stream';

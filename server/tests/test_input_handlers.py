@@ -302,3 +302,172 @@ class TestTextHandler:
 
         assert result["session_id"] == "abc-123"
         assert result["role"] == "sales_rep"
+
+
+# ── image_handler regression tests (BUG-003 / BUG-004) ───────────────────────
+
+class TestImageHandlerBug003:
+    """
+    Regression tests for BUG-003: image_handler must pass image_bytes (base64)
+    to image_ops.execute(), NOT image_path.
+    """
+
+    async def test_handle_image_calls_ocr_with_image_bytes(self):
+        """handle_image passes base64-encoded bytes to ocr_image, not a file path."""
+        from app.input.image_handler import handle_image
+
+        file_bytes = b"\xff\xd8\xff" + b"fake_jpeg_data"
+        mock_image_ops = AsyncMock()
+        mock_image_ops.execute = AsyncMock(return_value={"success": True, "output": "Invoice #42"})
+
+        task = {"_config": {}, "message": "What is in this image?"}
+
+        with patch("app.tools.media.image_ops.ImageOps", return_value=mock_image_ops):
+            result = await handle_image(task, file_bytes, "invoice.jpg")
+
+        # Must have been called with image_bytes kwarg, not image_path
+        for call in mock_image_ops.execute.call_args_list:
+            kwargs = call.kwargs if call.kwargs else call[1]
+            assert "image_path" not in kwargs, (
+                "BUG-003 regression: image_handler passed image_path instead of image_bytes"
+            )
+            assert "image_bytes" in kwargs, (
+                "BUG-003 regression: image_handler did not pass image_bytes"
+            )
+
+    async def test_handle_image_passes_base64_encoded_bytes(self):
+        """image_bytes passed to tools is valid base64 of the original file bytes."""
+        import base64
+        from app.input.image_handler import handle_image
+
+        file_bytes = b"raw image content 123"
+        expected_b64 = base64.b64encode(file_bytes).decode()
+
+        captured_kwargs: dict = {}
+
+        async def capture_execute(operation, **kwargs):
+            captured_kwargs.update(kwargs)
+            return {"success": True, "output": "description"}
+
+        mock_image_ops = AsyncMock()
+        mock_image_ops.execute = capture_execute
+
+        task = {"_config": {}, "message": ""}
+
+        with patch("app.tools.media.image_ops.ImageOps", return_value=mock_image_ops):
+            await handle_image(task, file_bytes, "photo.png")
+
+        assert captured_kwargs.get("image_bytes") == expected_b64
+
+    async def test_handle_image_does_not_create_temp_files(self):
+        """handle_image no longer writes temp files (BUG-003 fix removes tempfile usage)."""
+        import tempfile
+        from app.input.image_handler import handle_image
+
+        file_bytes = b"test_bytes"
+        mock_image_ops = AsyncMock()
+        mock_image_ops.execute = AsyncMock(return_value={"success": False})
+
+        task = {"_config": {}, "message": ""}
+
+        original_mkstemp = tempfile.mkstemp
+        temp_files_created = []
+
+        def track_mkstemp(*args, **kwargs):
+            result = original_mkstemp(*args, **kwargs)
+            temp_files_created.append(result[1])
+            return result
+
+        with patch("app.tools.media.image_ops.ImageOps", return_value=mock_image_ops):
+            with patch("tempfile.mkstemp", side_effect=track_mkstemp):
+                await handle_image(task, file_bytes, "img.jpg")
+
+        assert len(temp_files_created) == 0, (
+            "BUG-003 regression: handle_image created temp files it should not"
+        )
+
+    async def test_handle_image_builds_extracted_text_from_description_and_ocr(self):
+        """extracted_text combines vision description and OCR text."""
+        from app.input.image_handler import handle_image
+
+        file_bytes = b"fake_image"
+
+        async def fake_execute(operation, **kwargs):
+            if operation == "ocr_image":
+                return {"success": True, "output": "TOTAL: $150.00"}
+            if operation == "analyze_image":
+                return {"success": True, "output": "A photo of a restaurant receipt"}
+            return {"success": False}
+
+        mock_image_ops = AsyncMock()
+        mock_image_ops.execute = fake_execute
+
+        task = {"_config": {}, "message": "what is the total?"}
+
+        with patch("app.tools.media.image_ops.ImageOps", return_value=mock_image_ops):
+            result = await handle_image(task, file_bytes, "receipt.jpg")
+
+        extracted = result["extracted_text"]
+        assert "A photo of a restaurant receipt" in extracted
+        assert "TOTAL: $150.00" in extracted
+        assert "what is the total?" in extracted
+
+
+class TestManagementAgentBug004:
+    """
+    Regression tests for BUG-004: ManagementAgent must use extracted_text
+    (not raw message) when sending content to the LLM.
+    """
+
+    async def test_general_response_uses_extracted_text_when_present(self):
+        """_general_response sends extracted_text to LLM, not just message."""
+        from app.agents.management_agent import ManagementAgent
+
+        agent = ManagementAgent(config={})
+        image_description = "[Image description: A bar chart showing Q1 revenue] Q1 report please"
+        task = {
+            "message": "Q1 report please",
+            "extracted_text": image_description,
+            "department": "management",
+        }
+
+        captured_messages = []
+
+        async def fake_chat(messages, task_context=None):
+            captured_messages.extend(messages)
+            return {"content": "Here is your Q1 summary."}
+
+        mock_llm = AsyncMock()
+        mock_llm.chat = fake_chat
+
+        with patch("app.llm.llm_manager.get", return_value=mock_llm):
+            result = await agent._general_response(task)
+
+        assert len(captured_messages) == 1
+        assert captured_messages[0]["content"] == image_description, (
+            "BUG-004 regression: agent used task['message'] instead of task['extracted_text']"
+        )
+
+    async def test_general_response_falls_back_to_message_when_no_extracted_text(self):
+        """_general_response uses task['message'] as fallback when extracted_text is absent."""
+        from app.agents.management_agent import ManagementAgent
+
+        agent = ManagementAgent(config={})
+        task = {
+            "message": "Give me a department overview",
+            "department": "management",
+        }
+
+        captured_messages = []
+
+        async def fake_chat(messages, task_context=None):
+            captured_messages.extend(messages)
+            return {"content": "Overview here."}
+
+        mock_llm = AsyncMock()
+        mock_llm.chat = fake_chat
+
+        with patch("app.llm.llm_manager.get", return_value=mock_llm):
+            await agent._general_response(task)
+
+        assert captured_messages[0]["content"] == "Give me a department overview"

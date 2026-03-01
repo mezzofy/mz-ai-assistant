@@ -78,6 +78,7 @@ class SupportAgent(BaseAgent):
         data = analysis_result.get("output", {})
 
         # Step 2: LLM identifies patterns and recommendations
+        user_context = task.get("extracted_text") or task.get("message", "")
         llm_prompt = (
             f"You are a support manager at Mezzofy. Analyze these support ticket statistics "
             f"and identify:\n"
@@ -85,6 +86,7 @@ class SupportAgent(BaseAgent):
             f"2. SLA compliance rate\n"
             f"3. Recommended actions to reduce tickets\n\n"
             f"Data: {str(data)[:3000]}"
+            + (f"\n\nUser request: {user_context}" if user_context else "")
         )
         llm_result = await llm_mod.get().chat(
             messages=[{"role": "user", "content": llm_prompt}],

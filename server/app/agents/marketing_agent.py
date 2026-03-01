@@ -58,9 +58,10 @@ class MarketingAgent(BaseAgent):
 
         try:
             # Step 1: Generate content
+            topic = task.get("extracted_text") or message
             gen_result = await skill.generate_content(
                 content_type=content_type,
-                topic=message,
+                topic=topic,
                 audience=self._detect_audience(message),
                 tone=tone,
                 length=length,

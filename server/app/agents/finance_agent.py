@@ -72,11 +72,13 @@ class FinanceAgent(BaseAgent):
             data = query_result.get("output", {})
 
             # Step 2: LLM analyzes and summarizes
+            user_context = task.get("extracted_text") or task.get("message", "")
             analysis_prompt = (
                 f"You are a financial analyst at Mezzofy. Analyze this {report_type} data "
                 f"for {date_bounds['start']} to {date_bounds['end']} and write a concise "
                 f"executive summary with key highlights, trends, and recommendations.\n\n"
                 f"Data: {str(data)[:3000]}"
+                + (f"\n\nUser request: {user_context}" if user_context else "")
             )
             llm_result = await llm_mod.get().chat(
                 messages=[{"role": "user", "content": analysis_prompt}],
