@@ -33,7 +33,9 @@
       "Bash(where aws:*)",
       "Bash(GIT_ASKPASS=echo git push:*)",
       "Bash(cmdkey:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(test:*)",
+      "Bash(./gradlew clean:*)"
     ]
   }
 }
