@@ -1,4 +1,5 @@
 import {create} from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   sendTextApi,
   sendUrlApi,
@@ -48,6 +49,7 @@ type ChatState = {
   recordTime: number;
   mediaPreview: MediaInfo | null;
   sessions: SessionSummary[];
+  sessionTitles: Record<string, string>;
   // Primitive setters (used by ChatScreen UI)
   addMessage: (msg: Message) => void;
   setIsTyping: (v: boolean) => void;
@@ -58,6 +60,9 @@ type ChatState = {
   setMediaPreview: (v: MediaInfo | null) => void;
   setSessionId: (id: string | null) => void;
   clearError: () => void;
+  // Session title management
+  loadTitles: () => Promise<void>;
+  setSessionTitle: (sessionId: string, title: string) => Promise<void>;
   // API actions
   sendToServer: (text: string, mode: string, media: MediaInfo | null, mediaUri?: string | null) => Promise<void>;
   loadSessions: () => Promise<void>;
@@ -87,6 +92,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   recordTime: 0,
   mediaPreview: null,
   sessions: [],
+  sessionTitles: {},
 
   addMessage: msg => set(s => ({messages: [...s.messages, msg]})),
   setIsTyping: v => set({isTyping: v}),
@@ -98,12 +104,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setSessionId: id => set({sessionId: id}),
   clearError: () => set({error: null}),
 
+  loadTitles: async () => {
+    try {
+      const raw = await AsyncStorage.getItem('@mz_chat_titles');
+      if (raw) {
+        set({sessionTitles: JSON.parse(raw)});
+      }
+    } catch {
+      // Silent — keep empty map
+    }
+  },
+
+  setSessionTitle: async (sessionId, title) => {
+    const next = {...useChatStore.getState().sessionTitles, [sessionId]: title};
+    set({sessionTitles: next});
+    try {
+      await AsyncStorage.setItem('@mz_chat_titles', JSON.stringify(next));
+    } catch {
+      // Silent
+    }
+  },
+
   sendToServer: async (text, mode, media, mediaUri) => {
     if (!text && !media) {
       return;
     }
-    const {sessionId} = get();
+    const {sessionId, messages} = get();
     const userTime = getTimeStr();
+
+    // Capture auto-title from the first user message (before optimistic update)
+    const isFirstUserMessage = messages.filter(m => m.role === 'user').length === 0;
+    const autoTitle = (isFirstUserMessage && text) ? text.slice(0, 40) : null;
 
     // Optimistically add user message to the list
     set(s => ({
@@ -166,6 +197,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         isTyping: false,
         statusMessage: null,
       }));
+
+      // Auto-set title from first user message if no custom title exists yet
+      if (autoTitle && response.session_id) {
+        const {sessionTitles} = get();
+        if (!sessionTitles[response.session_id]) {
+          get().setSessionTitle(response.session_id, autoTitle);
+        }
+      }
     } catch (e: unknown) {
       const message =
         e instanceof Error ? e.message : 'Failed to send message. Please try again.';

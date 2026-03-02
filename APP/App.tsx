@@ -6,14 +6,17 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 
-import {BRAND} from './src/utils/theme';
+import {BRAND, LIGHT_THEME} from './src/utils/theme';
 import {useAuthStore} from './src/stores/authStore';
+import {useSettingsStore} from './src/stores/settingsStore';
+import {useChatStore} from './src/stores/chatStore';
 import {LoginScreen} from './src/screens/LoginScreen';
 import {ChatScreen} from './src/screens/ChatScreen';
 import {HistoryScreen} from './src/screens/HistoryScreen';
 import {FilesScreen} from './src/screens/FilesScreen';
 import {SettingsScreen} from './src/screens/SettingsScreen';
 import {CameraScreen} from './src/screens/CameraScreen';
+import {ProfileScreen} from './src/screens/ProfileScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -28,21 +31,23 @@ const TAB_ICONS: Record<string, {active: string; inactive: string}> = {
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const bottomPad = insets.bottom > 0 ? insets.bottom : 8;
+  const appearance = useSettingsStore(s => s.appearance);
+  const colors = appearance === 'Light' ? LIGHT_THEME : BRAND;
 
   return (
     <Tab.Navigator
       screenOptions={({route}) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: BRAND.surface,
-          borderTopColor: BRAND.border,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           paddingBottom: bottomPad,
           paddingTop: 8,
           height: 58 + bottomPad,
         },
-        tabBarActiveTintColor: BRAND.accent,
-        tabBarInactiveTintColor: BRAND.textDim,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textDim,
         tabBarIconStyle: {marginBottom: 4},
         tabBarLabelStyle: {fontSize: 10, fontWeight: '600', letterSpacing: 0.3},
         tabBarIcon: ({focused, color, size}) => {
@@ -67,24 +72,32 @@ function MainTabs() {
 function App(): React.JSX.Element {
   const isLoggedIn = useAuthStore(s => s.isLoggedIn);
   const loadStoredUser = useAuthStore(s => s.loadStoredUser);
+  const loadTitles = useChatStore(s => s.loadTitles);
+  const appearance = useSettingsStore(s => s.appearance);
+  const isDark = appearance !== 'Light';
+  const colors = isDark ? BRAND : LIGHT_THEME;
 
   useEffect(() => {
     loadStoredUser();
-  }, [loadStoredUser]);
+    loadTitles();
+  }, [loadStoredUser, loadTitles]);
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="light-content" backgroundColor={BRAND.primary} />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.primary}
+      />
       <NavigationContainer
         theme={{
-          dark: true,
+          dark: isDark,
           colors: {
-            primary: BRAND.accent,
-            background: BRAND.primary,
-            card: BRAND.surface,
-            text: BRAND.text,
-            border: BRAND.border,
-            notification: BRAND.danger,
+            primary: colors.accent,
+            background: colors.primary,
+            card: colors.surface,
+            text: colors.text,
+            border: colors.border,
+            notification: colors.danger,
           },
         }}>
         <Stack.Navigator screenOptions={{headerShown: false}}>
@@ -97,6 +110,11 @@ function App(): React.JSX.Element {
                 name="Camera"
                 component={CameraScreen}
                 options={{animation: 'slide_from_bottom'}}
+              />
+              <Stack.Screen
+                name="Profile"
+                component={ProfileScreen}
+                options={{animation: 'slide_from_right'}}
               />
             </>
           )}

@@ -1,6 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import {BRAND} from '../../utils/theme';
+import {useTheme} from '../../hooks/useTheme';
 
 type Props = {
   dept: string;
@@ -8,7 +8,8 @@ type Props = {
 };
 
 export const DeptBadge: React.FC<Props> = ({dept, compact}) => {
-  const color = BRAND.deptColors[dept] || BRAND.textMuted;
+  const colors = useTheme();
+  const color = colors.deptColors[dept] || colors.textMuted;
   return (
     <View
       style={[

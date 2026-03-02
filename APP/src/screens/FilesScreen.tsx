@@ -3,7 +3,8 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {BRAND, FILE_TYPE_STYLES} from '../utils/theme';
+import {FILE_TYPE_STYLES} from '../utils/theme';
+import {useTheme} from '../hooks/useTheme';
 import {listFilesApi, ArtifactItem} from '../api/files';
 
 const formatDate = (iso: string): string => {
@@ -35,6 +36,7 @@ export const FilesScreen: React.FC = () => {
   const [files, setFiles] = useState<ArtifactItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const colors = useTheme();
 
   useEffect(() => {
     listFilesApi()
@@ -45,59 +47,62 @@ export const FilesScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={BRAND.accent} />
+      <View style={[styles.container, styles.center, {backgroundColor: colors.primary}]}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {backgroundColor: colors.primary}]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Generated Files</Text>
-        <Text style={styles.count}>{files.length} files</Text>
+        <Text style={[styles.title, {color: colors.text}]}>Generated Files</Text>
+        <Text style={[styles.count, {color: colors.textMuted}]}>{files.length} files</Text>
       </View>
 
       {error ? (
-        <View style={styles.errorWrap}>
-          <Icon name="alert-circle-outline" size={14} color={BRAND.danger} />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorWrap, {backgroundColor: colors.danger + '14', borderColor: colors.danger + '30'}]}>
+          <Icon name="alert-circle-outline" size={14} color={colors.danger} />
+          <Text style={[styles.errorText, {color: colors.danger}]}>{error}</Text>
         </View>
       ) : null}
 
       <ScrollView style={styles.list}>
         {files.length === 0 && !error ? (
           <View style={styles.emptyWrap}>
-            <Icon name="document-outline" size={40} color={BRAND.textDim} />
-            <Text style={styles.emptyText}>No files yet</Text>
+            <Icon name="document-outline" size={40} color={colors.textDim} />
+            <Text style={[styles.emptyText, {color: colors.textDim}]}>No files yet</Text>
           </View>
         ) : (
           files.map(f => {
             const typeKey = getTypeKey(f.filename, f.file_type);
             const ts = FILE_TYPE_STYLES[typeKey] || FILE_TYPE_STYLES.md;
             return (
-              <TouchableOpacity key={f.id} style={styles.card} activeOpacity={0.7}>
+              <TouchableOpacity
+                key={f.id}
+                style={[styles.card, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}
+                activeOpacity={0.7}>
                 <View style={[styles.typeIcon, {backgroundColor: ts.bg}]}>
                   <Text style={[styles.typeLabel, {color: ts.color}]}>{ts.label}</Text>
                 </View>
                 <View style={{flex: 1, marginRight: 8}}>
-                  <Text style={styles.fileName} numberOfLines={1}>
+                  <Text style={[styles.fileName, {color: colors.text}]} numberOfLines={1}>
                     {f.filename}
                   </Text>
                   <View style={styles.fileMeta}>
                     {f.file_size ? (
                       <>
-                        <Text style={styles.fileSize}>{f.file_size}</Text>
-                        <Text style={styles.fileDot}>·</Text>
+                        <Text style={[styles.fileSize, {color: colors.textMuted}]}>{f.file_size}</Text>
+                        <Text style={[styles.fileDot, {color: colors.textDim}]}>·</Text>
                       </>
                     ) : null}
-                    <Text style={styles.fileDate}>{formatDate(f.created_at)}</Text>
+                    <Text style={[styles.fileDate, {color: colors.textMuted}]}>{formatDate(f.created_at)}</Text>
                   </View>
                 </View>
                 <Icon
                   name="download-outline"
                   size={18}
-                  color={BRAND.accent}
+                  color={colors.accent}
                   style={{marginLeft: 8}}
                 />
               </TouchableOpacity>
@@ -110,11 +115,11 @@ export const FilesScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: BRAND.primary},
+  container: {flex: 1},
   center: {justifyContent: 'center', alignItems: 'center'},
   header: {padding: 16, paddingBottom: 8},
-  title: {color: BRAND.text, fontSize: 20, fontWeight: '800'},
-  count: {color: BRAND.textMuted, fontSize: 12, marginTop: 2},
+  title: {fontSize: 20, fontWeight: '800'},
+  count: {fontSize: 12, marginTop: 2},
   errorWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -123,13 +128,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: BRAND.danger + '14',
     borderWidth: 1,
-    borderColor: BRAND.danger + '30',
   },
-  errorText: {flex: 1, color: BRAND.danger, fontSize: 12},
+  errorText: {flex: 1, fontSize: 12},
   emptyWrap: {alignItems: 'center', paddingTop: 60, gap: 12},
-  emptyText: {color: BRAND.textDim, fontSize: 14},
+  emptyText: {fontSize: 14},
   list: {flex: 1, paddingHorizontal: 16},
   card: {
     flexDirection: 'row',
@@ -139,15 +142,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 14,
     marginBottom: 8,
-    backgroundColor: BRAND.surfaceLight,
     borderWidth: 1,
-    borderColor: BRAND.border,
   },
   typeIcon: {width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center'},
   typeLabel: {fontSize: 11, fontWeight: '800'},
-  fileName: {color: BRAND.text, fontSize: 13, fontWeight: '600'},
+  fileName: {fontSize: 13, fontWeight: '600'},
   fileMeta: {flexDirection: 'row', gap: 4, marginTop: 3, alignItems: 'center'},
-  fileSize: {fontSize: 11, color: BRAND.textMuted},
-  fileDot: {fontSize: 11, color: BRAND.textDim},
-  fileDate: {fontSize: 11, color: BRAND.textMuted},
+  fileSize: {fontSize: 11},
+  fileDot: {fontSize: 11},
+  fileDate: {fontSize: 11},
 });
