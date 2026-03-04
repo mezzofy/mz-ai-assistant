@@ -179,7 +179,8 @@ class BaseAgent(ABC):
         llm_result = await llm_mod.get().execute_with_tools(task)
         content = llm_result.get("content", "I'm here to help. What would you like to do?")
         tools_called = llm_result.get("tools_called", [])
-        return self._ok(content=content, tools_called=tools_called)
+        artifacts = llm_result.get("artifacts", [])
+        return self._ok(content=content, tools_called=tools_called, artifacts=artifacts)
 
     def _ok(self, content: str, artifacts: Optional[list] = None, tools_called: Optional[list] = None) -> dict:
         """Build a successful agent response."""

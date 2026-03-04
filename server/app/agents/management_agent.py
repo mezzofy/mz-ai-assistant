@@ -70,7 +70,8 @@ class ManagementAgent(BaseAgent):
         llm_result = await llm_mod.get().execute_with_tools(task_for_llm)
         content = llm_result.get("content", "I'm here to help. Could you clarify your request?")
         tools_called = llm_result.get("tools_called", [])
-        return self._ok(content=content, tools_called=tools_called)
+        artifacts = llm_result.get("artifacts", [])
+        return self._ok(content=content, tools_called=tools_called, artifacts=artifacts)
 
     async def _kpi_dashboard_workflow(self, task: dict) -> dict:
         """Mobile: generate cross-department KPI dashboard."""

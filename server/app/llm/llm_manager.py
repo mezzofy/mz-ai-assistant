@@ -210,6 +210,7 @@ class LLMManager:
 
         total_usage = {"input_tokens": 0, "output_tokens": 0}
         tools_called: list[str] = []
+        artifacts: list[dict] = []
         iterations = 0
         used_model = model
 
@@ -257,6 +258,7 @@ class LLMManager:
                     "content": response["content"],
                     "iterations": iterations,
                     "tools_called": tools_called,
+                    "artifacts": artifacts,
                     "usage": {**total_usage, "model": used_model.model_name},
                 }
 
@@ -276,6 +278,17 @@ class LLMManager:
                     result = {"success": False, "error": str(e)}
 
                 tool_results.append((tc, result))
+
+                # If the tool created a file, capture its metadata
+                output = result.get("output", {})
+                if isinstance(output, dict) and output.get("file_path") and output.get("filename"):
+                    fname = output["filename"]
+                    file_type = fname.rsplit(".", 1)[-1] if "." in fname else "file"
+                    artifacts.append({
+                        "name": fname,
+                        "path": output["file_path"],
+                        "type": file_type,
+                    })
 
             # Append assistant message with tool calls + tool result messages to history
             history = self._append_tool_exchange(
@@ -303,6 +316,7 @@ class LLMManager:
                        f"Please narrow your request or try again.",
             "iterations": iterations,
             "tools_called": tools_called,
+            "artifacts": artifacts,
             "usage": {**total_usage, "model": used_model.model_name},
         }
 

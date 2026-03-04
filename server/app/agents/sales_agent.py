@@ -288,4 +288,5 @@ class SalesAgent(BaseAgent):
         return self._ok(
             content=result.get("content", ""),
             tools_called=result.get("tools_called", []),
+            artifacts=result.get("artifacts", []),
         )
