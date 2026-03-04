@@ -39,7 +39,9 @@
       "Bash(ping:*)",
       "Bash(C:Temptest_chat.py:*)",
       "Bash(cmd.exe:*)",
-      "Bash(./gradlew assembleDebug:*)"
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(keytool:*)",
+      "Bash(./gradlew assembleRelease:*)"
     ]
   }
 }
