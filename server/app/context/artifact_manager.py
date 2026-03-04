@@ -34,6 +34,16 @@ def get_artifacts_dir() -> Path:
     return _DEFAULT_ARTIFACTS_DIR
 
 
+def get_user_artifacts_dir(dept: str, email: str) -> Path:
+    """
+    Return the per-user directory for uploads: {base}/{dept}/{email}/
+    Creates it if it doesn't exist.
+    """
+    path = get_artifacts_dir() / dept / email
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 async def register_artifact(
     db: AsyncSession,
     user_id: str,

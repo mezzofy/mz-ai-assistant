@@ -25,6 +25,7 @@ from app.context.artifact_manager import (
     list_user_artifacts,
     register_artifact,
     get_artifacts_dir,
+    get_user_artifacts_dir,
 )
 
 logger = logging.getLogger("mezzofy.api.files")
@@ -63,12 +64,13 @@ async def upload_file(
             detail=f"Unsupported file type: {content_type}",
         )
 
-    # Save to artifacts directory
-    artifacts_dir = get_artifacts_dir()
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    # Save to user's own subdirectory
+    dept = current_user.get("department", "general")
+    email = current_user.get("email", current_user["user_id"])
+    user_dir = get_user_artifacts_dir(dept, email)
 
     safe_filename = Path(media_file.filename or "upload").name
-    save_path = artifacts_dir / f"{current_user['user_id']}_{safe_filename}"
+    save_path = user_dir / safe_filename
 
     file_bytes = await media_file.read()
     try:

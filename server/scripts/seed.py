@@ -14,6 +14,8 @@ Usage: python scripts/seed.py
 import sys
 import os
 import uuid
+from pathlib import Path
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -136,6 +138,74 @@ def seed_users(conn):
     return created, skipped
 
 
+def _write_memory_file(path: Path, user: dict) -> None:
+    """Write a blank per-user memory template."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    content = f"""# AI Memory — {user['name']}
+**Email:** {user['email']}
+**Department:** {user['department']}
+**Role:** {user['role']}
+**Created:** {today}
+
+---
+
+## User Preferences
+
+<!-- Record communication style, preferred output formats, language preferences -->
+
+## Ongoing Context
+
+<!-- Key facts the AI should remember about this user across sessions -->
+
+## Past Interactions (Notable)
+
+<!-- Summarize important requests, decisions, or recurring topics -->
+
+## Notes
+
+<!-- Any other relevant information for personalizing responses -->
+"""
+    path.write_text(content, encoding="utf-8")
+
+
+def seed_user_directories(base_path: str | None = None) -> None:
+    """
+    Create department/user folder structure and per-user memory.md files.
+
+    Structure:
+        {base}/{department}/{email}/
+        {base}/{department}/{email}/memory.md
+
+    Safe to re-run: uses exist_ok=True, skips memory.md if already exists.
+
+    Args:
+        base_path: Override base directory. Defaults to ARTIFACTS_DIR env var
+                   or /var/mezzofy/artifacts.
+    """
+    if base_path is None:
+        base_path = os.getenv("ARTIFACTS_DIR", "/var/mezzofy/artifacts")
+
+    base = Path(base_path)
+    print(f"\n📁 Setting up user directories under: {base}\n")
+
+    for user in SEED_USERS:
+        dept = user["department"]
+        email = user["email"]
+        user_dir = base / dept / email
+
+        user_dir.mkdir(parents=True, exist_ok=True)
+        print(f"  📂 {dept}/{email}/")
+
+        memory_path = user_dir / "memory.md"
+        if not memory_path.exists():
+            _write_memory_file(memory_path, user)
+            print(f"       ✅ memory.md created")
+        else:
+            print(f"       ⏭️  memory.md exists — skipped")
+
+    print(f"\n✅ Directory setup complete: {len(SEED_USERS)} user folders\n")
+
+
 if __name__ == "__main__":
     print("=" * 50)
     print("  Mezzofy AI Assistant — Database Seed")
@@ -148,6 +218,7 @@ if __name__ == "__main__":
         created, skipped = seed_users(conn)
         conn.close()
 
+        seed_user_directories()
         print(f"\n✅ Seeding complete: {created} created, {skipped} skipped")
         print("\n⚠️  IMPORTANT: Change default passwords before production use!")
 

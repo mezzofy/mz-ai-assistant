@@ -296,11 +296,13 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 <Icon name="pencil-outline" size={14} color={colors.textMuted} />
               </TouchableOpacity>
             )}
-            <DeptBadge dept={user.department} compact />
           </View>
-          <Text style={[styles.headerSub, {color: colors.textMuted}]}>
-            {user.name} · {user.role.replace('_', ' ')}
-          </Text>
+          <View style={styles.headerSubRow}>
+            <DeptBadge dept={user.department} compact />
+            <Text style={[styles.headerSub, {color: colors.textMuted}]}>
+              {user.name} · {user.role.replace('_', ' ')}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
           style={[styles.newChatBtn, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}
@@ -475,7 +477,8 @@ const styles = StyleSheet.create({
   headerTitle: {fontSize: 20, fontWeight: '800', flexShrink: 1},
   headerTitleInput: {flex: 1, fontSize: 18, fontWeight: '700', borderBottomWidth: 1, paddingVertical: 2, paddingHorizontal: 0},
   editTitleBtn: {padding: 4},
-  headerSub: {fontSize: 12, marginTop: 2},
+  headerSubRow: {flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2},
+  headerSub: {fontSize: 12},
   newChatBtn: {borderWidth: 1, borderRadius: 12, padding: 10},
   msgList: {flex: 1, paddingHorizontal: 16, paddingTop: 16},
   msgRow: {marginBottom: 16},
