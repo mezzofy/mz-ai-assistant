@@ -44,11 +44,7 @@ class ManagementAgent(BaseAgent):
     """
 
     def can_handle(self, task: dict) -> bool:
-        message = task.get("message", "").lower()
-        is_management_user = task.get("department", "").lower() == "management"
-        has_keyword = any(kw in message for kw in _TRIGGER_KEYWORDS)
-        # Department alone is not enough — message must also contain a management keyword
-        return is_management_user and has_keyword
+        return task.get("department", "").lower() == "management"
 
     async def execute(self, task: dict) -> dict:
         source = task.get("source", "mobile")
@@ -69,14 +65,12 @@ class ManagementAgent(BaseAgent):
     # ── Sub-workflows ─────────────────────────────────────────────────────────
 
     async def _general_response(self, task: dict) -> dict:
-        """General question — answer directly via LLM without triggering KPI workflow."""
-        content = task.get("extracted_text") or task.get("message", "")
-        llm_result = await llm_mod.get().chat(
-            messages=[{"role": "user", "content": content}],
-            task_context=task,
-        )
+        """General question — answer via LLM with full tool access (create_txt, create_csv, etc.)."""
+        task_for_llm = {**task, "messages": task.get("conversation_history", [])}
+        llm_result = await llm_mod.get().execute_with_tools(task_for_llm)
         content = llm_result.get("content", "I'm here to help. Could you clarify your request?")
-        return self._ok(content=content)
+        tools_called = llm_result.get("tools_called", [])
+        return self._ok(content=content, tools_called=tools_called)
 
     async def _kpi_dashboard_workflow(self, task: dict) -> dict:
         """Mobile: generate cross-department KPI dashboard."""

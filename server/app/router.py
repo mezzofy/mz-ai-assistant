@@ -146,6 +146,10 @@ async def _execute_with_instance(agent, task: dict) -> dict:
         dept=task.get("department", "general"),
         email=task.get("email", ""),
     )
+    # Map conversation_history → messages for execute_with_tools compatibility.
+    # chat.py stores session history under "conversation_history";
+    # LLMManager.execute_with_tools() reads it as "messages".
+    task["messages"] = task.get("conversation_history", [])
     result = await agent.execute(task)
     result.setdefault("agent_used", agent_label)
     return result

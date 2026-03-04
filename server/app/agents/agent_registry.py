@@ -2,11 +2,17 @@
 AgentRegistry — Maps department names to agent classes.
 
 Used by the Router (Phase 5) to select the appropriate agent
-for incoming tasks based on department and message intent.
+for incoming tasks based on department and access rights.
+
+Routing model:
+  1. Department → Agent is always 1:1 (primary routing, no exceptions).
+  2. Unknown departments: cross-department routing is only allowed for users
+     with "cross_department_access" permission or admin/executive/management role.
+  3. All known-department users always stay in their department's agent,
+     which handles general requests via its fallback _general_response() path.
 """
 
 import logging
-from typing import Optional
 
 from app.agents.finance_agent import FinanceAgent
 from app.agents.management_agent import ManagementAgent
@@ -25,48 +31,69 @@ AGENT_MAP = {
     "management": ManagementAgent,
 }
 
-# All agent classes (for can_handle routing)
+# All agent classes (for cross-department keyword fallback)
 _ALL_AGENTS = list(AGENT_MAP.values())
+
+# Permission string granting cross-department routing access
+_CROSS_DEPT_PERMISSION = "cross_department_access"
+# Roles that always have cross-department access (no explicit permission needed)
+_CROSS_DEPT_ROLES = {"admin", "executive", "management"}
 
 
 def get_agent_for_task(task: dict, config: dict):
     """
-    Select and instantiate the best agent for the given task.
+    Select and instantiate the correct agent for the given task.
 
-    Selection order:
-    1. User's department provides a strong hint
-    2. Each agent's can_handle() method confirms or overrides
-    3. Management Agent handles cross-department requests
-    4. Falls back to SalesAgent as default
+    Selection logic:
+    1. User's department → always use that department's agent (primary routing).
+       Every known department maps directly to exactly one agent — no exceptions.
+    2. Unknown department + cross_department_access permission → keyword fallback
+       across all agents to find the best match.
+    3. Unknown department, no cross-dept permission → SalesAgent default.
+
+    Cross-department routing (step 2) is only activated for:
+      - Users with "cross_department_access" in permissions
+      - Users with role: admin, executive, or management
 
     Args:
-        task: Task dict with "department" and "message" keys.
+        task: Task dict with "department", "role", "permissions", and "message" keys.
         config: Full app config dict.
 
     Returns:
-        Instantiated agent, or None if no match.
+        Instantiated agent (never None — always has a fallback).
     """
     department = task.get("department", "").lower()
+    role = task.get("role", "").lower()
+    permissions = task.get("permissions", [])
 
-    # Direct department match
+    # 1. Direct department → agent routing (primary path for all known departments)
     if department in AGENT_MAP:
         agent_cls = AGENT_MAP[department]
-        agent = agent_cls(config)
-        if agent.can_handle(task):
-            logger.debug(f"AgentRegistry: department match → {agent_cls.__name__}")
-            return agent
+        logger.debug(f"AgentRegistry: department routing → {agent_cls.__name__} (dept={department!r})")
+        return agent_cls(config)
 
-    # Keyword-based can_handle fallback across all agents
-    for agent_cls in _ALL_AGENTS:
-        agent = agent_cls(config)
-        if agent.can_handle(task):
-            logger.debug(f"AgentRegistry: keyword match → {agent_cls.__name__}")
-            return agent
+    # 2. Unknown department: check if user has cross-department access
+    can_cross_dept = (
+        _CROSS_DEPT_PERMISSION in permissions
+        or role in _CROSS_DEPT_ROLES
+    )
 
-    # Default: Management for cross-department, Sales for everything else
-    default_cls = ManagementAgent if department == "management" else SalesAgent
-    logger.debug(f"AgentRegistry: default fallback → {default_cls.__name__}")
-    return default_cls(config)
+    if can_cross_dept:
+        for agent_cls in _ALL_AGENTS:
+            agent = agent_cls(config)
+            if agent.can_handle(task):
+                logger.debug(
+                    f"AgentRegistry: cross-dept keyword routing → {agent_cls.__name__} "
+                    f"(role={role!r}, perm=cross_department_access)"
+                )
+                return agent
+
+    # 3. Default fallback for unknown departments
+    logger.debug(
+        f"AgentRegistry: default fallback → SalesAgent "
+        f"(dept={department!r} unknown, cross_dept={'yes' if can_cross_dept else 'no'})"
+    )
+    return SalesAgent(config)
 
 
 def get_all_agent_names() -> list[str]:

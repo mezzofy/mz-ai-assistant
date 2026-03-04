@@ -36,11 +36,7 @@ class SalesAgent(BaseAgent):
     """
 
     def can_handle(self, task: dict) -> bool:
-        department = task.get("department", "").lower()
-        if department == "sales":
-            return True
-        message = task.get("message", "").lower()
-        return any(kw in message for kw in _TRIGGER_KEYWORDS)
+        return task.get("department", "").lower() == "sales"
 
     async def execute(self, task: dict) -> dict:
         source = task.get("source", "mobile")

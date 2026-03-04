@@ -38,15 +38,16 @@ class FinanceAgent(BaseAgent):
     """
 
     def can_handle(self, task: dict) -> bool:
-        department = task.get("department", "").lower()
-        if department == "finance":
-            return True
-        message = task.get("message", "").lower()
-        return any(kw in message for kw in _TRIGGER_KEYWORDS)
+        return task.get("department", "").lower() == "finance"
 
     async def execute(self, task: dict) -> dict:
         source = task.get("source", "mobile")
         message = task.get("message", "")
+
+        # Scheduler/webhook: always run financial workflow.
+        # Mobile: only run financial workflow if message contains financial intent.
+        if source == "mobile" and not any(kw in message.lower() for kw in _TRIGGER_KEYWORDS):
+            return await self._general_response(task)
 
         try:
             skill = self._load_skill("financial_reporting")

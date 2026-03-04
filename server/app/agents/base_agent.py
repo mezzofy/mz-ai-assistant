@@ -163,6 +163,24 @@ class BaseAgent(ABC):
             attachments=attachments or [],
         )
 
+    async def _general_response(self, task: dict) -> dict:
+        """
+        General fallback — answer via LLM with full tool access.
+
+        Used when the request doesn't match any department-specific workflow.
+        Enables tools like create_txt, create_csv, create_pdf, send_email, etc.
+        Conversation history is available for multi-turn tool use
+        (e.g., LLM asks 'personal or shared?' → user replies → LLM calls tool).
+
+        Note: task["messages"] is set by router._execute_with_instance() from
+        task["conversation_history"] before dispatch reaches here.
+        """
+        from app.llm import llm_manager as llm_mod
+        llm_result = await llm_mod.get().execute_with_tools(task)
+        content = llm_result.get("content", "I'm here to help. What would you like to do?")
+        tools_called = llm_result.get("tools_called", [])
+        return self._ok(content=content, tools_called=tools_called)
+
     def _ok(self, content: str, artifacts: Optional[list] = None, tools_called: Optional[list] = None) -> dict:
         """Build a successful agent response."""
         return {

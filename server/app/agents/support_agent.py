@@ -35,21 +35,21 @@ class SupportAgent(BaseAgent):
     """
 
     def can_handle(self, task: dict) -> bool:
-        department = task.get("department", "").lower()
-        if department == "support":
-            return True
-        message = task.get("message", "").lower()
-        return any(kw in message for kw in _TRIGGER_KEYWORDS)
+        return task.get("department", "").lower() == "support"
 
     async def execute(self, task: dict) -> dict:
         source = task.get("source", "mobile")
         event = task.get("event", "")
+        message = task.get("message", "")
 
         if source == "scheduler" and "support_summary" in event:
             return await self._weekly_summary_workflow(task)
         if source == "webhook" and "support_ticket_created" in event:
             return await self._ticket_triage_workflow(task)
-        return await self._ticket_analysis_workflow(task)
+        # Only run ticket workflow if message has support/ticket intent.
+        if any(kw in message.lower() for kw in _TRIGGER_KEYWORDS):
+            return await self._ticket_analysis_workflow(task)
+        return await self._general_response(task)
 
     # ── Sub-workflows ─────────────────────────────────────────────────────────
 

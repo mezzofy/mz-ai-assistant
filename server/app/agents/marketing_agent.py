@@ -16,8 +16,8 @@ from app.llm import llm_manager as llm_mod
 logger = logging.getLogger("mezzofy.agents.marketing")
 
 _TRIGGER_KEYWORDS = {
-    "content", "website", "blog", "playbook", "campaign", "social media",
-    "newsletter", "copy", "brand", "landing page", "post", "write", "draft",
+    "website copy", "blog post", "blog article", "playbook", "campaign",
+    "social media", "newsletter", "brand guidelines", "landing page",
     "marketing", "email blast", "announcement", "feature description",
 }
 
@@ -35,14 +35,14 @@ class MarketingAgent(BaseAgent):
     """
 
     def can_handle(self, task: dict) -> bool:
-        department = task.get("department", "").lower()
-        if department == "marketing":
-            return True
-        message = task.get("message", "").lower()
-        return any(kw in message for kw in _TRIGGER_KEYWORDS)
+        return task.get("department", "").lower() == "marketing"
 
     async def execute(self, task: dict) -> dict:
         message = task.get("message", "")
+
+        # Only run content generation workflow if message has marketing intent.
+        if not any(kw in message.lower() for kw in _TRIGGER_KEYWORDS):
+            return await self._general_response(task)
 
         try:
             skill = self._load_skill("content_generation")
