@@ -17,6 +17,7 @@ import {FilesScreen} from './src/screens/FilesScreen';
 import {SettingsScreen} from './src/screens/SettingsScreen';
 import {CameraScreen} from './src/screens/CameraScreen';
 import {ProfileScreen} from './src/screens/ProfileScreen';
+import {AIUsageStatsScreen} from './src/screens/AIUsageStatsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -114,6 +115,11 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="Profile"
                 component={ProfileScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="AIUsageStats"
+                component={AIUsageStatsScreen}
                 options={{animation: 'slide_from_right'}}
               />
             </>

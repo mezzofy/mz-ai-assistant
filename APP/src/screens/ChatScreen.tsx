@@ -26,6 +26,20 @@ const formatBytes = (bytes?: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+function normalizeApiError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower.includes('both') && lower.includes('model')) {
+    return 'AI is temporarily busy. Please try again.';
+  }
+  if (lower.includes('network') || lower.includes('fetch')) {
+    return 'No connection. Check your network and retry.';
+  }
+  if (lower.includes('timeout')) {
+    return 'Request timed out. Please try again.';
+  }
+  return raw;
+}
+
 export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
   // ── All hooks MUST be called unconditionally (Rules of Hooks) ──────────────
   const user = useAuthStore(s => s.user);
@@ -336,7 +350,7 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
         <View style={[styles.errorBanner, {backgroundColor: colors.danger + '14', borderColor: colors.danger + '30'}]}>
           <Icon name="alert-circle-outline" size={14} color={colors.danger} />
           <Text style={[styles.errorBannerText, {color: colors.danger}]} numberOfLines={2}>
-            {chatError}
+            {normalizeApiError(chatError)}
           </Text>
           <TouchableOpacity onPress={clearError} style={styles.errorBannerClose}>
             <Text style={[styles.errorBannerCloseText, {color: colors.danger}]}>✕</Text>

@@ -172,14 +172,14 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
             value={fileCount !== null ? `${fileCount} files` : '—'}
             colors={colors}
           />
-          <SettingsRow icon="time-outline" label="AI Usage Stats" accent colors={colors} />
+          <SettingsRow icon="time-outline" label="AI Usage Stats" accent colors={colors} onPress={() => navigation.navigate('AIUsageStats')} />
         </View>
 
         <View style={[styles.group, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
           <SettingsRow icon="log-out-outline" label="Sign Out" danger colors={colors} onPress={() => { logout(); }} />
         </View>
 
-        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.1.2</Text>
+        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.2.0</Text>
       </ScrollView>
     </View>
   );

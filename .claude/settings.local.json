@@ -37,7 +37,9 @@
       "Bash(test:*)",
       "Bash(./gradlew clean:*)",
       "Bash(ping:*)",
-      "Bash(C:Temptest_chat.py:*)"
+      "Bash(C:Temptest_chat.py:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(./gradlew assembleDebug:*)"
     ]
   }
 }
