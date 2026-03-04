@@ -44,6 +44,16 @@ def get_user_artifacts_dir(dept: str, email: str) -> Path:
     return path
 
 
+def get_dept_artifacts_dir(dept: str) -> Path:
+    """
+    Return the department shared directory: {base}/{dept}/shared/
+    Creates it if it doesn't exist.
+    """
+    path = get_artifacts_dir() / dept / "shared"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 async def register_artifact(
     db: AsyncSession,
     user_id: str,

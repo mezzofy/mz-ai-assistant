@@ -468,6 +468,7 @@ def _base_task(user: dict, session_id: Optional[str], config: dict) -> dict:
     """Build the base task dict from the authenticated user context."""
     return {
         "user_id": user.get("user_id", ""),
+        "email": user.get("email", ""),
         "department": user.get("department", ""),
         "role": user.get("role", ""),
         "permissions": user.get("permissions", []),

@@ -15,7 +15,7 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,7 @@ from app.context.artifact_manager import (
     register_artifact,
     get_artifacts_dir,
     get_user_artifacts_dir,
+    get_dept_artifacts_dir,
 )
 
 logger = logging.getLogger("mezzofy.api.files")
@@ -38,12 +39,15 @@ _ALLOWED_MIME_PREFIXES = {
     "application/vnd.openxmlformats-officedocument",  # DOCX, PPTX, XLSX
     "application/vnd.ms-",                             # older Office formats
     "text/plain", "text/csv",
+    "text/markdown",    # .md files
+    "text/x-markdown",  # Safari / older browsers
 }
 
 
 @router.post("/upload")
 async def upload_file(
     media_file: UploadFile = File(...),
+    storage_scope: str = Form("user"),          # "user" | "department"
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -64,11 +68,13 @@ async def upload_file(
             detail=f"Unsupported file type: {content_type}",
         )
 
-    # Save to user's own subdirectory
+    # Save to user or department shared directory based on scope
     dept = current_user.get("department", "general")
     email = current_user.get("email", current_user["user_id"])
-    user_dir = get_user_artifacts_dir(dept, email)
-
+    if storage_scope == "department":
+        user_dir = get_dept_artifacts_dir(dept)
+    else:
+        user_dir = get_user_artifacts_dir(dept, email)
     safe_filename = Path(media_file.filename or "upload").name
     save_path = user_dir / safe_filename
 

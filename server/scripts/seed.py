@@ -203,7 +203,17 @@ def seed_user_directories(base_path: str | None = None) -> None:
         else:
             print(f"       ⏭️  memory.md exists — skipped")
 
-    print(f"\n✅ Directory setup complete: {len(SEED_USERS)} user folders\n")
+    # Create shared/ dir for each unique department
+    seen_depts: set = set()
+    for user in SEED_USERS:
+        dept = user["department"]
+        if dept not in seen_depts:
+            shared_dir = base / dept / "shared"
+            shared_dir.mkdir(parents=True, exist_ok=True)
+            print(f"  📂 {dept}/shared/")
+            seen_depts.add(dept)
+
+    print(f"\n✅ Directory setup complete: {len(SEED_USERS)} user folders, {len(seen_depts)} shared folders\n")
 
 
 if __name__ == "__main__":

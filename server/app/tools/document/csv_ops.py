@@ -14,6 +14,8 @@ import uuid
 from pathlib import Path
 from typing import Optional, Union
 
+from app.context.artifact_manager import get_user_artifacts_dir, get_dept_artifacts_dir
+from app.core.user_context import get_user_dept, get_user_email
 from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger("mezzofy.tools.csv")
@@ -32,6 +34,16 @@ class CSVOps(BaseTool):
     def __init__(self, config: dict):
         super().__init__(config)
         self._artifact_dir = _get_artifact_dir(config)
+
+    def _resolve_output_dir(self, storage_scope: str = "user") -> Path:
+        """Return output dir based on storage scope and user context."""
+        dept = get_user_dept()
+        email = get_user_email()
+        if storage_scope == "department" and dept:
+            return get_dept_artifacts_dir(dept)
+        if email:
+            return get_user_artifacts_dir(dept, email)
+        return self._artifact_dir
 
     def get_tools(self) -> list[dict]:
         return [
@@ -70,6 +82,15 @@ class CSVOps(BaseTool):
                             "type": "string",
                             "description": "File encoding (default: utf-8-sig for Excel compatibility).",
                             "default": "utf-8-sig",
+                        },
+                        "storage_scope": {
+                            "type": "string",
+                            "description": (
+                                "Where to save the file. 'user' = personal folder (default), "
+                                "'department' = shared department folder visible to the whole team."
+                            ),
+                            "enum": ["user", "department"],
+                            "default": "user",
                         },
                     },
                     "required": ["rows"],
@@ -116,6 +137,7 @@ class CSVOps(BaseTool):
         headers: Optional[list[str]] = None,
         filename: Optional[str] = None,
         encoding: str = "utf-8-sig",
+        storage_scope: str = "user",
     ) -> dict:
         """Export data as a CSV file."""
         try:
@@ -126,7 +148,7 @@ class CSVOps(BaseTool):
         if not filename:
             filename = f"export_{uuid.uuid4().hex[:8]}"
 
-        output_path = self._artifact_dir / f"{filename}.csv"
+        output_path = self._resolve_output_dir(storage_scope) / f"{filename}.csv"
 
         try:
             df = pd.DataFrame(rows, columns=headers if headers else None)

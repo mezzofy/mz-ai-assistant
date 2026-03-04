@@ -17,6 +17,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from app.context.artifact_manager import get_user_artifacts_dir, get_dept_artifacts_dir
+from app.core.user_context import get_user_dept, get_user_email
 from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger("mezzofy.tools.pptx")
@@ -41,6 +43,16 @@ class PPTXOps(BaseTool):
     def __init__(self, config: dict):
         super().__init__(config)
         self._artifact_dir = _get_artifact_dir(config)
+
+    def _resolve_output_dir(self, storage_scope: str = "user") -> Path:
+        """Return output dir based on storage scope and user context."""
+        dept = get_user_dept()
+        email = get_user_email()
+        if storage_scope == "department" and dept:
+            return get_dept_artifacts_dir(dept)
+        if email:
+            return get_user_artifacts_dir(dept, email)
+        return self._artifact_dir
 
     def get_tools(self) -> list[dict]:
         return [
@@ -112,6 +124,15 @@ class PPTXOps(BaseTool):
                             "type": "string",
                             "description": "Output filename (without extension). Auto-generated if omitted.",
                         },
+                        "storage_scope": {
+                            "type": "string",
+                            "description": (
+                                "Where to save the file. 'user' = personal folder (default), "
+                                "'department' = shared department folder visible to the whole team."
+                            ),
+                            "enum": ["user", "department"],
+                            "default": "user",
+                        },
                     },
                     "required": ["title", "slides"],
                 },
@@ -148,6 +169,7 @@ class PPTXOps(BaseTool):
         slides: list[dict],
         subtitle: Optional[str] = None,
         filename: Optional[str] = None,
+        storage_scope: str = "user",
     ) -> dict:
         """Generate a branded PPTX presentation."""
         try:
@@ -163,7 +185,7 @@ class PPTXOps(BaseTool):
             safe = safe.replace(" ", "_")[:40]
             filename = f"{safe}_{uuid.uuid4().hex[:8]}"
 
-        output_path = self._artifact_dir / f"{filename}.pptx"
+        output_path = self._resolve_output_dir(storage_scope) / f"{filename}.pptx"
 
         prs = Presentation()
         # Widescreen 16:9

@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 
 from app.agents.agent_registry import get_agent_for_task, AGENT_MAP
+from app.core.user_context import set_user_context
 
 logger = logging.getLogger("mezzofy.router")
 
@@ -139,6 +140,11 @@ async def _execute_with_instance(agent, task: dict) -> dict:
         f"Dispatching to {agent.__class__.__name__} "
         f"(source={task.get('source', 'mobile')}, "
         f"message={task.get('message', '')[:60]!r})"
+    )
+    # Set per-request user context for tool artifact routing
+    set_user_context(
+        dept=task.get("department", "general"),
+        email=task.get("email", ""),
     )
     result = await agent.execute(task)
     result.setdefault("agent_used", agent_label)

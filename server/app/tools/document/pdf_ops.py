@@ -19,6 +19,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from app.context.artifact_manager import get_user_artifacts_dir, get_dept_artifacts_dir
+from app.core.user_context import get_user_dept, get_user_email
 from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger("mezzofy.tools.pdf")
@@ -83,6 +85,16 @@ class PDFOps(BaseTool):
         super().__init__(config)
         self._artifact_dir = _get_artifact_dir(config)
 
+    def _resolve_output_dir(self, storage_scope: str = "user") -> Path:
+        """Return output dir based on storage scope and user context."""
+        dept = get_user_dept()
+        email = get_user_email()
+        if storage_scope == "department" and dept:
+            return get_dept_artifacts_dir(dept)
+        if email:
+            return get_user_artifacts_dir(dept, email)
+        return self._artifact_dir
+
     def get_tools(self) -> list[dict]:
         return [
             {
@@ -121,6 +133,15 @@ class PDFOps(BaseTool):
                         "extra_css": {
                             "type": "string",
                             "description": "Optional additional CSS to append to the default styles.",
+                        },
+                        "storage_scope": {
+                            "type": "string",
+                            "description": (
+                                "Where to save the file. 'user' = personal folder (default), "
+                                "'department' = shared department folder visible to the whole team."
+                            ),
+                            "enum": ["user", "department"],
+                            "default": "user",
                         },
                     },
                     "required": ["title", "html_content"],
@@ -168,6 +189,15 @@ class PDFOps(BaseTool):
                             "type": "string",
                             "description": "Output filename (without extension) for the merged PDF.",
                         },
+                        "storage_scope": {
+                            "type": "string",
+                            "description": (
+                                "Where to save the file. 'user' = personal folder (default), "
+                                "'department' = shared department folder visible to the whole team."
+                            ),
+                            "enum": ["user", "department"],
+                            "default": "user",
+                        },
                     },
                     "required": ["file_paths"],
                 },
@@ -182,6 +212,7 @@ class PDFOps(BaseTool):
         document_type: str = "Report",
         filename: Optional[str] = None,
         extra_css: Optional[str] = None,
+        storage_scope: str = "user",
     ) -> dict:
         """Generate a branded PDF from HTML content."""
         if not filename:
@@ -189,7 +220,7 @@ class PDFOps(BaseTool):
             safe_title = safe_title.replace(" ", "_")[:50]
             filename = f"{safe_title}_{uuid.uuid4().hex[:8]}"
 
-        output_path = self._artifact_dir / f"{filename}.pdf"
+        output_path = self._resolve_output_dir(storage_scope) / f"{filename}.pdf"
 
         css = _MEZZOFY_CSS
         if extra_css:
@@ -319,6 +350,7 @@ class PDFOps(BaseTool):
         self,
         file_paths: list[str],
         output_filename: Optional[str] = None,
+        storage_scope: str = "user",
     ) -> dict:
         """Merge multiple PDFs into one."""
         for fp in file_paths:
@@ -328,7 +360,7 @@ class PDFOps(BaseTool):
         if not output_filename:
             output_filename = f"merged_{uuid.uuid4().hex[:8]}"
 
-        output_path = self._artifact_dir / f"{output_filename}.pdf"
+        output_path = self._resolve_output_dir(storage_scope) / f"{output_filename}.pdf"
 
         try:
             import pypdf
