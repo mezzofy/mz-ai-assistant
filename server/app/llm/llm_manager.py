@@ -75,7 +75,7 @@ When delivering scheduled report results, format output clearly for MS Teams wit
 
 IMPORTANT — File storage rule:
 Before calling any file creation tool (create_pdf, create_pptx, create_docx,
-create_csv), you MUST first ask the user exactly this question:
+create_csv, create_txt), you MUST first ask the user exactly this question:
 "Where would you like to save this file?
   (1) Your personal folder — only visible to you
   (2) The {department} shared department folder — visible to your whole team"

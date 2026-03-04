@@ -62,6 +62,7 @@ class ToolExecutor:
         self._register_ops("document.pptx_ops", "PPTXOps")
         self._register_ops("document.docx_ops", "DocxOps")
         self._register_ops("document.csv_ops", "CSVOps")
+        self._register_ops("document.text_ops", "TextOps")
 
         # ── Phase 3: Media + Web + Database Tools ────────────────────────────
         self._register_ops("media.image_ops", "ImageOps")
