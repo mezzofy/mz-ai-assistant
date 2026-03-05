@@ -63,6 +63,7 @@ export const INPUT_MODES = [
   {id: 'audio', icon: 'musical-note-outline', label: 'Audio', color: '#FFB84D'},
   {id: 'file', icon: 'document-outline', label: 'File', color: '#4DA6FF'},
   {id: 'url', icon: 'globe-outline', label: 'URL', color: '#FF6B8A'},
+  {id: 'myfiles', icon: 'folder-open-outline', label: 'My Files', color: '#00D4AA'},
 ];
 
 export const FILE_TYPE_STYLES: Record<string, {bg: string; color: string; label: string}> = {

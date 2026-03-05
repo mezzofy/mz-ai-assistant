@@ -4,6 +4,7 @@ import {
   sendTextApi,
   sendUrlApi,
   sendMediaApi,
+  sendArtifactApi,
   getSessionsApi,
   getHistoryApi,
   ChatResponse,
@@ -37,6 +38,12 @@ export type Message = {
   tools?: string[];
 };
 
+export type SelectedArtifact = {
+  id: string;
+  filename: string;
+  file_type: string;
+};
+
 type ChatState = {
   messages: Message[];
   sessionId: string | null;
@@ -48,6 +55,7 @@ type ChatState = {
   recording: boolean;
   recordTime: number;
   mediaPreview: MediaInfo | null;
+  selectedArtifact: SelectedArtifact | null;
   sessions: SessionSummary[];
   sessionTitles: Record<string, string>;
   // Primitive setters (used by ChatScreen UI)
@@ -58,6 +66,7 @@ type ChatState = {
   setRecording: (v: boolean) => void;
   setRecordTime: (v: number) => void;
   setMediaPreview: (v: MediaInfo | null) => void;
+  setSelectedArtifact: (v: SelectedArtifact | null) => void;
   setSessionId: (id: string | null) => void;
   clearError: () => void;
   // Session title management
@@ -65,6 +74,7 @@ type ChatState = {
   setSessionTitle: (sessionId: string, title: string) => Promise<void>;
   // API actions
   sendToServer: (text: string, mode: string, media: MediaInfo | null, mediaUri?: string | null) => Promise<void>;
+  sendArtifactToServer: (artifactId: string, message: string) => Promise<void>;
   loadSessions: () => Promise<void>;
   loadHistory: (sessionId: string) => Promise<void>;
   resetChat: () => void;
@@ -91,6 +101,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   recording: false,
   recordTime: 0,
   mediaPreview: null,
+  selectedArtifact: null,
   sessions: [],
   sessionTitles: {},
 
@@ -101,6 +112,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setRecording: v => set({recording: v}),
   setRecordTime: v => set({recordTime: v}),
   setMediaPreview: v => set({mediaPreview: v}),
+  setSelectedArtifact: v => set({selectedArtifact: v}),
   setSessionId: id => set({sessionId: id}),
   clearError: () => set({error: null}),
 
@@ -212,6 +224,66 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  sendArtifactToServer: async (artifactId, message) => {
+    const {sessionId, messages, selectedArtifact} = get();
+    const artifact = selectedArtifact;
+    const userTime = getTimeStr();
+
+    const isFirstUserMessage = messages.filter(m => m.role === 'user').length === 0;
+    const autoTitle = (isFirstUserMessage && message) ? message.slice(0, 40) : null;
+
+    set(s => ({
+      messages: [
+        ...s.messages,
+        {
+          id: Date.now(),
+          role: 'user',
+          text: message || '',
+          time: userTime,
+          type: 'myfiles',
+          media: artifact
+            ? {type: 'myfiles', name: artifact.filename, size: 'From My Files', emoji: '📂'}
+            : undefined,
+        },
+      ],
+      isTyping: true,
+      error: null,
+      statusMessage: null,
+    }));
+
+    try {
+      const response = await sendArtifactApi(artifactId, message, sessionId);
+
+      set(s => ({
+        sessionId: response.session_id,
+        messages: [
+          ...s.messages,
+          {
+            id: Date.now(),
+            role: 'assistant',
+            text: response.response,
+            time: getTimeStr(),
+            artifacts: response.artifacts.length > 0 ? response.artifacts : undefined,
+            tools: response.tools_used.length > 0 ? response.tools_used : undefined,
+          },
+        ],
+        isTyping: false,
+        statusMessage: null,
+      }));
+
+      if (autoTitle && response.session_id) {
+        const {sessionTitles} = get();
+        if (!sessionTitles[response.session_id]) {
+          get().setSessionTitle(response.session_id, autoTitle);
+        }
+      }
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : 'Failed to send message. Please try again.';
+      set({isTyping: false, error: msg, statusMessage: null});
+    }
+  },
+
   loadSessions: async () => {
     try {
       const result = await getSessionsApi();
@@ -251,5 +323,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       recording: false,
       recordTime: 0,
       mediaPreview: null,
+      selectedArtifact: null,
     }),
 }));

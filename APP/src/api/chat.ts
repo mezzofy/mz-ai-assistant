@@ -101,3 +101,17 @@ export const getSessionsApi = (): Promise<SessionsResponse> =>
 
 export const getHistoryApi = (sessionId: string): Promise<HistoryResponse> =>
   apiFetch<HistoryResponse>(`/chat/history/${sessionId}`);
+
+export const sendArtifactApi = (
+  artifactId: string,
+  message: string,
+  sessionId?: string | null,
+): Promise<ChatResponse> =>
+  apiFetch<ChatResponse>('/chat/send-artifact', {
+    method: 'POST',
+    body: JSON.stringify({
+      artifact_id: artifactId,
+      message,
+      ...(sessionId ? {session_id: sessionId} : {}),
+    }),
+  });

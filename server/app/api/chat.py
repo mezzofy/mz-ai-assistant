@@ -19,6 +19,7 @@ Auth:
 
 import json
 import logging
+from pathlib import Path
 from typing import Optional
 
 from fastapi import (
@@ -33,6 +34,7 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_config
@@ -63,6 +65,12 @@ class SendTextRequest(BaseModel):
 class SendURLRequest(BaseModel):
     url: str
     message: Optional[str] = None
+    session_id: Optional[str] = None
+
+
+class SendArtifactRequest(BaseModel):
+    artifact_id: str
+    message: str = ""
     session_id: Optional[str] = None
 
 
@@ -230,6 +238,65 @@ async def send_url(
     return response
 
 
+# ── REST: POST /chat/send-artifact ───────────────────────────────────────────
+
+@router.post("/send-artifact")
+async def send_artifact(body: SendArtifactRequest, request: Request):
+    """
+    Send a message referencing an artifact already stored in the user's personal folder.
+
+    Reads the file from disk (ownership-checked via artifact_id + user_id),
+    routes it through the existing file processing pipeline, and returns an AI response.
+    """
+    user = _get_user_from_state(request)
+    config = get_config()
+
+    # 1. Ownership check — user can only access their own artifacts
+    async with _db_session() as db:
+        result = await db.execute(
+            text(
+                "SELECT id, filename, file_path, file_type FROM artifacts "
+                "WHERE id = :aid AND user_id = :uid"
+            ),
+            {"aid": body.artifact_id, "uid": user["user_id"]},
+        )
+        artifact = result.fetchone()
+
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Artifact not found or access denied")
+
+    # 2. Read file bytes from disk
+    file_path = Path(artifact.file_path)
+    if not _artifact_path_exists(file_path):
+        raise HTTPException(status_code=404, detail="File has been removed from storage")
+    try:
+        file_bytes = _read_artifact_bytes(file_path)
+    except OSError as e:
+        logger.error(f"send_artifact: failed to read {file_path}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read file from storage")
+
+    # 3. Build task and route through existing pipeline (reuses file_handler.py)
+    task = _base_task(user, body.session_id, config)
+    task.update({"message": body.message, "input_type": "file"})
+    task = await process_input(task, file_bytes=file_bytes, filename=artifact.filename)
+
+    async with _db_session() as db:
+        session = await get_or_create_session(
+            db, user["user_id"], body.session_id, user.get("department", "")
+        )
+        task["session_id"] = session["id"]
+        task["conversation_history"] = session["messages"]
+        agent_result = await route_request(task)
+        return await process_result(
+            db=db,
+            user_id=user["user_id"],
+            session_id=session["id"],
+            user_message=f"{body.message} [file: {artifact.filename}]",
+            agent_result=agent_result,
+            input_summary=task.get("input_summary", ""),
+        )
+
+
 # ── REST: GET /chat/sessions ──────────────────────────────────────────────────
 
 @router.get("/sessions")
@@ -273,7 +340,6 @@ async def clear_session(
     """Clear all messages from a session (soft reset — keeps session record)."""
     user = _get_user_from_state(request)
 
-    from sqlalchemy import text
     async with _db_session() as db:
         result = await db.execute(
             text(
@@ -461,6 +527,16 @@ async def _handle_ws_text(
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _artifact_path_exists(file_path: Path) -> bool:
+    """Check whether an artifact path exists on disk. Extracted for testability."""
+    return file_path.exists()
+
+
+def _read_artifact_bytes(file_path: Path) -> bytes:
+    """Read raw bytes from a file path. Extracted for testability."""
+    return file_path.read_bytes()
+
 
 def _get_user_from_state(request: Request) -> dict:
     """Extract user payload from request.state (set by ChatGatewayMiddleware)."""

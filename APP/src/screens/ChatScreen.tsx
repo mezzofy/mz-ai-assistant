@@ -1,7 +1,7 @@
 import React, {useState, useRef, useEffect} from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, KeyboardAvoidingView, Platform,
+  StyleSheet, KeyboardAvoidingView, Platform, Modal, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {launchImageLibrary, MediaType} from 'react-native-image-picker';
@@ -11,7 +11,8 @@ import {INPUT_MODES, FILE_TYPE_STYLES} from '../utils/theme';
 import {useTheme} from '../hooks/useTheme';
 import {useAuthStore} from '../stores/authStore';
 import {useSettingsStore} from '../stores/settingsStore';
-import {useChatStore, Message, MediaInfo} from '../stores/chatStore';
+import {useChatStore, Message, MediaInfo, SelectedArtifact} from '../stores/chatStore';
+import {listFilesApi, ArtifactItem} from '../api/files';
 import {DeptBadge} from '../components/shared/DeptBadge';
 
 const SPEECH_LOCALE: Record<string, string> = {
@@ -47,14 +48,19 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const colors = useTheme();
   const {
     messages, isTyping, inputMode, showModes, recording, recordTime,
-    mediaPreview, error: chatError, sessionId, sessionTitles,
+    mediaPreview, selectedArtifact, error: chatError, sessionId, sessionTitles,
     setInputMode, setShowModes, setRecording, setRecordTime, setMediaPreview,
-    sendToServer, clearError, resetChat, setSessionId, setSessionTitle,
+    setSelectedArtifact, sendToServer, sendArtifactToServer, clearError,
+    resetChat, setSessionId, setSessionTitle,
   } = useChatStore();
   const [input, setInput] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [editingTitle, setEditingTitle] = useState(false);
+  const [showMyFilesModal, setShowMyFilesModal] = useState(false);
+  const [myFilesList, setMyFilesList] = useState<ArtifactItem[]>([]);
+  const [myFilesLoading, setMyFilesLoading] = useState(false);
+  const [myFilesError, setMyFilesError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const titleInputRef = useRef<TextInput>(null);
@@ -115,6 +121,15 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
     media: MediaInfo | null = null,
     uri: string | null = null,
   ) => {
+    if (mode === 'myfiles') {
+      if (!selectedArtifact) {return;}
+      setInput('');
+      setLiveTranscript('');
+      sendArtifactToServer(selectedArtifact.id, text);
+      setSelectedArtifact(null);
+      setInputMode('text');
+      return;
+    }
     if (!text && !media) {
       return;
     }
@@ -176,6 +191,18 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
       setInput('https://');
     } else if (mode === 'camera') {
       navigation.navigate('Camera');
+    } else if (mode === 'myfiles') {
+      setShowMyFilesModal(true);
+      setMyFilesLoading(true);
+      setMyFilesError(null);
+      try {
+        const result = await listFilesApi('personal');
+        setMyFilesList(result.artifacts);
+      } catch {
+        setMyFilesError('Failed to load files. Please try again.');
+      } finally {
+        setMyFilesLoading(false);
+      }
     }
   };
 
@@ -377,6 +404,28 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
         </View>
       )}
 
+      {/* My Files: Selected Artifact Preview */}
+      {selectedArtifact && (
+        <View style={[styles.previewBar, {backgroundColor: colors.card, borderColor: colors.border}]}>
+          <Text style={styles.previewEmoji}>📂</Text>
+          <View style={{flex: 1}}>
+            <Text style={[styles.previewName, {color: colors.text}]} numberOfLines={1}>
+              {selectedArtifact.filename}
+            </Text>
+            <Text style={[styles.previewSize, {color: colors.textMuted}]}>
+              {selectedArtifact.file_type.toUpperCase()} · From My Files
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => {
+              setSelectedArtifact(null);
+              setInputMode('text');
+            }}>
+            <Text style={[styles.previewClose, {color: colors.textMuted}]}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Input Mode Selector Grid */}
       {showModes && (
         <View style={[styles.modeGrid, {backgroundColor: colors.card, borderColor: colors.border}]}>
@@ -479,6 +528,68 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
           </TouchableOpacity>
         </View>
       )}
+      {/* My Files Browser Modal */}
+      <Modal
+        visible={showMyFilesModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMyFilesModal(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMyFilesModal(false)}
+        />
+        <View style={[styles.modalSheet, {backgroundColor: colors.card, borderColor: colors.border}]}>
+          <View style={[styles.modalHeader, {borderBottomColor: colors.border}]}>
+            <Text style={[styles.modalTitle, {color: colors.text}]}>My Files</Text>
+            <TouchableOpacity onPress={() => setShowMyFilesModal(false)}>
+              <Text style={[styles.previewClose, {color: colors.textMuted}]}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {myFilesLoading ? (
+            <ActivityIndicator size="large" color={colors.accent} style={{marginTop: 32}} />
+          ) : myFilesError ? (
+            <Text style={[styles.modalError, {color: colors.danger}]}>{myFilesError}</Text>
+          ) : myFilesList.length === 0 ? (
+            <Text style={[styles.modalEmpty, {color: colors.textMuted}]}>
+              No files found. Upload files in the Files tab.
+            </Text>
+          ) : (
+            <ScrollView style={styles.modalList}>
+              {myFilesList.map(item => {
+                const ext = item.file_type.toLowerCase();
+                const ts = (FILE_TYPE_STYLES as Record<string, {bg: string; color: string; label: string}>)[ext]
+                  || {bg: '#4DA6FF18', color: '#4DA6FF', label: ext.toUpperCase().slice(0, 4) || 'FILE'};
+                const date = new Date(item.created_at).toLocaleDateString([], {
+                  month: 'short', day: 'numeric', year: 'numeric',
+                });
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.modalFileRow, {borderBottomColor: colors.border}]}
+                    onPress={() => {
+                      setSelectedArtifact({id: item.id, filename: item.filename, file_type: item.file_type});
+                      setInputMode('myfiles');
+                      setShowMyFilesModal(false);
+                    }}>
+                    <View style={[styles.modalFileIcon, {backgroundColor: ts.bg}]}>
+                      <Text style={[styles.modalFileLabel, {color: ts.color}]}>{ts.label}</Text>
+                    </View>
+                    <View style={{flex: 1}}>
+                      <Text style={[styles.modalFileName, {color: colors.text}]} numberOfLines={1}>
+                        {item.filename}
+                      </Text>
+                      <Text style={[styles.modalFileDate, {color: colors.textMuted}]}>{date}</Text>
+                    </View>
+                    <Icon name="chevron-forward-outline" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -547,4 +658,17 @@ const styles = StyleSheet.create({
   textInput: {flex: 1, paddingVertical: 13, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, fontSize: 14, minHeight: 48},
   textInputDisabled: {opacity: 0.5},
   sendBtn: {borderRadius: 12, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6},
+  // My Files modal
+  modalOverlay: {position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)'},
+  modalSheet: {position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, maxHeight: '70%'},
+  modalHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingBottom: 12, borderBottomWidth: 1},
+  modalTitle: {fontSize: 17, fontWeight: '700'},
+  modalList: {flex: 1},
+  modalFileRow: {flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1},
+  modalFileIcon: {width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center'},
+  modalFileLabel: {fontSize: 10, fontWeight: '800'},
+  modalFileName: {fontSize: 14, fontWeight: '600'},
+  modalFileDate: {fontSize: 12, marginTop: 2},
+  modalError: {margin: 24, fontSize: 14, textAlign: 'center'},
+  modalEmpty: {margin: 24, fontSize: 14, textAlign: 'center'},
 });
