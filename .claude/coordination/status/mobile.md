@@ -1,21 +1,18 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-05
-**Session:** v1.4.0 — Production Release Build
-**Context:** ~15% at checkpoint
+**Session:** v1.5.0 — Production Release Build
+**Context:** ~10% at checkpoint
 **Reason:** Release build complete — reporting to Lead
 
 ---
 
-## v1.4.0 Changes (included in this build)
+## v1.5.0 Changes (included in this build)
 
 | # | File | Change |
 |---|------|--------|
-| 1 | `APP/src/api/files.ts` | `getFileDownloadUrl` now sync (clean URL); new `getDownloadHeaders()` async — auth token in `Authorization` header instead of URL param |
-| 2 | `APP/src/screens/AIUsageStatsScreen.tsx` | `colors.accent` → `colors.success` for status pills |
-| 3 | `APP/src/screens/FileViewerScreen.tsx` | Uses new `getDownloadHeaders()` for fetch + RNFS download |
-| 4 | `APP/src/screens/FilesScreen.tsx` | Uses new `getDownloadHeaders()` for RNFS download |
-| 5 | `APP/package.json` | Version bumped `1.3.0` → `1.4.0` |
-| 6 | `APP/android/app/build.gradle` | `versionCode 7` → `8`, `versionName 1.3.0` → `1.4.0` |
+| 1 | `APP/src/stores/authStore.ts` | Logout now clears in-memory chat (`useChatStore.resetChat()`) + removes `@mz_chat_titles` from AsyncStorage — prevents chat history leaking to next user on shared device |
+| 2 | `APP/package.json` | Version bumped `1.4.0` → `1.5.0` |
+| 3 | `APP/android/app/build.gradle` | `versionCode 8` → `9`, `versionName 1.4.0` → `1.5.0` |
 
 ---
 
@@ -28,12 +25,23 @@
 ```
 cd APP/android && ./gradlew.bat assembleRelease
 ```
-**Result:** ✅ BUILD SUCCESSFUL in 1m 10s
+**Result:** ✅ BUILD SUCCESSFUL in 57s
 - Tasks: 405 actionable (30 executed, 375 up-to-date — incremental)
 - **APK:** `APP/android/app/build/outputs/apk/release/app-release.apk`
 - **Size:** 61 MB
-- **versionCode:** 8 · **versionName:** 1.4.0
+- **versionCode:** 9 · **versionName:** 1.5.0
 - Signing: `mezzofy-release.keystore` via `keystore.properties`
+
+---
+
+## Version History (this branch)
+
+| Version | versionCode | Key Change |
+|---------|:-----------:|-----------|
+| 1.2.0 | 6 | AI Usage Stats screen (model status + system health) |
+| 1.3.0 | 7 | AI Usage Stats real data (LLM usage stats wired) |
+| 1.4.0 | 8 | Auth header for downloads; success color for status pills |
+| 1.5.0 | 9 | Logout clears chat state + AsyncStorage titles |
 
 ---
 
