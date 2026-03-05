@@ -70,7 +70,7 @@ class AnthropicClient:
         kwargs: dict[str, Any] = {
             "model": self._model,
             "max_tokens": max_tokens or self._max_tokens,
-            "messages": messages,
+            "messages": self._sanitize_messages(messages),
         }
 
         if system:
@@ -100,7 +100,7 @@ class AnthropicClient:
         kwargs: dict[str, Any] = {
             "model": self._model,
             "max_tokens": self._max_tokens,
-            "messages": messages,
+            "messages": self._sanitize_messages(messages),
         }
         if system:
             kwargs["system"] = system
@@ -114,6 +114,18 @@ class AnthropicClient:
             raise
 
     # ── Private helpers ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _sanitize_messages(messages: list[dict]) -> list[dict]:
+        """
+        Strip fields not accepted by the Anthropic API (e.g. 'timestamp' added
+        by session_manager). Only 'role' and 'content' are passed through.
+        """
+        _ALLOWED = {"role", "content"}
+        return [
+            {k: v for k, v in msg.items() if k in _ALLOWED}
+            for msg in messages
+        ]
 
     def _format_tools(self, tools: list[dict]) -> list[dict]:
         """

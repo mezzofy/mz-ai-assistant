@@ -276,12 +276,13 @@ async def system_health(
     except Exception:
         pass
 
-    # LLM manager
+    # LLM manager — check that Claude client is initialized with a non-empty API key
     llm_ok = False
     try:
         from app.llm import llm_manager as llm_mod
-        llm_mod.get()
-        llm_ok = True
+        mgr = llm_mod.get()
+        if mgr is not None and bool(mgr.claude._api_key):
+            llm_ok = True
     except Exception:
         pass
 

@@ -15,9 +15,9 @@ import {getLlmUsageStats, LlmUsageStats} from '../api/llm';
 type StatusPillProps = {label: string; ok: boolean; colors: ReturnType<typeof useTheme>};
 
 const StatusPill: React.FC<StatusPillProps> = ({label, ok, colors}) => (
-  <View style={[styles.pill, {backgroundColor: ok ? colors.accent + '18' : colors.danger + '18'}]}>
-    <View style={[styles.pillDot, {backgroundColor: ok ? colors.accent : colors.danger}]} />
-    <Text style={[styles.pillText, {color: ok ? colors.accent : colors.danger}]}>
+  <View style={[styles.pill, {backgroundColor: ok ? colors.success + '18' : colors.danger + '18'}]}>
+    <View style={[styles.pillDot, {backgroundColor: ok ? colors.success : colors.danger}]} />
+    <Text style={[styles.pillText, {color: ok ? colors.success : colors.danger}]}>
       {label}
     </Text>
   </View>
@@ -42,7 +42,7 @@ const ModelRow: React.FC<ModelRowProps> = ({name, detail, role, online, colors})
     </View>
     <View style={styles.modelRight}>
       <Text style={[styles.modelRole, {color: colors.textDim}]}>{role}</Text>
-      <View style={[styles.statusDot, {backgroundColor: online ? colors.accent : colors.danger}]} />
+      <View style={[styles.statusDot, {backgroundColor: online ? colors.success : colors.danger}]} />
     </View>
   </View>
 );
