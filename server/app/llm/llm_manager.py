@@ -238,11 +238,23 @@ class LLMManager:
                         f"LLMManager tool loop iter={iterations}: both models failed — "
                         f"primary={primary_err!r} fallback={fallback_err!r}"
                     )
+                    # If tools already executed successfully, tell the user what was done
+                    # rather than returning a generic error. The artifacts must be included
+                    # so process_result() can register them in the DB.
+                    if artifacts:
+                        files_created = ", ".join(a["name"] for a in artifacts)
+                        content = (
+                            f"Your file(s) have been saved: {files_created}. "
+                            f"The AI response could not be completed — please check your Files tab."
+                        )
+                    else:
+                        content = "AI service is temporarily unavailable. Please try again shortly."
                     return {
                         "success": False,
-                        "content": "AI service is temporarily unavailable. Please try again shortly.",
+                        "content": content,
                         "iterations": iterations,
                         "tools_called": tools_called,
+                        "artifacts": artifacts,          # so process_result() registers them
                         "usage": {**total_usage, "model": model.model_name},
                     }
 
