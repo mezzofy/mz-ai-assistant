@@ -1,11 +1,21 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import RNFS from 'react-native-fs';
 import {FILE_TYPE_STYLES} from '../utils/theme';
 import {useTheme} from '../hooks/useTheme';
-import {listFilesApi, ArtifactItem} from '../api/files';
+import {listFilesApi, ArtifactItem, getFileDownloadUrl} from '../api/files';
+import {getViewerType} from '../utils/fileViewer';
 
 const formatDate = (iso: string): string => {
   const d = new Date(iso);
@@ -32,18 +42,85 @@ const getTypeKey = (filename: string, fileType: string): string => {
   return FILE_TYPE_STYLES[t] ? t : 'md';
 };
 
-export const FilesScreen: React.FC = () => {
+export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [files, setFiles] = useState<ArtifactItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloadState, setDownloadState] = useState<
+    Record<string, number | 'done' | 'error'>
+  >({});
   const colors = useTheme();
 
-  useEffect(() => {
-    listFilesApi()
-      .then(res => setFiles(res.artifacts))
-      .catch(() => setError('Failed to load files'))
-      .finally(() => setLoading(false));
+  const loadFiles = useCallback(async (isRefresh = false) => {
+    if (isRefresh) { setRefreshing(true); } else { setLoading(true); }
+    setError(null);
+    try {
+      const res = await listFilesApi();
+      setFiles(res.artifacts);
+    } catch {
+      setError('Failed to load files');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
+
+  useEffect(() => { loadFiles(); }, [loadFiles]);
+
+  const handleDownload = useCallback(async (file: ArtifactItem) => {
+    if (typeof downloadState[file.id] === 'number') { return; }
+
+    if (Platform.OS === 'android' && (Platform.Version as number) < 29) {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        {
+          title: 'Storage Permission',
+          message: 'Mezzofy AI needs storage access to save files.',
+          buttonPositive: 'Allow',
+        },
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        setDownloadState(prev => ({...prev, [file.id]: 'error'}));
+        return;
+      }
+    }
+
+    setDownloadState(prev => ({...prev, [file.id]: 0}));
+    try {
+      const url = await getFileDownloadUrl(file.id);
+      const dest =
+        Platform.OS === 'android'
+          ? `${RNFS.DownloadDirectoryPath}/${file.filename}`
+          : `${RNFS.DocumentDirectoryPath}/${file.filename}`;
+
+      const dl = RNFS.downloadFile({
+        fromUrl: url,
+        toFile: dest,
+        progressDivider: 5,
+        progress: r => {
+          const pct = Math.round((r.bytesWritten / r.contentLength) * 100);
+          setDownloadState(prev => ({...prev, [file.id]: pct}));
+        },
+      });
+
+      const result = await dl.promise;
+      if (result.statusCode === 200) {
+        setDownloadState(prev => ({...prev, [file.id]: 'done'}));
+        setTimeout(() => {
+          setDownloadState(prev => {
+            const next = {...prev};
+            delete next[file.id];
+            return next;
+          });
+        }, 2500);
+      } else {
+        setDownloadState(prev => ({...prev, [file.id]: 'error'}));
+      }
+    } catch {
+      setDownloadState(prev => ({...prev, [file.id]: 'error'}));
+    }
+  }, [downloadState]);
 
   if (loading) {
     return (
@@ -55,9 +132,19 @@ export const FilesScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, {backgroundColor: colors.primary}]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, {color: colors.text}]}>Generated Files</Text>
-        <Text style={[styles.count, {color: colors.textMuted}]}>{files.length} files</Text>
+      <View style={[styles.header, {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}]}>
+        <View>
+          <Text style={[styles.title, {color: colors.text}]}>Generated Files</Text>
+          <Text style={[styles.count, {color: colors.textMuted}]}>{files.length} files</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => loadFiles(true)}
+          disabled={refreshing || loading}
+          style={{padding: 8}}>
+          {refreshing
+            ? <ActivityIndicator size="small" color={colors.accent} />
+            : <Icon name="refresh-outline" size={22} color={colors.accent} />}
+        </TouchableOpacity>
       </View>
 
       {error ? (
@@ -67,7 +154,16 @@ export const FilesScreen: React.FC = () => {
         </View>
       ) : null}
 
-      <ScrollView style={styles.list}>
+      <ScrollView
+        style={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadFiles(true)}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }>
         {files.length === 0 && !error ? (
           <View style={styles.emptyWrap}>
             <Icon name="document-outline" size={40} color={colors.textDim} />
@@ -75,16 +171,25 @@ export const FilesScreen: React.FC = () => {
           </View>
         ) : (
           files.map(f => {
-            const typeKey = getTypeKey(f.filename, f.file_type);
-            const ts = FILE_TYPE_STYLES[typeKey] || FILE_TYPE_STYLES.md;
+            const typeKey    = getTypeKey(f.filename, f.file_type);
+            const ts         = FILE_TYPE_STYLES[typeKey] || FILE_TYPE_STYLES.md;
+            const viewerType = getViewerType(f.filename, f.file_type);
+            const dlState    = downloadState[f.id];
+            const isDownloading = typeof dlState === 'number';
+
             return (
               <TouchableOpacity
                 key={f.id}
                 style={[styles.card, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}
-                activeOpacity={0.7}>
+                activeOpacity={viewerType ? 0.7 : 1}
+                onPress={() => viewerType && navigation.navigate('FileViewer', {file: f})}>
+
+                {/* Type badge */}
                 <View style={[styles.typeIcon, {backgroundColor: ts.bg}]}>
                   <Text style={[styles.typeLabel, {color: ts.color}]}>{ts.label}</Text>
                 </View>
+
+                {/* Filename + meta */}
                 <View style={{flex: 1, marginRight: 8}}>
                   <Text style={[styles.fileName, {color: colors.text}]} numberOfLines={1}>
                     {f.filename}
@@ -99,12 +204,41 @@ export const FilesScreen: React.FC = () => {
                     <Text style={[styles.fileDate, {color: colors.textMuted}]}>{formatDate(f.created_at)}</Text>
                   </View>
                 </View>
-                <Icon
-                  name="download-outline"
-                  size={18}
-                  color={colors.accent}
-                  style={{marginLeft: 8}}
-                />
+
+                {/* Action buttons */}
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+                  {viewerType ? (
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate('FileViewer', {file: f})}
+                      style={styles.actionBtn}
+                      hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                      <Icon name="eye-outline" size={18} color={colors.info} />
+                    </TouchableOpacity>
+                  ) : null}
+
+                  <TouchableOpacity
+                    onPress={() => handleDownload(f)}
+                    disabled={isDownloading}
+                    style={styles.actionBtn}
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                    {isDownloading ? (
+                      <View style={{alignItems: 'center'}}>
+                        <ActivityIndicator size="small" color={colors.accent} />
+                        {(dlState as number) > 0 ? (
+                          <Text style={{fontSize: 9, color: colors.accent, fontWeight: '700'}}>
+                            {dlState}%
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : dlState === 'done' ? (
+                      <Icon name="checkmark-circle" size={18} color={colors.success} />
+                    ) : dlState === 'error' ? (
+                      <Icon name="alert-circle-outline" size={18} color={colors.danger} />
+                    ) : (
+                      <Icon name="download-outline" size={18} color={colors.accent} />
+                    )}
+                  </TouchableOpacity>
+                </View>
               </TouchableOpacity>
             );
           })
@@ -151,4 +285,5 @@ const styles = StyleSheet.create({
   fileSize: {fontSize: 11},
   fileDot: {fontSize: 11},
   fileDate: {fontSize: 11},
+  actionBtn: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
 });
