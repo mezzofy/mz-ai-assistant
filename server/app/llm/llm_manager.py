@@ -192,7 +192,7 @@ class LLMManager:
                 },
             }
         """
-        message = task.get("message", "")
+        message = task.get("extracted_text") or task.get("message", "")
         model = self.select_model(message, task)
         system = self._build_system_prompt(task)
         logger.info(
