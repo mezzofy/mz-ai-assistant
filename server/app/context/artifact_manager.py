@@ -146,6 +146,66 @@ async def get_artifact(
     }
 
 
+async def sync_user_artifacts(
+    db: AsyncSession,
+    user_id: str,
+    department: str,
+    email: str,
+) -> int:
+    """
+    Scan the user's artifact directory on disk and register any files
+    not already in the artifacts table.
+
+    Returns the count of newly registered files.
+
+    Skips: .md files (system files like memory.md used by the AI agent).
+    Called transparently on every GET /files/ request so the Files Tab
+    is always consistent with the filesystem.
+    """
+    user_dir = get_user_artifacts_dir(department, email)
+    if not user_dir.exists():
+        return 0
+
+    result = await db.execute(
+        text("SELECT filename FROM artifacts WHERE user_id = :uid"),
+        {"uid": user_id},
+    )
+    registered = {row[0] for row in result.fetchall()}
+
+    SKIP_EXTENSIONS = {".md"}
+    ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx", ".pptx", ".xlsx", ".csv", ".mp3", ".mp4"}
+
+    newly_registered = 0
+    for file_path in user_dir.iterdir():
+        if not file_path.is_file():
+            continue
+        suffix = file_path.suffix.lower()
+        if suffix in SKIP_EXTENSIONS:
+            continue
+        if suffix not in ALLOWED_EXTENSIONS:
+            continue
+        if file_path.name in registered:
+            continue
+        file_type = suffix.lstrip(".")
+        await register_artifact(
+            db=db,
+            user_id=user_id,
+            session_id="",
+            filename=file_path.name,
+            file_path=str(file_path),
+            file_type=file_type,
+        )
+        newly_registered += 1
+
+    if newly_registered:
+        await db.commit()
+        logger.info(
+            f"sync_user_artifacts: registered {newly_registered} orphaned file(s) "
+            f"for user_id={user_id}"
+        )
+    return newly_registered
+
+
 async def list_user_artifacts(
     db: AsyncSession,
     user_id: str,

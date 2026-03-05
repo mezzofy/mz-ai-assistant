@@ -27,6 +27,7 @@ from app.context.artifact_manager import (
     get_artifacts_dir,
     get_user_artifacts_dir,
     get_dept_artifacts_dir,
+    sync_user_artifacts,
 )
 
 logger = logging.getLogger("mezzofy.api.files")
@@ -119,6 +120,12 @@ async def list_files(
 ):
     """List all artifacts (uploads + generated files) for the current user."""
     uid = current_user["user_id"]
+    dept = current_user.get("department", "")
+    email = current_user.get("email", "")
+
+    # Auto-register any files on disk that aren't in the DB yet
+    await sync_user_artifacts(db, uid, dept, email)
+
     logger.info(f"list_files: querying for user_id={uid}")
     artifacts = await list_user_artifacts(db, uid, limit=limit, offset=offset)
     logger.info(f"list_files: returning {len(artifacts)} artifacts for user_id={uid}")
