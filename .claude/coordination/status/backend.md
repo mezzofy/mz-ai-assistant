@@ -1,9 +1,9 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-04
+**Date:** 2026-03-05
 **Project:** mz-ai-assistant
-**Session:** 13 (change request — agent routing redesign)
-**Context:** ~30% at checkpoint
-**Reason:** All 8 routing changes complete
+**Session:** 14 (change request — LLM usage stats endpoint)
+**Context:** ~20% at checkpoint
+**Reason:** Task 1 complete — single endpoint, two files
 
 ---
 
@@ -11,23 +11,28 @@
 
 | # | File | Change |
 |---|------|--------|
-| 1 | `server/app/agents/marketing_agent.py` | Replaced `_TRIGGER_KEYWORDS` — removed generic words ("content", "write", "draft", "post", "copy", "brand", "website", "blog"), replaced with specific 2-word marketing phrases |
-| 2 | `server/app/agents/management_agent.py` | Replaced `_general_response()` — changed from `llm_mod.get().chat()` (no tools) to `llm_mod.get().execute_with_tools()` with `conversation_history` → `messages` mapping |
+| 1 | `server/app/api/llm.py` | CREATED — GET /llm/usage-stats endpoint |
+| 2 | `server/app/main.py` | MODIFIED — added `llm` import + `app.include_router(llm.router, prefix="/llm")` |
 
 ---
 
-## Bug Fix Summary
+## Task Summary
 
-**Bug 1 (primary):** "content" in MarketingAgent keywords → message "Create a notes.txt with content Hello" incorrectly matched MarketingAgent → generated "500-word landing page". Fixed by using multi-word specific phrases only.
+**Plan:** `plans/llm-usage-stats-plan.md` Task 1 ✅ COMPLETE
 
-**Bug 2 (secondary):** ManagementAgent._general_response() used chat() with no tools → even with correct routing, LLM could not call create_txt. Fixed by switching to execute_with_tools() + passing conversation history.
+- GET /llm/usage-stats requires Bearer JWT auth via `get_current_user`
+- Queries `llm_usage` table with `user_id = :user_id` filter — no cross-user data visible
+- Returns `LlmUsageStats` Pydantic model: totals + per-model breakdown (ordered by count DESC)
+- COALESCE guards on all SUM() calls — empty result returns zeros, not null
+- Period is "all_time" for v1
+- Follows `files.py` pattern exactly: `Depends(get_current_user)`, `Depends(get_db)`, inline `sqlalchemy.text` queries
 
 ---
 
 ## No New Types Exported
 
-No changes to shared types, API contracts, or response shapes.
-No handoff to Frontend/Mobile needed.
+Response shape defined in `llm.py` as Pydantic models (`LlmUsageStats`, `ModelUsage`).
+Mobile agent must implement matching TypeScript interfaces — see plan Task 2 for the exact shape.
 
 ---
 
@@ -39,4 +44,4 @@ After /clear, load in order:
 3. .claude/coordination/memory.md
 4. This checkpoint file
 
-Session 12 is complete. Return to Lead terminal for review + deployment.
+Task 1 is complete. Return to Lead terminal for handoff to Mobile Agent (Task 2).

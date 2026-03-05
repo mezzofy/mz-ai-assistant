@@ -10,6 +10,7 @@ Routers mounted:
     /admin/*      — User management, system stats (admin only)
     /webhooks/*   — Inbound event webhooks (Mezzofy, Teams, custom)
     /scheduler/*  — User-managed scheduled job CRUD
+    /llm/*        — LLM usage statistics
 
 Startup:
     - Verify PostgreSQL connection
@@ -29,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import check_db_connection
 from app.core.config import load_config
-from app.api import auth, chat, files, admin
+from app.api import auth, chat, files, admin, llm
 from app.webhooks import webhooks, scheduler as scheduler_router
 from app.gateway import ChatGatewayMiddleware
 
@@ -136,6 +137,7 @@ app.include_router(files.router,            prefix="/files")
 app.include_router(admin.router,            prefix="/admin")
 app.include_router(webhooks.router,         prefix="/webhooks")
 app.include_router(scheduler_router.router, prefix="/scheduler")
+app.include_router(llm.router,              prefix="/llm")
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
