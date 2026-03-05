@@ -6,7 +6,8 @@ Registers all routers, middleware, and startup/shutdown lifecycle hooks.
 Routers mounted:
     /auth/*       — JWT login, refresh, logout, me
     /chat/*       — Message send, history, WebSocket stream
-    /files/*      — Upload, download, list artifacts
+    /files/*      — Upload, download, list artifacts (scope-aware)
+    /folders/*    — Folder CRUD with 3-layer access control
     /admin/*      — User management, system stats (admin only)
     /webhooks/*   — Inbound event webhooks (Mezzofy, Teams, custom)
     /scheduler/*  — User-managed scheduled job CRUD
@@ -30,7 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import check_db_connection
 from app.core.config import load_config
-from app.api import auth, chat, files, admin, llm
+from app.api import auth, chat, files, folders, admin, llm
 from app.webhooks import webhooks, scheduler as scheduler_router
 from app.gateway import ChatGatewayMiddleware
 
@@ -134,6 +135,7 @@ app.add_middleware(
 app.include_router(auth.router,             prefix="/auth")
 app.include_router(chat.router,             prefix="/chat")
 app.include_router(files.router,            prefix="/files")
+app.include_router(folders.router,          prefix="/folders")
 app.include_router(admin.router,            prefix="/admin")
 app.include_router(webhooks.router,         prefix="/webhooks")
 app.include_router(scheduler_router.router, prefix="/scheduler")

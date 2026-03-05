@@ -5,6 +5,8 @@ import {getAccessToken} from '../storage/tokenStorage';
 // ── Response types ─────────────────────────────────────────────────────────────
 // Matches server/app/api/files.py response shapes
 
+export type FileScope = 'personal' | 'department' | 'company';
+
 export interface ArtifactItem {
   id: string;
   filename: string;
@@ -12,6 +14,8 @@ export interface ArtifactItem {
   download_url: string | null;
   created_at: string;
   file_size?: string;
+  scope: FileScope;
+  folder_id: string | null;
 }
 
 export interface FilesResponse {
@@ -22,26 +26,37 @@ export interface FilesResponse {
 export interface UploadResponse {
   artifact_id: string;
   filename: string;
+  file_type: string;
+  scope: FileScope;
+  size_bytes: number;
   download_url: string | null;
 }
 
 // ── API functions ──────────────────────────────────────────────────────────────
 
-export const listFilesApi = (): Promise<FilesResponse> =>
-  apiFetch<FilesResponse>('/files/');
+/** List files for a given scope, optionally inside a folder. */
+export const listFilesApi = (
+  scope: FileScope = 'personal',
+  folderId?: string | null,
+): Promise<FilesResponse> => {
+  const params = new URLSearchParams({scope});
+  if (folderId) { params.set('folder_id', folderId); }
+  return apiFetch<FilesResponse>(`/files/?${params}`);
+};
 
+/** Upload a file to a specific scope (and optionally into a folder). */
 export const uploadFileApi = (
   fileUri: string,
   fileName: string,
   mimeType: string,
+  scope: FileScope = 'personal',
+  folderId?: string | null,
 ): Promise<UploadResponse> => {
   const form = new FormData();
-  // React Native FormData file: pass object with uri/name/type
   form.append('media_file', {uri: fileUri, name: fileName, type: mimeType} as unknown as Blob);
-  return apiFetch<UploadResponse>('/files/upload', {
-    method: 'POST',
-    body: form,
-  });
+  form.append('scope', scope);
+  if (folderId) { form.append('folder_id', folderId); }
+  return apiFetch<UploadResponse>('/files/upload', {method: 'POST', body: form});
 };
 
 export const deleteFileApi = (id: string): Promise<{deleted: boolean}> =>

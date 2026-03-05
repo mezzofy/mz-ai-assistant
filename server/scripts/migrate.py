@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Mezzofy AI Assistant — Database Migration Script
-Creates all 9 PostgreSQL tables with indexes.
-Safe to re-run: uses CREATE TABLE IF NOT EXISTS.
+Creates all 10 PostgreSQL tables with indexes.
+Safe to re-run: uses CREATE TABLE IF NOT EXISTS + ADD COLUMN IF NOT EXISTS.
 Usage: python scripts/migrate.py
 """
 
@@ -88,7 +88,20 @@ def run_migrations(conn):
     """)
     print("  ✅ sales_leads")
 
-    # ── 4. artifacts ─────────────────────────────────────────
+    # ── 4. folders ───────────────────────────────────────────
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS folders (
+            id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name        TEXT NOT NULL,
+            scope       TEXT NOT NULL CHECK (scope IN ('personal','department','company')),
+            owner_id    UUID REFERENCES users(id) ON DELETE CASCADE,
+            department  TEXT,
+            created_at  TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    print("  ✅ folders")
+
+    # ── 5. artifacts ─────────────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS artifacts (
             id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -98,12 +111,15 @@ def run_migrations(conn):
             filename    TEXT NOT NULL,
             file_path   TEXT NOT NULL,
             size_bytes  BIGINT,
+            scope       TEXT NOT NULL DEFAULT 'personal',
+            department  TEXT,
+            folder_id   UUID REFERENCES folders(id) ON DELETE SET NULL,
             created_at  TIMESTAMPTZ DEFAULT NOW()
         )
     """)
     print("  ✅ artifacts")
 
-    # ── 5. audit_log ─────────────────────────────────────────
+    # ── 7. audit_log ─────────────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS audit_log (
             id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -122,7 +138,7 @@ def run_migrations(conn):
     """)
     print("  ✅ audit_log")
 
-    # ── 6. llm_usage ─────────────────────────────────────────
+    # ── 8. llm_usage ─────────────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS llm_usage (
             id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -138,7 +154,7 @@ def run_migrations(conn):
     """)
     print("  ✅ llm_usage")
 
-    # ── 7. email_log ─────────────────────────────────────────
+    # ── 9. email_log ─────────────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS email_log (
             id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -153,7 +169,7 @@ def run_migrations(conn):
     """)
     print("  ✅ email_log")
 
-    # ── 8. scheduled_jobs ────────────────────────────────────
+    # ── 10. scheduled_jobs ───────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS scheduled_jobs (
             id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -171,7 +187,7 @@ def run_migrations(conn):
     """)
     print("  ✅ scheduled_jobs")
 
-    # ── 9. webhook_events ────────────────────────────────────
+    # ── 11. webhook_events ───────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS webhook_events (
             id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -189,6 +205,31 @@ def run_migrations(conn):
     """)
     print("  ✅ webhook_events")
 
+    # ── Schema upgrades (idempotent — safe for existing DBs) ─
+    print("\nApplying schema upgrades...")
+
+    # artifacts: add scope column if missing (existing rows → 'personal')
+    cur.execute("""
+        ALTER TABLE artifacts
+            ADD COLUMN IF NOT EXISTS scope      TEXT NOT NULL DEFAULT 'personal',
+            ADD COLUMN IF NOT EXISTS department TEXT
+    """)
+    print("  ✅ artifacts.scope / artifacts.department")
+
+    # artifacts: add folder_id FK if missing (must check column existence first)
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'artifacts' AND column_name = 'folder_id'
+    """)
+    if cur.fetchone() is None:
+        cur.execute("""
+            ALTER TABLE artifacts
+                ADD COLUMN folder_id UUID REFERENCES folders(id) ON DELETE SET NULL
+        """)
+        print("  ✅ artifacts.folder_id")
+    else:
+        print("  ⏭  artifacts.folder_id (already exists)")
+
     # ── Indexes ──────────────────────────────────────────────
     print("\nCreating indexes...")
 
@@ -201,8 +242,12 @@ def run_migrations(conn):
          "CREATE INDEX IF NOT EXISTS idx_leads_company ON sales_leads(company_name)"),
         ("idx_leads_followup",
          "CREATE INDEX IF NOT EXISTS idx_leads_followup ON sales_leads(follow_up_date) WHERE follow_up_date IS NOT NULL"),
+        ("idx_folders_scope",
+         "CREATE INDEX IF NOT EXISTS idx_folders_scope ON folders(scope, department)"),
         ("idx_artifacts_user",
          "CREATE INDEX IF NOT EXISTS idx_artifacts_user ON artifacts(user_id, created_at DESC)"),
+        ("idx_artifacts_scope",
+         "CREATE INDEX IF NOT EXISTS idx_artifacts_scope ON artifacts(scope, department, folder_id)"),
         ("idx_audit_user",
          "CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, created_at DESC)"),
         ("idx_audit_action",
