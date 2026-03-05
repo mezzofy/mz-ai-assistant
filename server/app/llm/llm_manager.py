@@ -281,9 +281,21 @@ class LLMManager:
 
                 try:
                     result = await self.tool_executor.execute(tool_name, **tc["arguments"])
-                except Exception as e:
-                    logger.error(f"Tool '{tool_name}' raised exception: {e}")
-                    result = {"success": False, "error": str(e)}
+                except Exception as tool_err:
+                    logger.error(
+                        f"LLMManager: tool '{tool_name}' raised exception: {tool_err!r} "
+                        f"(user={task.get('user_id')} iter={iterations})"
+                    )
+                    # Return immediately — do NOT feed this back to the model as a tool result,
+                    # which would trigger another (likely failing) model API call.
+                    return {
+                        "success": False,
+                        "content": f"Tool '{tool_name}' failed: {tool_err}",
+                        "iterations": iterations,
+                        "tools_called": tools_called,
+                        "artifacts": artifacts,
+                        "usage": {**total_usage, "model": used_model.model_name},
+                    }
 
                 tool_results.append((tc, result))
 
