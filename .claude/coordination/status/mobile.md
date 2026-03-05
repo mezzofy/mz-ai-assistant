@@ -1,19 +1,21 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-05
-**Session:** v1.3.0 — Production Release Build
+**Session:** v1.4.0 — Production Release Build
 **Context:** ~15% at checkpoint
 **Reason:** Release build complete — reporting to Lead
 
 ---
 
-## v1.3.0 Changes (This + Previous Session)
+## v1.4.0 Changes (included in this build)
 
-| # | File | Action | Status |
-|---|------|--------|--------|
-| 1 | `APP/src/api/llm.ts` | Created — `ModelUsage` + `LlmUsageStats` interfaces + `getLlmUsageStats()` | ✅ |
-| 2 | `APP/src/screens/AIUsageStatsScreen.tsx` | Replaced "Coming Soon" with real data (loading/error/empty/data states) | ✅ |
-| 3 | `APP/package.json` | Version bumped `1.2.0` → `1.3.0` | ✅ |
-| 4 | `APP/android/app/build.gradle` | `versionCode 6` → `7`, `versionName 1.2.0` → `1.3.0` | ✅ |
+| # | File | Change |
+|---|------|--------|
+| 1 | `APP/src/api/files.ts` | `getFileDownloadUrl` now sync (clean URL); new `getDownloadHeaders()` async — auth token in `Authorization` header instead of URL param |
+| 2 | `APP/src/screens/AIUsageStatsScreen.tsx` | `colors.accent` → `colors.success` for status pills |
+| 3 | `APP/src/screens/FileViewerScreen.tsx` | Uses new `getDownloadHeaders()` for fetch + RNFS download |
+| 4 | `APP/src/screens/FilesScreen.tsx` | Uses new `getDownloadHeaders()` for RNFS download |
+| 5 | `APP/package.json` | Version bumped `1.3.0` → `1.4.0` |
+| 6 | `APP/android/app/build.gradle` | `versionCode 7` → `8`, `versionName 1.3.0` → `1.4.0` |
 
 ---
 
@@ -26,13 +28,12 @@
 ```
 cd APP/android && ./gradlew.bat assembleRelease
 ```
-**Result:** ✅ BUILD SUCCESSFUL in 3m 6s
-- Tasks: 405 actionable (358 executed, 47 up-to-date)
+**Result:** ✅ BUILD SUCCESSFUL in 1m 10s
+- Tasks: 405 actionable (30 executed, 375 up-to-date — incremental)
 - **APK:** `APP/android/app/build/outputs/apk/release/app-release.apk`
-- **Size:** 61 MB (signed release — smaller than debug 145 MB, no debug symbols)
-- **versionCode:** 7 · **versionName:** 1.3.0
+- **Size:** 61 MB
+- **versionCode:** 8 · **versionName:** 1.4.0
 - Signing: `mezzofy-release.keystore` via `keystore.properties`
-- Warnings: Gradle 9.0 deprecation notices (pre-existing, non-fatal) + compileSdk 35 AGP compatibility note (pre-existing)
 
 ---
 
