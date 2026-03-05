@@ -7,11 +7,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  Platform,
-  PermissionsAndroid,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import {FILE_TYPE_STYLES} from '../utils/theme';
 import {useTheme} from '../hooks/useTheme';
 import {listFilesApi, ArtifactItem, getFileDownloadUrl, getDownloadHeaders} from '../api/files';
@@ -40,6 +39,22 @@ const getTypeKey = (filename: string, fileType: string): string => {
   }
   const t = fileType.split('/').pop()?.toLowerCase() ?? fileType.toLowerCase();
   return FILE_TYPE_STYLES[t] ? t : 'md';
+};
+
+const getMimeType = (filename: string): string => {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  const map: Record<string, string> = {
+    pdf: 'application/pdf',
+    csv: 'text/csv',
+    txt: 'text/plain',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    mp4: 'video/mp4',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  };
+  return map[ext] ?? 'application/octet-stream';
 };
 
 export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
@@ -71,29 +86,12 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const handleDownload = useCallback(async (file: ArtifactItem) => {
     if (typeof downloadState[file.id] === 'number') { return; }
 
-    if (Platform.OS === 'android' && (Platform.Version as number) < 29) {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-        {
-          title: 'Storage Permission',
-          message: 'Mezzofy AI needs storage access to save files.',
-          buttonPositive: 'Allow',
-        },
-      );
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-        setDownloadState(prev => ({...prev, [file.id]: 'error'}));
-        return;
-      }
-    }
-
     setDownloadState(prev => ({...prev, [file.id]: 0}));
     try {
       const url = getFileDownloadUrl(file.id);
       const headers = await getDownloadHeaders();
-      const dest =
-        Platform.OS === 'android'
-          ? `${RNFS.DownloadDirectoryPath}/${file.filename}`
-          : `${RNFS.DocumentDirectoryPath}/${file.filename}`;
+      // Download to cache (temp) — share sheet lets user decide final destination
+      const dest = `${RNFS.CachesDirectoryPath}/${file.filename}`;
 
       const dl = RNFS.downloadFile({
         fromUrl: url,
@@ -109,18 +107,38 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
       const result = await dl.promise;
       if (result.statusCode === 200) {
         setDownloadState(prev => ({...prev, [file.id]: 'done'}));
-        setTimeout(() => {
-          setDownloadState(prev => {
-            const next = {...prev};
-            delete next[file.id];
-            return next;
-          });
-        }, 2500);
+        // Open native share sheet — user chooses where to save or share
+        await Share.open({
+          url: `file://${dest}`,
+          type: getMimeType(file.filename),
+          filename: file.filename,
+          failOnCancel: false,
+        });
+        // Reset after share sheet dismissed
+        setDownloadState(prev => {
+          const next = {...prev};
+          delete next[file.id];
+          return next;
+        });
       } else {
         setDownloadState(prev => ({...prev, [file.id]: 'error'}));
       }
-    } catch {
-      setDownloadState(prev => ({...prev, [file.id]: 'error'}));
+    } catch (err: any) {
+      const msg: string = err?.message ?? '';
+      const isCancel =
+        msg === 'User did not share' ||
+        msg.toLowerCase().includes('cancel') ||
+        err?.error?.toLowerCase?.()?.includes('cancel');
+      if (isCancel) {
+        // User cancelled share sheet — reset cleanly
+        setDownloadState(prev => {
+          const next = {...prev};
+          delete next[file.id];
+          return next;
+        });
+      } else {
+        setDownloadState(prev => ({...prev, [file.id]: 'error'}));
+      }
     }
   }, [downloadState]);
 
