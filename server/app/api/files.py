@@ -118,9 +118,10 @@ async def list_files(
     db: AsyncSession = Depends(get_db),
 ):
     """List all artifacts (uploads + generated files) for the current user."""
-    artifacts = await list_user_artifacts(
-        db, current_user["user_id"], limit=limit, offset=offset
-    )
+    uid = current_user["user_id"]
+    logger.info(f"list_files: querying for user_id={uid}")
+    artifacts = await list_user_artifacts(db, uid, limit=limit, offset=offset)
+    logger.info(f"list_files: returning {len(artifacts)} artifacts for user_id={uid}")
     return {"artifacts": artifacts, "count": len(artifacts)}
 
 

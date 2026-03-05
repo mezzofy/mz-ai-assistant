@@ -195,6 +195,11 @@ class LLMManager:
         message = task.get("message", "")
         model = self.select_model(message, task)
         system = self._build_system_prompt(task)
+        logger.info(
+            f"execute_with_tools: user_id={task.get('user_id')} "
+            f"dept={task.get('department')} model={model.model_name} "
+            f"msg_len={len(message)}"
+        )
 
         # Build initial message list
         history = list(task.get("messages", []))
@@ -221,18 +226,21 @@ class LLMManager:
                 response = await model.chat(history, tools=tool_defs, system=system)
             except Exception as primary_err:
                 logger.warning(
-                    f"LLMManager tool loop: primary model failed on iteration {iterations}: "
-                    f"{primary_err} — failing over"
+                    f"LLMManager tool loop iter={iterations}: primary model "
+                    f"({model.model_name}) failed: {primary_err!r} — trying fallback"
                 )
                 try:
                     fallback = self.kimi if model is self.claude else self.claude
                     response = await fallback.chat(history, tools=tool_defs, system=system)
                     used_model = fallback
                 except Exception as fallback_err:
-                    logger.error(f"LLMManager tool loop: both models failed: {fallback_err}")
+                    logger.error(
+                        f"LLMManager tool loop iter={iterations}: both models failed — "
+                        f"primary={primary_err!r} fallback={fallback_err!r}"
+                    )
                     return {
                         "success": False,
-                        "content": "Both AI models are currently unavailable. Please try again shortly.",
+                        "content": "AI service is temporarily unavailable. Please try again shortly.",
                         "iterations": iterations,
                         "tools_called": tools_called,
                         "usage": {**total_usage, "model": model.model_name},

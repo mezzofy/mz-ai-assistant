@@ -41,7 +41,8 @@
       "Bash(cmd.exe:*)",
       "Bash(./gradlew assembleDebug:*)",
       "Bash(keytool:*)",
-      "Bash(./gradlew assembleRelease:*)"
+      "Bash(./gradlew assembleRelease:*)",
+      "Bash(./node_modules/.bin/tsc:*)"
     ]
   }
 }

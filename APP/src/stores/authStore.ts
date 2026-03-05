@@ -1,7 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {create} from 'zustand';
 import {loginApi, logoutApi, getMeApi, UserInfo} from '../api/auth';
 import {saveTokens, getAccessToken, getRefreshToken, clearTokens} from '../storage/tokenStorage';
 import {registerUnauthorizedHandler} from '../api/api';
+import {useChatStore} from './chatStore';
 
 type AuthState = {
   isLoggedIn: boolean;
@@ -71,6 +73,10 @@ export const useAuthStore = create<AuthState>(set => {
         }
       }
       await clearTokens();
+      // Clear in-memory chat so the next user starts with a clean slate
+      useChatStore.getState().resetChat();
+      // Clear persisted chat titles so this user's history is not visible to the next login
+      await AsyncStorage.removeItem('@mz_chat_titles');
       set({isLoggedIn: false, user: null, accessToken: null, refreshToken: null, error: null});
     },
 

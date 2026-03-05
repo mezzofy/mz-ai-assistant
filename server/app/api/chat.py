@@ -80,6 +80,10 @@ async def send_message(
     """
     user = _get_user_from_state(request)
     config = get_config()
+    logger.info(
+        f"send_message: user_id={user.get('user_id')} dept={user.get('department')} "
+        f"msg_len={len(body.message)}"
+    )
 
     # Build base task
     task = _base_task(user, body.session_id, config)
@@ -102,6 +106,11 @@ async def send_message(
 
         # Route to agent
         agent_result = await route_request(task)
+        if not agent_result.get("success"):
+            logger.error(
+                f"send_message: agent returned failure | user_id={user.get('user_id')} "
+                f"error={agent_result.get('content')!r}"
+            )
 
         # Process result (save to DB, register artifacts)
         response = await process_result(
