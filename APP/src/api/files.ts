@@ -48,8 +48,11 @@ export const deleteFileApi = (id: string): Promise<{deleted: boolean}> =>
   apiFetch<{deleted: boolean}>(`/files/${id}`, {method: 'DELETE'});
 
 // GET /files/{id} returns raw file bytes (FileResponse — not JSON).
-// Returns a token-appended URL for direct download via Linking.openURL() or a WebView.
-export const getFileDownloadUrl = async (id: string): Promise<string> => {
+// Returns a clean URL — callers must pass Authorization header via getDownloadHeaders().
+export const getFileDownloadUrl = (id: string): string =>
+  `${SERVER_BASE_URL}/files/${id}`;
+
+export const getDownloadHeaders = async (): Promise<Record<string, string>> => {
   const token = await getAccessToken();
-  return `${SERVER_BASE_URL}/files/${id}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  return token ? {Authorization: `Bearer ${token}`} : {};
 };

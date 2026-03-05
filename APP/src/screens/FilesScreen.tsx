@@ -14,7 +14,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import RNFS from 'react-native-fs';
 import {FILE_TYPE_STYLES} from '../utils/theme';
 import {useTheme} from '../hooks/useTheme';
-import {listFilesApi, ArtifactItem, getFileDownloadUrl} from '../api/files';
+import {listFilesApi, ArtifactItem, getFileDownloadUrl, getDownloadHeaders} from '../api/files';
 import {getViewerType} from '../utils/fileViewer';
 
 const formatDate = (iso: string): string => {
@@ -88,7 +88,8 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
     setDownloadState(prev => ({...prev, [file.id]: 0}));
     try {
-      const url = await getFileDownloadUrl(file.id);
+      const url = getFileDownloadUrl(file.id);
+      const headers = await getDownloadHeaders();
       const dest =
         Platform.OS === 'android'
           ? `${RNFS.DownloadDirectoryPath}/${file.filename}`
@@ -97,6 +98,7 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
       const dl = RNFS.downloadFile({
         fromUrl: url,
         toFile: dest,
+        headers,
         progressDivider: 5,
         progress: r => {
           const pct = Math.round((r.bytesWritten / r.contentLength) * 100);

@@ -16,7 +16,7 @@ import RNFS from 'react-native-fs';
 import Video from 'react-native-video';
 import Markdown from 'react-native-markdown-display';
 import {useTheme} from '../hooks/useTheme';
-import {ArtifactItem, getFileDownloadUrl} from '../api/files';
+import {ArtifactItem, getFileDownloadUrl, getDownloadHeaders} from '../api/files';
 import {getViewerType} from '../utils/fileViewer';
 
 const markdownStyles = (colors: ReturnType<typeof useTheme>) => ({
@@ -55,22 +55,21 @@ export const FileViewerScreen: React.FC<{navigation: any; route: any}> = ({navig
 
   // Resolve download URL; for text/markdown also fetch the text content
   useEffect(() => {
-    getFileDownloadUrl(file.id)
-      .then(url => {
-        setFileUri(url);
-        if (viewerType === 'text' || viewerType === 'markdown') {
-          setLoadingContent(true);
-          fetch(url)
-            .then(r => {
-              if (!r.ok) { throw new Error(`HTTP ${r.status}`); }
-              return r.text();
-            })
-            .then(text => setContent(text))
-            .catch(e => setContentError(e.message ?? 'Failed to load file'))
-            .finally(() => setLoadingContent(false));
-        }
-      })
-      .catch(() => setContentError('Failed to resolve file URL'));
+    getDownloadHeaders().then(headers => {
+      const url = getFileDownloadUrl(file.id);
+      setFileUri(url);
+      if (viewerType === 'text' || viewerType === 'markdown') {
+        setLoadingContent(true);
+        fetch(url, {headers})
+          .then(r => {
+            if (!r.ok) { throw new Error(`HTTP ${r.status}`); }
+            return r.text();
+          })
+          .then(text => setContent(text))
+          .catch(e => setContentError(e.message ?? 'Failed to load file'))
+          .finally(() => setLoadingContent(false));
+      }
+    }).catch(() => setContentError('Failed to resolve file URL'));
   }, [file.id, viewerType]);
 
   const handleDownload = useCallback(async () => {
@@ -93,6 +92,7 @@ export const FileViewerScreen: React.FC<{navigation: any; route: any}> = ({navig
 
     setDownloadState(0);
     try {
+      const headers = await getDownloadHeaders();
       const dest =
         Platform.OS === 'android'
           ? `${RNFS.DownloadDirectoryPath}/${file.filename}`
@@ -101,6 +101,7 @@ export const FileViewerScreen: React.FC<{navigation: any; route: any}> = ({navig
       const dl = RNFS.downloadFile({
         fromUrl: fileUri,
         toFile: dest,
+        headers,
         progressDivider: 5,
         progress: r =>
           setDownloadState(Math.round((r.bytesWritten / r.contentLength) * 100)),
