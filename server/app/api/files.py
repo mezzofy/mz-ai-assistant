@@ -96,7 +96,7 @@ async def upload_file(
     artifact = await register_artifact(
         db=db,
         user_id=current_user["user_id"],
-        session_id="",  # standalone upload — not tied to a session yet
+        session_id=None,  # standalone upload — not tied to a session yet
         filename=safe_filename,
         file_path=str(save_path),
         file_type=file_type,

@@ -57,7 +57,7 @@ def get_dept_artifacts_dir(dept: str) -> Path:
 async def register_artifact(
     db: AsyncSession,
     user_id: str,
-    session_id: str,
+    session_id: Optional[str],
     filename: str,
     file_path: str,
     file_type: str,
@@ -190,7 +190,7 @@ async def sync_user_artifacts(
         await register_artifact(
             db=db,
             user_id=user_id,
-            session_id="",
+            session_id=None,
             filename=file_path.name,
             file_path=str(file_path),
             file_type=file_type,
