@@ -1,57 +1,50 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-05
-**Session:** v1.2.0 Build & Release
+**Session:** v1.3.0 — LLM Usage Stats wiring
 **Context:** ~20% at checkpoint
-**Reason:** Build complete — reporting to Lead for review
+**Reason:** Task complete — reporting to Lead for review
 
 ---
 
-## v1.2.0 Changes (This Session)
+## v1.3.0 Changes (This Session)
 
 | # | File | Action | Status |
 |---|------|--------|--------|
-| 1 | `APP/src/screens/ChatScreen.tsx` | Added `normalizeApiError()` — maps "Both AI models" → friendly message | ✅ |
-| 2 | `APP/src/api/admin.ts` | Created — `getSystemHealth()` calls `/admin/health`, returns null on 403 | ✅ |
-| 3 | `APP/src/screens/AIUsageStatsScreen.tsx` | Created — model info, system status pills, usage "coming soon" | ✅ |
-| 4 | `APP/App.tsx` | Registered `AIUsageStats` stack screen with `slide_from_right` | ✅ |
-| 5 | `APP/src/screens/SettingsScreen.tsx` | Added `onPress` to AI Usage Stats row + bumped version string to v1.2.0 | ✅ |
-| 6 | `APP/package.json` | Version bumped `1.1.2` → `1.2.0` | ✅ |
+| 1 | `APP/src/api/llm.ts` | Created — `ModelUsage` + `LlmUsageStats` interfaces + `getLlmUsageStats()` calling `apiFetch('/llm/usage-stats')` | ✅ |
+| 2 | `APP/src/screens/AIUsageStatsScreen.tsx` | Replaced "Coming Soon" with real data — loading / error / empty / data states | ✅ |
 
 ---
 
-## Build Results
+## TypeScript Check
 
-### TypeScript Check
 ```
 npx tsc --noEmit
 ```
 **Result:** ✅ 0 new errors
-- Only pre-existing errors: 2x `Cannot find type definition file for 'jest'`
-- These are unchanged from Phase 8C — `jest` not in devDependencies (expected)
-
-### Android Debug Build
-```
-cd APP/android && ./gradlew assembleDebug
-```
-**Result:** ✅ BUILD SUCCESSFUL in 2m 41s
-- Tasks: 277 actionable (230 executed, 47 up-to-date)
-- APK: `APP/android/app/build/outputs/apk/debug/app-debug.apk`
-- Size: **145 MB** (down from 149 MB in v1.0 — incremental caching)
-- Deprecation warnings: Gradle 9.0 compatibility (non-fatal, pre-existing)
-
-### Git
-- Commit: `cbe830b` ("Updates") — already pushed to `origin/eric-design`
-- All 9 files in commit (includes coordination files)
+- Only pre-existing error: `Cannot find type definition file for 'jest'` (unchanged from v1.2.0)
 
 ---
 
-## Backend Issue Filed
-`.claude/coordination/issues/mobile.md` — requesting `/llm/usage-stats` endpoint for
-per-user token usage data to populate the AI Usage Stats screen "Usage Stats" section.
+## Screen Behaviour
+
+### Usage Stats section (was: "Coming Soon")
+- **Loading:** spinner + "Loading stats…"
+- **Error (null):** `alert-circle-outline` icon + "Unable to load stats." + "Retry" button (calls `fetchHealth`)
+- **Empty (`total_messages === 0`):** bar-chart icon + "No usage yet."
+- **Data:** Total messages row · Total Tokens row (with In/Out sub-label) · Per-model breakdown rows (model name, count, token totals, in/out split)
+
+### Fetch strategy
+Both `getSystemHealth()` and `getLlmUsageStats()` called in `Promise.all` — stats error does not block health display.
 
 ---
 
-## Resume Instructions (if Lead requests more work)
+## What Requires Native Rebuild
+
+None — no new npm packages installed in this session.
+
+---
+
+## Resume Instructions (if more work)
 
 After /clear, load in order:
 1. `CLAUDE.md`
@@ -59,4 +52,4 @@ After /clear, load in order:
 3. `.claude/skills/mobile-developer.md`
 4. `.claude/coordination/memory.md`
 5. `.claude/coordination/status/mobile.md` (this file)
-6. `.claude/coordination/plans/mobile-v1.2.0-build-plan.md`
+6. `.claude/coordination/plans/llm-usage-stats-plan.md`

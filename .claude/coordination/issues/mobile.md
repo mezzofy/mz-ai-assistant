@@ -1,6 +1,7 @@
 # Mobile Agent Issues
 
-## OPEN: Need /llm/usage-stats endpoint for AI Usage Stats screen
+## RESOLVED (2026-03-05): Need /llm/usage-stats endpoint for AI Usage Stats screen
+**Plan:** `.claude/coordination/plans/llm-usage-stats-plan.md`
 
 **Filed by:** Mobile Agent
 **Date:** 2026-03-05

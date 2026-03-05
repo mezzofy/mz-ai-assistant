@@ -10,6 +10,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../hooks/useTheme';
 import {getSystemHealth, SystemHealth} from '../api/admin';
+import {getLlmUsageStats, LlmUsageStats} from '../api/llm';
 
 type StatusPillProps = {label: string; ok: boolean; colors: ReturnType<typeof useTheme>};
 
@@ -49,12 +50,17 @@ const ModelRow: React.FC<ModelRowProps> = ({name, detail, role, online, colors})
 export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const colors = useTheme();
   const [health, setHealth] = useState<SystemHealth | null | undefined>(undefined);
+  const [stats, setStats] = useState<LlmUsageStats | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
   const fetchHealth = useCallback(async () => {
     setLoading(true);
-    const result = await getSystemHealth();
-    setHealth(result); // null = 403 / error; SystemHealth = success
+    const [healthResult, statsResult] = await Promise.all([
+      getSystemHealth(), // catches 403 internally — always resolves
+      getLlmUsageStats().catch(() => null as LlmUsageStats | null),
+    ]);
+    setHealth(healthResult);
+    setStats(statsResult);
     setLoading(false);
   }, []);
 
@@ -146,13 +152,68 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
         {/* Usage Stats */}
         <Text style={[styles.sectionLabel, {color: colors.textDim}]}>USAGE STATS</Text>
         <View style={[styles.card, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
-          <View style={styles.comingSoon}>
-            <Icon name="bar-chart-outline" size={28} color={colors.textMuted} />
-            <Text style={[styles.comingSoonTitle, {color: colors.text}]}>Coming Soon</Text>
-            <Text style={[styles.comingSoonSub, {color: colors.textMuted}]}>
-              Token usage, model breakdown, and cost estimates will appear here.
-            </Text>
-          </View>
+          {stats === undefined || loading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.accent} />
+              <Text style={[styles.loadingText, {color: colors.textMuted}]}>Loading stats…</Text>
+            </View>
+          ) : stats === null ? (
+            <View style={styles.errorRow}>
+              <Icon name="alert-circle-outline" size={20} color={colors.textMuted} />
+              <Text style={[styles.errorText, {color: colors.textMuted}]}>Unable to load stats.</Text>
+              <TouchableOpacity onPress={fetchHealth} style={styles.retryBtn}>
+                <Text style={[styles.retryText, {color: colors.accent}]}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : stats.total_messages === 0 ? (
+            <View style={styles.emptyRow}>
+              <Icon name="bar-chart-outline" size={24} color={colors.textMuted} />
+              <Text style={[styles.emptyText, {color: colors.textMuted}]}>No usage yet.</Text>
+            </View>
+          ) : (
+            <>
+              {/* Total messages */}
+              <View style={styles.statRow}>
+                <Text style={[styles.statLabel, {color: colors.text}]}>Messages</Text>
+                <Text style={[styles.statValue, {color: colors.text}]}>
+                  {stats.total_messages.toLocaleString()}
+                </Text>
+              </View>
+              {/* Total tokens */}
+              <View style={[styles.statRow, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border + '40'}]}>
+                <View style={styles.statLabelGroup}>
+                  <Text style={[styles.statLabel, {color: colors.text}]}>Total Tokens</Text>
+                  <Text style={[styles.statSub, {color: colors.textMuted}]}>
+                    {`In ${stats.total_input_tokens.toLocaleString()} · Out ${stats.total_output_tokens.toLocaleString()}`}
+                  </Text>
+                </View>
+                <Text style={[styles.statValue, {color: colors.text}]}>
+                  {(stats.total_input_tokens + stats.total_output_tokens).toLocaleString()}
+                </Text>
+              </View>
+              {/* Per-model breakdown */}
+              {stats.by_model.map(m => (
+                <View
+                  key={m.model}
+                  style={[styles.modelUsageRow, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border + '40'}]}>
+                  <View style={styles.modelUsageLeft}>
+                    <Text style={[styles.modelUsageName, {color: colors.text}]}>{m.model}</Text>
+                    <Text style={[styles.modelUsageSub, {color: colors.textMuted}]}>
+                      {`${m.count.toLocaleString()} msg · ${(m.input_tokens + m.output_tokens).toLocaleString()} tokens`}
+                    </Text>
+                  </View>
+                  <View style={styles.modelUsageRight}>
+                    <Text style={[styles.modelUsagePct, {color: colors.textDim}]}>
+                      {`In ${m.input_tokens.toLocaleString()}`}
+                    </Text>
+                    <Text style={[styles.modelUsagePct, {color: colors.textDim}]}>
+                      {`Out ${m.output_tokens.toLocaleString()}`}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
         </View>
 
       </ScrollView>
@@ -191,13 +252,29 @@ const styles = StyleSheet.create({
   pill: {flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20},
   pillDot: {width: 6, height: 6, borderRadius: 3},
   pillText: {fontSize: 12, fontWeight: '600'},
-  // States
+  // Shared states
   noAccess: {flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16},
   noAccessText: {flex: 1, fontSize: 13},
   loadingRow: {flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16},
   loadingText: {fontSize: 13},
-  // Coming soon
-  comingSoon: {alignItems: 'center', padding: 28, gap: 8},
-  comingSoonTitle: {fontSize: 15, fontWeight: '700'},
-  comingSoonSub: {fontSize: 13, textAlign: 'center', lineHeight: 18},
+  // Error / empty
+  errorRow: {flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16},
+  errorText: {flex: 1, fontSize: 13},
+  retryBtn: {paddingHorizontal: 12, paddingVertical: 6},
+  retryText: {fontSize: 13, fontWeight: '600'},
+  emptyRow: {alignItems: 'center', padding: 28, gap: 8},
+  emptyText: {fontSize: 13},
+  // Usage stat rows
+  statRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12},
+  statLabelGroup: {flex: 1},
+  statLabel: {fontSize: 14, fontWeight: '500'},
+  statSub: {fontSize: 11, marginTop: 2},
+  statValue: {fontSize: 16, fontWeight: '700', marginLeft: 8},
+  // Per-model usage rows
+  modelUsageRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12},
+  modelUsageLeft: {flex: 1},
+  modelUsageName: {fontSize: 13, fontWeight: '600'},
+  modelUsageSub: {fontSize: 11, marginTop: 2},
+  modelUsageRight: {alignItems: 'flex-end'},
+  modelUsagePct: {fontSize: 11},
 });
