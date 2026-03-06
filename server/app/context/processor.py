@@ -11,7 +11,9 @@ This is the final step before the response is sent back to the mobile app.
 """
 
 import logging
+import uuid
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context.session_manager import append_message
@@ -27,6 +29,7 @@ async def process_result(
     user_message: str,
     agent_result: dict,
     input_summary: str = "",
+    department: str = "",
 ) -> dict:
     """
     Post-process agent execution result and build the API response.
@@ -99,7 +102,29 @@ async def process_result(
                 "download_url": None,
             })
 
-    # 4. Build and return formatted API response
+    # 4. Create agent_tasks record (links this response to a trackable task)
+    task_id: str | None = None
+    try:
+        task_id = str(uuid.uuid4())
+        await db.execute(
+            text(
+                "INSERT INTO agent_tasks "
+                "(id, user_id, session_id, department, title, status, progress, started_at, completed_at) "
+                "VALUES (:id, :uid, :sid, :dept, :title, 'completed', 100, NOW(), NOW())"
+            ),
+            {
+                "id": task_id,
+                "uid": user_id,
+                "sid": session_id,
+                "dept": department,
+                "title": user_message[:80],
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create agent_task record (session={session_id}): {e}")
+        task_id = None
+
+    # 5. Build and return formatted API response
     return {
         "session_id": session_id,
         "response": content.strip() if content else "Task completed.",
@@ -116,4 +141,5 @@ async def process_result(
         "agent_used": agent_used,
         "tools_used": tools_called,
         "success": success,
+        "task_id": task_id,
     }

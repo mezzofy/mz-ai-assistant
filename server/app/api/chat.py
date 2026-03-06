@@ -152,6 +152,7 @@ async def send_message(
             user_message=body.message,
             agent_result=agent_result,
             input_summary=task.get("input_summary", ""),
+            department=task.get("department", ""),
         )
 
     return response
@@ -215,6 +216,7 @@ async def send_media(
             user_message=f"{message or ''} [{input_type}: {filename}]",
             agent_result=agent_result,
             input_summary=task.get("input_summary", ""),
+            department=task.get("department", ""),
         )
 
     return response
@@ -257,6 +259,7 @@ async def send_url(
             user_message=body.message or body.url,
             agent_result=agent_result,
             input_summary=task.get("input_summary", ""),
+            department=task.get("department", ""),
         )
 
     return response
@@ -318,6 +321,7 @@ async def send_artifact(body: SendArtifactRequest, request: Request):
             user_message=f"{body.message} [file: {artifact.filename}]",
             agent_result=agent_result,
             input_summary=task.get("input_summary", ""),
+            department=task.get("department", ""),
         )
 
 
@@ -585,6 +589,7 @@ async def _handle_ws_text(
             user_message=message,
             agent_result=agent_result,
             input_summary=task.get("input_summary", ""),
+            department=user.get("department", ""),
         )
 
     await ws_manager.send(user_id, format_ws_message("complete", response=response))
