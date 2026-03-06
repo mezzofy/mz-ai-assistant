@@ -43,7 +43,8 @@
       "Bash(keytool:*)",
       "Bash(./gradlew assembleRelease:*)",
       "Bash(./node_modules/.bin/tsc:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(scp:*)"
     ]
   }
 }
