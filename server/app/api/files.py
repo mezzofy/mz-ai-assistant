@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, File, status
+from pydantic import BaseModel
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -260,6 +261,61 @@ async def delete_file(
     await db.commit()
 
     return {"deleted": True, "artifact_id": file_id}
+
+
+class FileMoveRequest(BaseModel):
+    folder_id: Optional[str] = None   # None = move to root (no folder)
+
+
+@router.patch("/{file_id}/move")
+async def move_file(
+    file_id: str,
+    body: FileMoveRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Move a file to a different folder (or to root if folder_id=None).
+    The target folder must exist and be in the same scope as the file.
+    RBAC: same access rules as delete.
+    """
+    from sqlalchemy import text as _text
+    import uuid as _uuid_lib
+
+    artifact = await get_artifact(db, file_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="File not found or access denied")
+
+    _check_delete_access(artifact, current_user)
+
+    # Validate target folder (if provided)
+    if body.folder_id:
+        try:
+            target_fid = _uuid_lib.UUID(str(body.folder_id))
+        except (ValueError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid folder_id")
+
+        result = await db.execute(
+            _text("SELECT scope FROM folders WHERE id = :id"),
+            {"id": target_fid},
+        )
+        folder_row = result.fetchone()
+        if folder_row is None:
+            raise HTTPException(status_code=404, detail="Target folder not found")
+        if folder_row.scope != artifact["scope"]:
+            raise HTTPException(status_code=400,
+                                detail="Cannot move file to a folder in a different scope")
+        fid_param = target_fid
+    else:
+        fid_param = None
+
+    await db.execute(
+        _text("UPDATE artifacts SET folder_id = :fid WHERE id = :id"),
+        {"fid": fid_param, "id": file_id},
+    )
+    await db.commit()
+    logger.info(f"Moved artifact {file_id} → folder={body.folder_id}")
+    return {"moved": True, "artifact_id": file_id, "folder_id": body.folder_id}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

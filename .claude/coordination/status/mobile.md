@@ -1,6 +1,6 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-07
-**Session:** v1.7.0 — Production Release Build
+**Session:** v1.7.0 — Production Release Build (rebuild)
 **Context:** ~10% at checkpoint
 **Reason:** Release build complete — reporting to Lead
 
@@ -8,7 +8,9 @@
 
 ## v1.7.0 Changes
 
-No new code changes in this session. Version was bumped in the previous session (commit `0c222f8`). Release build run to produce signed APK.
+| # | File | Change |
+|---|------|--------|
+| 1 | `APP/src/screens/SettingsScreen.tsx` | Fixed hardcoded version string `v1.2.0` → `v1.7.0` (line 182) |
 
 ---
 

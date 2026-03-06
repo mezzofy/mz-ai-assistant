@@ -62,6 +62,23 @@ export const uploadFileApi = (
 export const deleteFileApi = (id: string): Promise<{deleted: boolean}> =>
   apiFetch<{deleted: boolean}>(`/files/${id}`, {method: 'DELETE'});
 
+export interface MoveFileResponse {
+  moved: boolean;
+  artifact_id: string;
+  folder_id: string | null;
+}
+
+/** Move a file to a different folder (or to root if folderId=null). */
+export const moveFileApi = (
+  fileId: string,
+  folderId: string | null,
+): Promise<MoveFileResponse> =>
+  apiFetch<MoveFileResponse>(`/files/${fileId}/move`, {
+    method: 'PATCH',
+    body: JSON.stringify({folder_id: folderId}),
+    headers: {'Content-Type': 'application/json'},
+  });
+
 // GET /files/{id} returns raw file bytes (FileResponse — not JSON).
 // Returns a clean URL — callers must pass Authorization header via getDownloadHeaders().
 export const getFileDownloadUrl = (id: string): string =>

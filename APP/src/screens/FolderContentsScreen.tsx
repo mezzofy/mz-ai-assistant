@@ -21,6 +21,7 @@ import {
   listFilesApi,
   uploadFileApi,
   deleteFileApi,
+  moveFileApi,
   ArtifactItem,
   FileScope,
   getFileDownloadUrl,
@@ -179,6 +180,29 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
     ]);
   }, [loadFiles]);
 
+  // ── Move file ───────────────────────────────────────────────────────────────
+
+  const handleMoveFile = useCallback((file: ArtifactItem) => {
+    Alert.alert(
+      'Move file',
+      `Move "${file.filename}" to root (remove from this folder)?`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Move to Root',
+          onPress: async () => {
+            try {
+              await moveFileApi(file.id, null);
+              await loadFiles();
+            } catch {
+              Alert.alert('Error', 'Failed to move file.');
+            }
+          },
+        },
+      ],
+    );
+  }, [loadFiles]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -208,9 +232,16 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : error ? (
-        <View style={[styles.errorWrap, {backgroundColor: colors.danger + '14', borderColor: colors.danger + '30'}]}>
-          <Icon name="alert-circle-outline" size={14} color={colors.danger} />
-          <Text style={[styles.errorText, {color: colors.danger}]}>{error}</Text>
+        <View style={styles.center}>
+          <View style={[styles.errorWrap, {backgroundColor: colors.danger + '14', borderColor: colors.danger + '30'}]}>
+            <Icon name="alert-circle-outline" size={14} color={colors.danger} />
+            <Text style={[styles.errorText, {color: colors.danger}]}>{error}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => loadFiles()}
+            style={[styles.retryBtn, {borderColor: colors.accent}]}>
+            <Text style={[styles.retryText, {color: colors.accent}]}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
@@ -272,6 +303,14 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
                         style={styles.actionBtn}
                         hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
                         <Icon name="trash-outline" size={18} color={colors.danger} />
+                      </TouchableOpacity>
+                    ) : null}
+                    {write ? (
+                      <TouchableOpacity
+                        onPress={() => handleMoveFile(f)}
+                        style={styles.actionBtn}
+                        hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                        <Icon name="folder-open-outline" size={18} color={colors.textMuted} />
                       </TouchableOpacity>
                     ) : null}
                     <TouchableOpacity
@@ -353,4 +392,6 @@ const styles = StyleSheet.create({
   fileDot: {fontSize: 11},
   fileDate: {fontSize: 11},
   actionBtn: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
+  retryBtn: {marginTop: 12, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1},
+  retryText: {fontSize: 13, fontWeight: '600'},
 });

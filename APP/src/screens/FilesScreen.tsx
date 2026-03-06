@@ -25,6 +25,7 @@ import {
   listFilesApi,
   uploadFileApi,
   deleteFileApi,
+  moveFileApi,
   ArtifactItem,
   FileScope,
   getFileDownloadUrl,
@@ -206,6 +207,36 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
     }
   }, [loadSection]);
 
+  // ── Move file ────────────────────────────────────────────────────────────────
+
+  const handleMoveFile = useCallback((file: ArtifactItem) => {
+    const sectionFolders = sections[file.scope].folders;
+    const options: {label: string; folderId: string | null}[] = [
+      {label: '📁 Root (no folder)', folderId: null},
+      ...sectionFolders
+        .filter(f => f.id !== file.folder_id)
+        .map(f => ({label: `📁 ${f.name}`, folderId: f.id})),
+    ];
+    Alert.alert(
+      'Move to folder',
+      `"${file.filename}"`,
+      [
+        {text: 'Cancel', style: 'cancel'},
+        ...options.map(opt => ({
+          text: opt.label,
+          onPress: async () => {
+            try {
+              await moveFileApi(file.id, opt.folderId);
+              await loadSection(file.scope);
+            } catch {
+              Alert.alert('Error', 'Failed to move file.');
+            }
+          },
+        })),
+      ],
+    );
+  }, [sections, loadSection]);
+
   // ── Folder CRUD ─────────────────────────────────────────────────────────────
 
   const openCreateFolder = (scope: FileScope) =>
@@ -351,6 +382,14 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
               style={styles.actionBtn}
               hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
               <Icon name="trash-outline" size={18} color={colors.danger} />
+            </TouchableOpacity>
+          ) : null}
+          {canDeleteFile ? (
+            <TouchableOpacity
+              onPress={() => handleMoveFile(f)}
+              style={styles.actionBtn}
+              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+              <Icon name="folder-open-outline" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity
