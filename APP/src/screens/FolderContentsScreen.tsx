@@ -88,7 +88,8 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
     try {
       const res = await listFilesApi(scope, folder.id);
       setFiles(res.artifacts);
-    } catch {
+    } catch (err) {
+      console.error('[FolderContentsScreen] loadFiles failed:', err);
       setError('Failed to load files');
     } finally {
       setLoading(false);

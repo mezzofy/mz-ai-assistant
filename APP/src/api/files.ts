@@ -39,9 +39,9 @@ export const listFilesApi = (
   scope: FileScope = 'personal',
   folderId?: string | null,
 ): Promise<FilesResponse> => {
-  const params = new URLSearchParams({scope});
-  if (folderId) { params.set('folder_id', folderId); }
-  return apiFetch<FilesResponse>(`/files/?${params}`);
+  let url = `/files/?scope=${encodeURIComponent(scope)}`;
+  if (folderId) { url += `&folder_id=${encodeURIComponent(folderId)}`; }
+  return apiFetch<FilesResponse>(url);
 };
 
 /** Upload a file to a specific scope (and optionally into a folder). */
