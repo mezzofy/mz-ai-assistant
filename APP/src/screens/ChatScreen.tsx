@@ -49,6 +49,7 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const {
     messages, isTyping, inputMode, showModes, recording, recordTime,
     mediaPreview, selectedArtifact, error: chatError, sessionId, sessionTitles,
+    activeTask, pollActiveTask, clearActiveTask,
     setInputMode, setShowModes, setRecording, setRecordTime, setMediaPreview,
     setSelectedArtifact, sendToServer, sendArtifactToServer, clearError,
     resetChat, setSessionId, setSessionTitle,
@@ -102,6 +103,17 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
       Voice.destroy().then(Voice.removeAllListeners);
     };
   }, []);
+
+  // Poll for active task status while task is queued/running
+  useEffect(() => {
+    if (!sessionId) {return;}
+    if (!activeTask || activeTask.status === 'completed' ||
+        activeTask.status === 'failed' || activeTask.status === 'cancelled') {
+      return;
+    }
+    const interval = setInterval(() => pollActiveTask(sessionId), 4000);
+    return () => clearInterval(interval);
+  }, [activeTask, sessionId, pollActiveTask]);
 
   // ── Null guard AFTER all hooks ─────────────────────────────────────────────
   if (!user) {
@@ -426,6 +438,25 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
         </View>
       )}
 
+      {/* Active Task Bar */}
+      {activeTask && (
+        <View style={styles.taskBar}>
+          {activeTask.status === 'completed' ? (
+            <Icon name="checkmark-circle" size={16} color="#fff" />
+          ) : activeTask.status === 'failed' ? (
+            <Icon name="close-circle" size={16} color="#fff" />
+          ) : (
+            <ActivityIndicator size="small" color="#fff" />
+          )}
+          <Text style={styles.taskBarText} numberOfLines={1}>
+            {'TASK #'}{activeTask.id.slice(0, 8).toUpperCase()}{'  '}{activeTask.status.toUpperCase()}
+          </Text>
+          <TouchableOpacity onPress={clearActiveTask} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            <Icon name="close" size={14} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Input Mode Selector Grid */}
       {showModes && (
         <View style={[styles.modeGrid, {backgroundColor: colors.card, borderColor: colors.border}]}>
@@ -651,6 +682,8 @@ const styles = StyleSheet.create({
   recordHint: {fontSize: 12, textAlign: 'center', paddingHorizontal: 16},
   recordStop: {flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 32, paddingVertical: 10},
   recordStopText: {color: '#fff', fontSize: 14, fontWeight: '700'},
+  taskBar: {flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f97316', paddingHorizontal: 16, height: 40},
+  taskBarText: {flex: 1, color: '#fff', fontSize: 12, fontWeight: '600'},
   inputBar: {flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, paddingTop: 10, borderTopWidth: 1},
   plusBtn: {borderWidth: 1, borderRadius: 12, width: 48, height: 48, alignItems: 'center', justifyContent: 'center'},
   holdBtn: {flex: 1, padding: 14, borderRadius: 14, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center'},

@@ -8,6 +8,7 @@ import {
   getSessionsApi,
   getHistoryApi,
   getTasksApi,
+  getActiveTasksApi,
   patchSessionApi,
   ChatResponse,
   SessionSummary,
@@ -61,6 +62,7 @@ type ChatState = {
   selectedArtifact: SelectedArtifact | null;
   sessions: SessionSummary[];
   tasks: TaskSummary[];
+  activeTask: TaskSummary | null;
   sessionTitles: Record<string, string>;
   // Primitive setters (used by ChatScreen UI)
   addMessage: (msg: Message) => void;
@@ -73,6 +75,7 @@ type ChatState = {
   setSelectedArtifact: (v: SelectedArtifact | null) => void;
   setSessionId: (id: string | null) => void;
   clearError: () => void;
+  clearActiveTask: () => void;
   // Session title management
   loadTitles: () => Promise<void>;
   setSessionTitle: (sessionId: string, title: string) => Promise<void>;
@@ -81,6 +84,7 @@ type ChatState = {
   sendArtifactToServer: (artifactId: string, message: string) => Promise<void>;
   loadSessions: () => Promise<void>;
   loadTasks: () => Promise<void>;
+  pollActiveTask: (sessionId: string) => Promise<void>;
   loadHistory: (sessionId: string) => Promise<void>;
   resetChat: () => void;
   toggleFavorite: (sessionId: string) => Promise<void>;
@@ -111,6 +115,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   selectedArtifact: null,
   sessions: [],
   tasks: [],
+  activeTask: null,
   sessionTitles: {},
 
   addMessage: msg => set(s => ({messages: [...s.messages, msg]})),
@@ -123,6 +128,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setSelectedArtifact: v => set({selectedArtifact: v}),
   setSessionId: id => set({sessionId: id}),
   clearError: () => set({error: null}),
+  clearActiveTask: () => set({activeTask: null}),
 
   loadTitles: async () => {
     try {
@@ -201,6 +207,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       // Add assistant response and update sessionId in one atomic set
+      const newActiveTask: TaskSummary | null = response.task_id
+        ? {
+            id: response.task_id,
+            session_id: response.session_id,
+            title: text.slice(0, 80),
+            status: 'completed',
+            created_at: new Date().toISOString(),
+          }
+        : null;
       set(s => ({
         sessionId: response.session_id,
         messages: [
@@ -216,6 +231,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ],
         isTyping: false,
         statusMessage: null,
+        ...(newActiveTask ? {activeTask: newActiveTask} : {}),
       }));
 
       // Auto-set title from first user message if no custom title exists yet
@@ -305,8 +321,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const result = await getTasksApi();
       set({tasks: result.tasks});
-    } catch {
-      // silent — task badges are supplemental, not critical
+    } catch (err) {
+      console.warn('[chatStore] loadTasks failed:', err);
+    }
+  },
+
+  pollActiveTask: async (sessionId: string) => {
+    try {
+      const result = await getActiveTasksApi();
+      const task = result.tasks.find(t => t.session_id === sessionId) ?? null;
+      set({activeTask: task});
+    } catch (err) {
+      console.warn('[chatStore] pollActiveTask failed:', err);
     }
   },
 
@@ -341,6 +367,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       recordTime: 0,
       mediaPreview: null,
       selectedArtifact: null,
+      activeTask: null,
     }),
 
   toggleFavorite: async (sessionId) => {
