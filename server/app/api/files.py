@@ -276,7 +276,9 @@ async def move_file(
 ):
     """
     Move a file to a different folder (or to root if folder_id=None).
-    The target folder must exist and be in the same scope as the file.
+    When moving to a folder, the file's scope and department are updated to match
+    the target folder (allows cross-scope moves, e.g. personal → department).
+    When moving to root (folder_id=None), only folder_id is cleared.
     RBAC: same access rules as delete.
     """
     from sqlalchemy import text as _text
@@ -288,7 +290,7 @@ async def move_file(
 
     _check_delete_access(artifact, current_user)
 
-    # Validate target folder (if provided)
+    # Validate target folder (if provided) and fetch its scope/department
     if body.folder_id:
         try:
             target_fid = _uuid_lib.UUID(str(body.folder_id))
@@ -296,23 +298,27 @@ async def move_file(
             raise HTTPException(status_code=400, detail="Invalid folder_id")
 
         result = await db.execute(
-            _text("SELECT scope FROM folders WHERE id = :id"),
+            _text("SELECT scope, department FROM folders WHERE id = :id"),
             {"id": target_fid},
         )
         folder_row = result.fetchone()
         if folder_row is None:
             raise HTTPException(status_code=404, detail="Target folder not found")
-        if folder_row.scope != artifact["scope"]:
-            raise HTTPException(status_code=400,
-                                detail="Cannot move file to a folder in a different scope")
-        fid_param = target_fid
-    else:
-        fid_param = None
 
-    await db.execute(
-        _text("UPDATE artifacts SET folder_id = :fid WHERE id = :id"),
-        {"fid": fid_param, "id": file_id},
-    )
+        new_scope = folder_row.scope
+        new_dept = folder_row.department
+
+        await db.execute(
+            _text("UPDATE artifacts SET folder_id = :fid, scope = :scope, department = :dept WHERE id = :id"),
+            {"fid": target_fid, "scope": new_scope, "dept": new_dept, "id": file_id},
+        )
+    else:
+        # Moving to root — clear folder_id only, keep existing scope
+        await db.execute(
+            _text("UPDATE artifacts SET folder_id = NULL WHERE id = :id"),
+            {"id": file_id},
+        )
+
     await db.commit()
     logger.info(f"Moved artifact {file_id} → folder={body.folder_id}")
     return {"moved": True, "artifact_id": file_id, "folder_id": body.folder_id}
