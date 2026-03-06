@@ -25,6 +25,8 @@ export interface SessionSummary {
   last_message: {role: string; content: string; timestamp: string} | null;
   created_at: string;
   updated_at: string;
+  is_favorite: boolean;
+  is_archived: boolean;
 }
 
 export interface SessionsResponse {
@@ -102,6 +104,20 @@ export const getSessionsApi = (): Promise<SessionsResponse> =>
 export const getHistoryApi = (sessionId: string): Promise<HistoryResponse> =>
   apiFetch<HistoryResponse>(`/chat/history/${sessionId}`);
 
+export interface SessionPatchRequest {
+  is_favorite?: boolean;
+  is_archived?: boolean;
+}
+
+export const patchSessionApi = (
+  sessionId: string,
+  patch: SessionPatchRequest,
+): Promise<{success: boolean}> =>
+  apiFetch<{success: boolean}>(`/chat/session/${sessionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+
 export const sendArtifactApi = (
   artifactId: string,
   message: string,
@@ -115,3 +131,19 @@ export const sendArtifactApi = (
       ...(sessionId ? {session_id: sessionId} : {}),
     }),
   });
+
+export interface TaskSummary {
+  id: string;
+  session_id: string | null;
+  title: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  created_at: string;
+}
+
+export interface TasksResponse {
+  tasks: TaskSummary[];
+  total: number;
+}
+
+export const getTasksApi = (): Promise<TasksResponse> =>
+  apiFetch<TasksResponse>('/tasks/');

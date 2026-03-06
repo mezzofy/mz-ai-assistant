@@ -79,8 +79,18 @@ async def _run_agent_task(task_data: dict) -> dict:
             "agent_used": "none",
         }
 
-    # Execute agent
-    result = await agent.execute(task_data)
+    # Execute agent — update agent_tasks lifecycle if agent_task_id is present
+    agent_task_id = task_data.get("agent_task_id")
+    if agent_task_id:
+        await _update_agent_task_status(agent_task_id, "running")
+    try:
+        result = await agent.execute(task_data)
+        if agent_task_id:
+            await _update_agent_task_done(agent_task_id, result)
+    except Exception as exc:
+        if agent_task_id:
+            await _update_agent_task_failed(agent_task_id, str(exc))
+        raise
 
     # Store result in scheduled_jobs.last_run if this is a scheduled job
     job_id = task_data.get("_job_id")
@@ -110,6 +120,66 @@ async def _update_job_last_run(job_id: str):
             await db.commit()
     except Exception as e:
         logger.warning(f"Failed to update job last_run (id={job_id}): {e}")
+
+
+async def _update_agent_task_status(agent_task_id: str, new_status: str):
+    """Mark an agent_tasks row as running."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text
+
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                text(
+                    "UPDATE agent_tasks SET status = :status, started_at = NOW() "
+                    "WHERE id = :id"
+                ),
+                {"status": new_status, "id": agent_task_id},
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to update agent_task status (id={agent_task_id}): {e}")
+
+
+async def _update_agent_task_done(agent_task_id: str, result: dict):
+    """Mark an agent_tasks row as completed with its result."""
+    try:
+        import json
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text
+
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                text(
+                    "UPDATE agent_tasks "
+                    "SET status = 'completed', completed_at = NOW(), result = :result "
+                    "WHERE id = :id"
+                ),
+                {"result": json.dumps(result), "id": agent_task_id},
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to update agent_task done (id={agent_task_id}): {e}")
+
+
+async def _update_agent_task_failed(agent_task_id: str, error_msg: str):
+    """Mark an agent_tasks row as failed with the error message."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text
+
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                text(
+                    "UPDATE agent_tasks "
+                    "SET status = 'failed', completed_at = NOW(), error = :error "
+                    "WHERE id = :id"
+                ),
+                {"error": error_msg, "id": agent_task_id},
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to update agent_task failed (id={agent_task_id}): {e}")
 
 
 # ── Health check task ──────────────────────────────────────────────────────────

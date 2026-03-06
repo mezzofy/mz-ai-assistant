@@ -74,6 +74,11 @@ class SendArtifactRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+class SessionUpdateRequest(BaseModel):
+    is_favorite: Optional[bool] = None
+    is_archived: Optional[bool] = None
+
+
 # ── REST: POST /chat/send ─────────────────────────────────────────────────────
 
 @router.post("/send")
@@ -111,6 +116,25 @@ async def send_message(
         session_id = session["id"]
         task["session_id"] = session_id
         task["conversation_history"] = session["messages"]
+
+        # Per-user concurrency limit — mobile source only
+        if task.get("source") == "mobile":
+            limit_result = await db.execute(
+                text(
+                    "SELECT COUNT(*) FROM agent_tasks "
+                    "WHERE user_id = :uid AND status IN ('queued', 'running')"
+                ),
+                {"uid": user["user_id"]},
+            )
+            running_count = limit_result.scalar() or 0
+            if running_count >= 3:
+                return {
+                    "success": False,
+                    "content": "You already have 3 tasks running. Please wait for one to complete.",
+                    "code": "TASK_LIMIT_REACHED",
+                    "artifacts": [],
+                    "session_id": None,
+                }
 
         # Route to agent
         agent_result = await route_request(task)
@@ -328,6 +352,46 @@ async def get_history(
         messages = await get_session_messages(db, session_id, user["user_id"])
 
     return {"session_id": session_id, "messages": messages}
+
+
+# ── REST: PATCH /chat/session/{session_id} ────────────────────────────────────
+
+@router.patch("/session/{session_id}")
+async def update_session(
+    session_id: str,
+    body: SessionUpdateRequest,
+    request: Request,
+):
+    """Update session metadata (favorite / archived)."""
+    user = _get_user_from_state(request)
+
+    # Build SET clause dynamically — only update non-None fields
+    set_parts = []
+    params: dict = {"id": session_id, "uid": user["user_id"]}
+    if body.is_favorite is not None:
+        set_parts.append("is_favorite = :is_favorite")
+        params["is_favorite"] = body.is_favorite
+    if body.is_archived is not None:
+        set_parts.append("is_archived = :is_archived")
+        params["is_archived"] = body.is_archived
+
+    if not set_parts:
+        return {"success": True}
+
+    set_clause = ", ".join(set_parts) + ", updated_at = NOW()"
+
+    async with _db_session() as db:
+        result = await db.execute(
+            text(
+                f"UPDATE conversations SET {set_clause} "
+                "WHERE id = :id AND user_id = :uid"
+            ),
+            params,
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+    return {"success": True}
 
 
 # ── REST: DELETE /chat/session/{session_id} ───────────────────────────────────

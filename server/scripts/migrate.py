@@ -205,8 +205,41 @@ def run_migrations(conn):
     """)
     print("  ✅ webhook_events")
 
+    # ── 12. agent_tasks ───────────────────────────────────────
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent_tasks (
+            id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            task_ref        TEXT NOT NULL,
+            user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+            session_id      TEXT,
+            department      TEXT,
+            title           TEXT NOT NULL,
+            plan            JSONB DEFAULT '[]',
+            status          TEXT DEFAULT 'queued'
+                            CHECK (status IN ('queued','running','completed','failed','cancelled')),
+            progress        INTEGER DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+            current_step    TEXT,
+            result          JSONB,
+            error           TEXT,
+            notify_on_done  BOOLEAN DEFAULT false,
+            queue_name      TEXT DEFAULT 'default',
+            started_at      TIMESTAMPTZ,
+            completed_at    TIMESTAMPTZ,
+            created_at      TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    print("  ✅ agent_tasks")
+
     # ── Schema upgrades (idempotent — safe for existing DBs) ─
     print("\nApplying schema upgrades...")
+
+    # conversations: add favorite + archive columns
+    cur.execute("""
+        ALTER TABLE conversations
+            ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT FALSE,
+            ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE
+    """)
+    print("  ✅ conversations.is_favorite / conversations.is_archived")
 
     # artifacts: add scope column if missing (existing rows → 'personal')
     cur.execute("""
@@ -262,6 +295,14 @@ def run_migrations(conn):
          "CREATE INDEX IF NOT EXISTS idx_llm_usage_user ON llm_usage(user_id, created_at DESC)"),
         ("idx_llm_usage_dept",
          "CREATE INDEX IF NOT EXISTS idx_llm_usage_dept ON llm_usage(department, created_at DESC)"),
+        ("idx_agent_tasks_user",
+         "CREATE INDEX IF NOT EXISTS idx_agent_tasks_user ON agent_tasks(user_id, created_at DESC)"),
+        ("idx_agent_tasks_status",
+         "CREATE INDEX IF NOT EXISTS idx_agent_tasks_status ON agent_tasks(status) WHERE status IN ('queued','running')"),
+        ("idx_agent_tasks_session",
+         "CREATE INDEX IF NOT EXISTS idx_agent_tasks_session ON agent_tasks(session_id)"),
+        ("idx_conversations_archived",
+         "CREATE INDEX IF NOT EXISTS idx_conversations_archived ON conversations(user_id, is_archived, created_at DESC)"),
     ]
 
     for name, sql in indexes:

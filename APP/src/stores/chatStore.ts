@@ -7,8 +7,11 @@ import {
   sendArtifactApi,
   getSessionsApi,
   getHistoryApi,
+  getTasksApi,
+  patchSessionApi,
   ChatResponse,
   SessionSummary,
+  TaskSummary,
 } from '../api/chat';
 
 export type MediaInfo = {
@@ -57,6 +60,7 @@ type ChatState = {
   mediaPreview: MediaInfo | null;
   selectedArtifact: SelectedArtifact | null;
   sessions: SessionSummary[];
+  tasks: TaskSummary[];
   sessionTitles: Record<string, string>;
   // Primitive setters (used by ChatScreen UI)
   addMessage: (msg: Message) => void;
@@ -76,8 +80,11 @@ type ChatState = {
   sendToServer: (text: string, mode: string, media: MediaInfo | null, mediaUri?: string | null) => Promise<void>;
   sendArtifactToServer: (artifactId: string, message: string) => Promise<void>;
   loadSessions: () => Promise<void>;
+  loadTasks: () => Promise<void>;
   loadHistory: (sessionId: string) => Promise<void>;
   resetChat: () => void;
+  toggleFavorite: (sessionId: string) => Promise<void>;
+  toggleArchive: (sessionId: string) => Promise<void>;
 };
 
 const getTimeStr = () =>
@@ -103,6 +110,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   mediaPreview: null,
   selectedArtifact: null,
   sessions: [],
+  tasks: [],
   sessionTitles: {},
 
   addMessage: msg => set(s => ({messages: [...s.messages, msg]})),
@@ -293,6 +301,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  loadTasks: async () => {
+    try {
+      const result = await getTasksApi();
+      set({tasks: result.tasks});
+    } catch {
+      // silent — task badges are supplemental, not critical
+    }
+  },
+
   loadHistory: async (sessionId: string) => {
     try {
       const result = await getHistoryApi(sessionId);
@@ -325,4 +342,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
       mediaPreview: null,
       selectedArtifact: null,
     }),
+
+  toggleFavorite: async (sessionId) => {
+    const {sessions} = get();
+    const idx = sessions.findIndex(s => s.session_id === sessionId);
+    if (idx === -1) { return; }
+    const original = sessions[idx].is_favorite;
+    const next = sessions.map((s, i) =>
+      i === idx ? {...s, is_favorite: !original} : s
+    );
+    set({sessions: next});
+    try {
+      await patchSessionApi(sessionId, {is_favorite: !original});
+    } catch {
+      set({sessions});
+    }
+  },
+
+  toggleArchive: async (sessionId) => {
+    const {sessions} = get();
+    const idx = sessions.findIndex(s => s.session_id === sessionId);
+    if (idx === -1) { return; }
+    const original = sessions[idx].is_archived;
+    const next = sessions.map((s, i) =>
+      i === idx ? {...s, is_archived: !original} : s
+    );
+    set({sessions: next});
+    try {
+      await patchSessionApi(sessionId, {is_archived: !original});
+    } catch {
+      set({sessions});
+    }
+  },
 }));
