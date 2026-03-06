@@ -24,11 +24,14 @@ logger = logging.getLogger("mezzofy.router")
 
 # Webhook event keyword → agent name
 _WEBHOOK_EVENT_AGENT: dict[str, str] = {
-    "customer_signed_up":    "sales",
-    "customer_churned":      "management",
-    "order_completed":       "finance",
-    "support_ticket_created": "support",
-    "feature_released":      "marketing",
+    "customer_signed_up":      "sales",
+    "customer_churned":        "management",
+    "order_completed":         "finance",
+    "support_ticket_created":  "support",
+    "feature_released":        "marketing",
+    "employee_onboarded":      "hr",
+    "employee_offboarded":     "hr",
+    "leave_request_submitted": "hr",
 }
 
 

@@ -60,6 +60,18 @@
 
 ---
 
+## Recently Completed (2026-03-06)
+
+- ✅ **HRAgent added (v1.1)** — Backend + Docs: 6th department agent (`hr`)
+  - Created: `server/app/agents/hr_agent.py` — HR agent with 8 workflows (payroll, leave, recruitment, weekly summary, headcount, onboarding, offboarding, general)
+  - Updated: `server/app/agents/agent_registry.py` — `"hr": HRAgent` added to AGENT_MAP
+  - Updated: `server/app/router.py` — HR webhook event routing (`employee_onboarded`, `employee_offboarded`, `leave_request_submitted`)
+  - Created: `server/tests/test_hr_agent.py` — 28 new tests (all passing)
+  - Updated: `AGENTS.md`, `APP/README.md`, `docs/STATUS`, `memory.md` — documentation reflects 6 agents
+  - Created: `docs/RN-mz-ai-assistant-v1.1.md` — release notes for v1.1.0
+  - **Test suite total:** 288 tests passing (was 260)
+  - **Pending (Backend Agent):** `config/roles.yaml` (hr_viewer/hr_manager), `app/core/rbac.py` (VALID_ROLES), `tasks/beat_schedule.py` (2 new jobs), `config/config.example.yaml` (#hr channel)
+
 ## Recently Completed (2026-02-28)
 
 - ✅ **Phase 10 COMPLETE** — Docs Agent: Full documentation suite written
@@ -234,7 +246,7 @@ None — project complete.
 | `SECURITY.md` | JWT spec, RBAC roles (10 roles), rate limits, audit log format |
 | `APP.md` | Gateway, Router, Input pipeline, Output layer, Context layer, all REST+WS endpoints |
 | `LLM.md` | Claude + Kimi clients, LLM Manager, failover logic, token budgets |
-| `AGENTS.md` | 5 department agents (Sales, Marketing, Ops, Finance, Management) + base agent |
+| `AGENTS.md` | 6 department agents (Sales, Marketing, Finance, Support, Management, HR) + base agent |
 | `SKILLS.md` | 7 skills (presentation, email, LinkedIn, etc.) with YAML + Python spec |
 | `TOOLS.md` | 31 tools across 9 categories — full function signatures |
 | `TESTING.md` | pytest suite spec — auth tests, workflow tests, scheduler, webhook, security, LLM |

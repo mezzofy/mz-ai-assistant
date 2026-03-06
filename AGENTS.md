@@ -1,6 +1,6 @@
 # AGENTS.md — Department Agents
 
-**Finance, Sales, Marketing, Support, and Management agents with department-specific workflows.**
+**Finance, Sales, Marketing, Support, Management, and HR agents with department-specific workflows.**
 
 ---
 
@@ -10,6 +10,7 @@
 /server/agents
 ├── base_agent.py               # Abstract base class
 ├── finance_agent.py            # Financial statements, reports, budgets
+├── hr_agent.py                 # Payroll, leave, headcount, onboarding/offboarding
 ├── sales_agent.py              # Lead gen, CRM, pitch decks, outreach
 ├── marketing_agent.py          # Content, playbooks, campaigns
 ├── support_agent.py            # Ticket analysis, knowledge base, escalation
@@ -352,14 +353,115 @@ Celery Beat fires "weekly-kpi-report" (Monday 9AM SGT)
 
 ---
 
+## HR Agent (`hr_agent.py`)
+
+**Department:** HR
+**Triggers:** payroll, salary, leave, attendance, headcount, employee, staff, recruit,
+hiring, onboard, offboard, performance review, appraisal, resignation, termination,
+workforce, people ops
+
+### Capabilities
+
+- Answer payroll and salary queries from database data
+- Check leave balances and attendance records
+- Summarize recruitment pipeline and open roles
+- Generate weekly HR summary reports (automated)
+- Generate monthly headcount reports (automated)
+- Create onboarding checklists for new hires (webhook-triggered)
+- Generate offboarding exit summaries (webhook-triggered)
+
+### Workflow: "Show me the payroll summary for March"
+
+```
+1. DatabaseOps → query_analytics(metric="payroll_summary")
+2. LLM → analyze and answer query with injected date
+3. Return: summary text
+```
+
+### Workflow: "How many leave days do I have?"
+
+```
+1. DatabaseOps → query_analytics(metric="leave_attendance")
+2. LLM → answer leave/attendance query, highlight anomalies
+3. Return: summary text
+```
+
+### Workflow: "What's our current hiring pipeline?"
+
+```
+1. DatabaseOps → query_analytics(metric="recruitment_pipeline")
+2. LLM → summarize open roles, candidates in progress, key metrics
+3. Return: pipeline summary text
+```
+
+### Scheduled Workflow: Weekly HR Summary (auto, via Celery Beat)
+
+```
+Celery Beat fires "weekly-hr-summary" (Friday 5PM SGT)
+1. DatabaseOps → query metrics: leave_attendance, recruitment_pipeline, payroll_summary
+2. LLM → generate weekly HR summary (headcount changes, leave highlights, pipeline, payroll status)
+3. PDFOps → create branded weekly HR report PDF
+4. teams_post_message → post PDF to #hr Teams channel
+5. outlook_send_email → email PDF to HR manager
+6. Audit log: source="scheduler", action="weekly_hr_summary"
+```
+
+### Scheduled Workflow: Monthly Headcount Report (auto, via Celery Beat)
+
+```
+Celery Beat fires "monthly-headcount" (1st of month, 9AM SGT)
+1. DatabaseOps → query_analytics(metric="headcount_monthly")
+2. LLM → generate headcount report (dept breakdown, MoM changes, attrition rate)
+3. PDFOps → create branded headcount report PDF
+4. outlook_send_email → email PDF to HR manager
+5. Audit log: source="scheduler", action="monthly_headcount"
+```
+
+### Webhook Workflow: Employee Onboarded (auto, via webhook)
+
+```
+Mezzofy product → POST /webhooks/mezzofy (event: "employee_onboarded")
+1. Webhook handler → Celery task → HR Agent
+2. LLM → generate onboarding checklist (IT setup, access, training, 30/60/90-day milestones)
+3. PDFOps → create onboarding checklist PDF
+4. teams_post_message → post PDF to #hr Teams channel
+5. Audit log: source="webhook", action="employee_onboarding"
+```
+
+### Webhook Workflow: Employee Offboarded (auto, via webhook)
+
+```
+Mezzofy product → POST /webhooks/mezzofy (event: "employee_offboarded")
+1. Webhook handler → Celery task → HR Agent
+2. LLM → generate exit summary (knowledge transfer, access revocation, equipment return)
+3. PDFOps → create exit summary PDF
+4. teams_post_message → post PDF to #hr Teams channel
+5. Audit log: source="webhook", action="employee_offboarding"
+```
+
+### Required Permissions
+
+| Permission | Actions |
+|-----------|---------|
+| `hr_read` | Query HR database (payroll, leave, headcount) |
+| `hr_write` | Update HR records |
+| `email_send` | Send HR reports to employees/management |
+
+### Skills Used
+
+- `data_analysis` — HR metrics queries, headcount analysis, leave pattern detection
+
+---
+
 ## Agent Selection by Router
 
 ```python
 AGENT_MAP = {
-    "finance": FinanceAgent,
-    "sales": SalesAgent,
-    "marketing": MarketingAgent,
-    "support": SupportAgent,
+    "finance":    FinanceAgent,
+    "hr":         HRAgent,
+    "sales":      SalesAgent,
+    "marketing":  MarketingAgent,
+    "support":    SupportAgent,
     "management": ManagementAgent,
 }
 
@@ -375,8 +477,11 @@ AGENT_MAP = {
 
 # Webhook routing:
 # Webhook events map to agents via WEBHOOK_AGENT_MAP
-# e.g. "customer_signed_up" → Sales Agent
-#      "support_ticket_created" → Support Agent
+# e.g. "customer_signed_up"      → Sales Agent
+#      "support_ticket_created"  → Support Agent
+#      "employee_onboarded"      → HR Agent
+#      "employee_offboarded"     → HR Agent
+#      "leave_request_submitted" → HR Agent
 ```
 
 ---

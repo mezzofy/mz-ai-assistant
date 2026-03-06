@@ -15,6 +15,7 @@ Routing model:
 import logging
 
 from app.agents.finance_agent import FinanceAgent
+from app.agents.hr_agent import HRAgent
 from app.agents.management_agent import ManagementAgent
 from app.agents.marketing_agent import MarketingAgent
 from app.agents.sales_agent import SalesAgent
@@ -25,6 +26,7 @@ logger = logging.getLogger("mezzofy.agents.registry")
 # Department → Agent class mapping
 AGENT_MAP = {
     "finance": FinanceAgent,
+    "hr": HRAgent,
     "sales": SalesAgent,
     "marketing": MarketingAgent,
     "support": SupportAgent,

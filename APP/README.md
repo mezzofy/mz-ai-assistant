@@ -1,6 +1,6 @@
 # Mezzofy AI Assistant — React Native App
 
-Enterprise AI assistant for Mezzofy team (Finance, Sales, Marketing, Support, Management).
+Enterprise AI assistant for Mezzofy team (Finance, Sales, Marketing, Support, Management, HR).
 
 ## 📱 Screens
 
@@ -152,6 +152,7 @@ MezzofyAI/
 - Marketing: `#C77DFF` (purple)
 - Support: `#4DA6FF` (blue)
 - Management: `#FF6B8A` (pink)
+- HR: `#f97316` (orange)
 
 ## 🔌 Connecting to Backend
 
