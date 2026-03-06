@@ -51,7 +51,12 @@ def get() -> "LLMManager":
 # Maximum tool-calling loop iterations
 MAX_TOOL_ITERATIONS = 5
 
-# System prompt template — filled with department/role/source at runtime
+
+def _map_scope(s: str) -> str:
+    """Map tool storage_scope values to DB scope values."""
+    return "personal" if s == "user" else s
+
+# System prompt template — filled with department/role/source/save_options at runtime
 _SYSTEM_PROMPT_TEMPLATE = """You are the Mezzofy AI Assistant helping the {department} team.
 
 You have access to tools for:
@@ -76,12 +81,8 @@ When delivering scheduled report results, format output clearly for MS Teams wit
 IMPORTANT — File storage rule:
 Before calling any file creation tool (create_pdf, create_pptx, create_docx,
 create_csv, create_txt), you MUST first ask the user exactly this question:
-"Where would you like to save this file?
-  (1) Your personal folder — only visible to you
-  (2) The {department} shared department folder — visible to your whole team"
-Wait for their reply. If they choose (1) or say "personal/mine/me", call the tool
-with storage_scope="user". If they choose (2) or say "shared/team/department",
-call with storage_scope="department". Do not skip this question."""
+"{save_options}"
+Do not skip this question."""
 
 
 class LLMManager:
@@ -245,7 +246,7 @@ class LLMManager:
                         files_created = ", ".join(a["name"] for a in artifacts)
                         content = (
                             f"Your file(s) have been saved: {files_created}. "
-                            f"The AI response could not be completed — please check your Files tab."
+                            f"Please check your Files tab."
                         )
                     else:
                         content = "AI service is temporarily unavailable. Please try again shortly."
@@ -320,6 +321,8 @@ class LLMManager:
                         "name": fname,
                         "path": output["file_path"],
                         "type": file_type,
+                        "scope": _map_scope(output.get("storage_scope", "user")),
+                        "department": output.get("department", ""),
                     })
 
             # Append assistant message with tool calls + tool result messages to history
@@ -377,14 +380,36 @@ class LLMManager:
 
     def _build_system_prompt(self, task: Optional[dict]) -> str:
         """Build department-aware system prompt from task context."""
-        if not task:
-            return _SYSTEM_PROMPT_TEMPLATE.format(
-                department="General", role="user", source="mobile"
+        dept = (task or {}).get("department", "General")
+        role = (task or {}).get("role", "user")
+        source = (task or {}).get("source", "mobile")
+
+        if dept.lower() == "management" or role.lower() in ("admin", "superadmin"):
+            save_options = (
+                f"Where would you like to save this file?\n"
+                f"  (1) Your personal folder — only visible to you\n"
+                f"  (2) The {dept} shared department folder — visible to your whole team\n"
+                f"  (3) The company-wide public folder — visible to all staff\n"
+                f'Wait for their reply. If they choose (1) or say "personal/mine/me", call with storage_scope="user". '
+                f'If they choose (2) or say "shared/team/department/{dept}", call with storage_scope="department". '
+                f'If they choose (3) or say "company/everyone/all staff", call with storage_scope="company". '
+                f"Do not skip this question."
             )
+        else:
+            save_options = (
+                f"Where would you like to save this file?\n"
+                f"  (1) Your personal folder — only visible to you\n"
+                f"  (2) The {dept} shared department folder — visible to your whole team\n"
+                f'Wait for their reply. If they choose (1) or say "personal/mine/me", call with storage_scope="user". '
+                f'If they choose (2) or say "shared/team/department/{dept}", call with storage_scope="department". '
+                f"Do not skip this question."
+            )
+
         return _SYSTEM_PROMPT_TEMPLATE.format(
-            department=task.get("department", "General"),
-            role=task.get("role", "user"),
-            source=task.get("source", "mobile"),
+            department=dept,
+            role=role,
+            source=source,
+            save_options=save_options,
         )
 
     def _contains_chinese(self, text: str) -> bool:

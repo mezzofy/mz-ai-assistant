@@ -14,7 +14,7 @@ import uuid
 from pathlib import Path
 from typing import Optional, Union
 
-from app.context.artifact_manager import get_user_artifacts_dir, get_dept_artifacts_dir
+from app.context.artifact_manager import get_user_artifacts_dir, get_dept_artifacts_dir, get_company_artifacts_dir
 from app.core.user_context import get_user_dept, get_user_email
 from app.tools.base_tool import BaseTool
 
@@ -39,6 +39,8 @@ class CSVOps(BaseTool):
         """Return output dir based on storage scope and user context."""
         dept = get_user_dept()
         email = get_user_email()
+        if storage_scope == "company":
+            return get_company_artifacts_dir()
         if storage_scope == "department" and dept:
             return get_dept_artifacts_dir(dept)
         if email:
@@ -87,9 +89,10 @@ class CSVOps(BaseTool):
                             "type": "string",
                             "description": (
                                 "Where to save the file. 'user' = personal folder (default), "
-                                "'department' = shared department folder visible to the whole team."
+                                "'department' = shared department folder, "
+                                "'company' = company-wide public folder (management only)."
                             ),
-                            "enum": ["user", "department"],
+                            "enum": ["user", "department", "company"],
                             "default": "user",
                         },
                     },
@@ -164,6 +167,8 @@ class CSVOps(BaseTool):
                 "column_count": len(headers) if headers else (len(rows[0]) if rows else 0),
                 "size_bytes": file_size,
                 "encoding": encoding,
+                "storage_scope": storage_scope,
+                "department": get_user_dept(),
             })
 
         except Exception as e:
