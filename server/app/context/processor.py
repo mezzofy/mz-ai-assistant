@@ -77,6 +77,8 @@ async def process_result(
                     filename=filename,
                     file_path=file_path,
                     file_type=file_type,
+                    scope=artifact.get("scope", "personal"),
+                    department=artifact.get("department") or None,
                 )
                 response_artifacts.append(db_record)
             except Exception as e:

@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from app.context.artifact_manager import get_user_artifacts_dir, get_dept_artifacts_dir
+from app.context.artifact_manager import get_user_artifacts_dir, get_dept_artifacts_dir, get_company_artifacts_dir
 from app.core.user_context import get_user_dept, get_user_email
 from app.tools.base_tool import BaseTool
 
@@ -89,6 +89,8 @@ class PDFOps(BaseTool):
         """Return output dir based on storage scope and user context."""
         dept = get_user_dept()
         email = get_user_email()
+        if storage_scope == "company":
+            return get_company_artifacts_dir()
         if storage_scope == "department" and dept:
             return get_dept_artifacts_dir(dept)
         if email:
@@ -138,9 +140,10 @@ class PDFOps(BaseTool):
                             "type": "string",
                             "description": (
                                 "Where to save the file. 'user' = personal folder (default), "
-                                "'department' = shared department folder visible to the whole team."
+                                "'department' = shared department folder, "
+                                "'company' = company-wide public folder (management only)."
                             ),
-                            "enum": ["user", "department"],
+                            "enum": ["user", "department", "company"],
                             "default": "user",
                         },
                     },
@@ -193,9 +196,10 @@ class PDFOps(BaseTool):
                             "type": "string",
                             "description": (
                                 "Where to save the file. 'user' = personal folder (default), "
-                                "'department' = shared department folder visible to the whole team."
+                                "'department' = shared department folder, "
+                                "'company' = company-wide public folder (management only)."
                             ),
-                            "enum": ["user", "department"],
+                            "enum": ["user", "department", "company"],
                             "default": "user",
                         },
                     },
@@ -262,6 +266,8 @@ class PDFOps(BaseTool):
             "filename": f"{filename}.pdf",
             "size_bytes": file_size,
             "title": title,
+            "storage_scope": storage_scope,
+            "department": get_user_dept(),
         })
 
     def _create_pdf_reportlab(self, title: str, html_content: str, output_path: Path) -> None:
@@ -384,6 +390,8 @@ class PDFOps(BaseTool):
                 "input_files": len(file_paths),
                 "total_pages": total_pages,
                 "size_bytes": output_path.stat().st_size,
+                "storage_scope": storage_scope,
+                "department": get_user_dept(),
             })
 
         except ImportError:
