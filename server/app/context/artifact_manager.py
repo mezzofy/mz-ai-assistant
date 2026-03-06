@@ -212,8 +212,11 @@ async def list_artifacts(
         base_filter = "a.scope = 'company'"
 
     if folder_id is not None:
+        try:
+            params["fid"] = uuid.UUID(str(folder_id))
+        except (ValueError, AttributeError):
+            return []          # invalid UUID string → empty list, no DB error
         folder_filter = "AND a.folder_id = :fid"
-        params["fid"] = folder_id
     else:
         folder_filter = "AND a.folder_id IS NULL"
 
