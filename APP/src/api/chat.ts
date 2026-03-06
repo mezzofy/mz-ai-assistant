@@ -17,6 +17,7 @@ export interface ChatResponse {
   agent_used: string;
   tools_used: string[];
   success: boolean;
+  task_id?: string | null;
 }
 
 export interface SessionSummary {
@@ -147,3 +148,6 @@ export interface TasksResponse {
 
 export const getTasksApi = (): Promise<TasksResponse> =>
   apiFetch<TasksResponse>('/tasks/');
+
+export const getActiveTasksApi = (): Promise<TasksResponse> =>
+  apiFetch<TasksResponse>('/tasks/active');
