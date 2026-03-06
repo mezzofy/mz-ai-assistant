@@ -144,7 +144,7 @@ async def list_user_sessions(
     result = await db.execute(
         text(
             """
-            SELECT id, messages, created_at, updated_at
+            SELECT id, messages, created_at, updated_at, is_favorite, is_archived
             FROM conversations
             WHERE user_id = :uid
             ORDER BY updated_at DESC
@@ -163,6 +163,8 @@ async def list_user_sessions(
             "last_message": msgs[-1] if msgs else None,
             "created_at": _iso(row.created_at),
             "updated_at": _iso(row.updated_at),
+            "is_favorite": bool(row.is_favorite),
+            "is_archived": bool(row.is_archived),
         })
     return sessions
 

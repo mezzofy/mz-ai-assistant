@@ -57,3 +57,15 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
 )
+
+# ── Queue routing (added for fast/slow separation) ────────────────────────────
+# NOTE (operator action required — do NOT apply automatically):
+# To split fast/slow queues, update mezzofy-celery.service ExecStart to:
+#   celery -A app.tasks.celery_app worker -Q fast,default --concurrency=2 -n fast@%h
+# Then create /etc/systemd/system/mezzofy-celery-slow.service for -Q slow:
+#   celery -A app.tasks.celery_app worker -Q slow --concurrency=1 -n slow@%h
+# Then: sudo systemctl daemon-reload && sudo systemctl restart mezzofy-celery
+celery_app.conf.task_routes = {
+    "app.tasks.tasks.process_agent_task": {"queue": "default"},
+    "app.tasks.tasks.health_check":       {"queue": "default"},
+}
