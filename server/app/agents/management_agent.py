@@ -44,7 +44,10 @@ class ManagementAgent(BaseAgent):
     """
 
     def can_handle(self, task: dict) -> bool:
-        return task.get("department", "").lower() == "management"
+        is_management = task.get("department", "").lower() == "management"
+        message = task.get("message", "").lower()
+        has_keyword = any(kw in message for kw in _TRIGGER_KEYWORDS)
+        return is_management and has_keyword
 
     async def execute(self, task: dict) -> dict:
         source = task.get("source", "mobile")

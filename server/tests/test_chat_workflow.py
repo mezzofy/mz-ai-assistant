@@ -43,7 +43,9 @@ class TestSendMessage:
         assert response.status_code == 200
         data = response.json()
         assert "session_id" in data
-        assert "message" in data
+        assert "response" in data
+        assert "task_id" in data
+        assert data["task_id"] is not None
 
     async def test_send_message_without_session_creates_new(
         self,
