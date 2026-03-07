@@ -213,10 +213,9 @@ export const HistoryScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 <Text style={[styles.cardTime, {color: colors.textDim}]}>{formatSessionDate(s.updated_at)}</Text>
                 <Text style={[styles.cardMsgs, {color: colors.accent}]}>{s.message_count} messages</Text>
               </View>
-              {(tasksBySession[s.session_id] ?? []).filter(t => t.queue_name === 'background').length > 0 && (
+              {(tasksBySession[s.session_id] ?? []).length > 0 && (
                 <View style={styles.taskRow}>
                   {tasksBySession[s.session_id]
-                    .filter(t => t.queue_name === 'background')
                     .map(t => {
                       const c = getTaskStatusColor(t.status, colors);
                       return (
