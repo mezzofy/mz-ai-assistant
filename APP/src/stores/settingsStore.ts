@@ -1,24 +1,31 @@
 import {create} from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {listFilesApi} from '../api/files';
+import {getStorageStatsApi} from '../api/files';
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) { return `${bytes} B`; }
+  if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)} KB`; }
+  if (bytes < 1024 * 1024 * 1024) { return `${(bytes / (1024 * 1024)).toFixed(1)} MB`; }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
 
 type SettingsState = {
   notifications: boolean;
   speechLanguage: string;
   appearance: 'Dark' | 'Light';
-  fileCount: number | null;
+  storageDisplay: string | null;
   toggleNotifications: () => void;
   setSpeechLanguage: (lang: string) => void;
   setAppearance: (v: 'Dark' | 'Light') => void;
   loadSettings: () => Promise<void>;
-  loadFileCount: () => Promise<void>;
+  loadStorageInfo: () => Promise<void>;
 };
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   notifications: true,
   speechLanguage: 'English',
   appearance: 'Dark',
-  fileCount: null,
+  storageDisplay: null,
 
   toggleNotifications: () => {
     const next = !get().notifications;
@@ -49,10 +56,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     });
   },
 
-  loadFileCount: async () => {
+  loadStorageInfo: async () => {
     try {
-      const result = await listFilesApi();
-      set({fileCount: result.count});
+      const result = await getStorageStatsApi();
+      set({storageDisplay: formatBytes(result.total_bytes)});
     } catch {
       // Silent — keep null
     }

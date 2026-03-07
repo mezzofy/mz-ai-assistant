@@ -111,3 +111,12 @@ export const getDownloadHeaders = async (): Promise<Record<string, string>> => {
   const token = await getAccessToken();
   return token ? {Authorization: `Bearer ${token}`} : {};
 };
+
+export interface StorageStatsResponse {
+  total_bytes: number;
+  count: number;
+}
+
+export const getStorageStatsApi = async (): Promise<StorageStatsResponse> => {
+  return apiFetch('/files/storage-stats');
+};
