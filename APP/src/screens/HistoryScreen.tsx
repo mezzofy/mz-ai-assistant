@@ -1,6 +1,7 @@
 import React, {useState, useEffect, useCallback} from 'react';
 import {
   View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../hooks/useTheme';
@@ -50,6 +51,7 @@ export const HistoryScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const {sessions, loadSessions, loadHistory, sessionTitles, loadTitles, tasks, loadTasks,
          toggleFavorite, toggleArchive} = useChatStore();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('active');
   const colors = useTheme();
@@ -58,6 +60,12 @@ export const HistoryScreen: React.FC<{navigation: any}> = ({navigation}) => {
     loadTitles();
     Promise.all([loadSessions(), loadTasks()]).finally(() => setLoading(false));
   }, [loadSessions, loadTasks, loadTitles]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadSessions(), loadTasks()]);
+    setRefreshing(false);
+  }, [loadSessions, loadTasks]);
 
   // loadHistory sets messages + sessionId in chatStore, then navigate to Chat tab.
   // loadHistory swallows errors internally — navigation happens regardless.
@@ -146,7 +154,16 @@ export const HistoryScreen: React.FC<{navigation: any}> = ({navigation}) => {
           </Text>
         </View>
       ) : (
-        <ScrollView style={styles.list}>
+        <ScrollView
+          style={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
+            />
+          }>
           {filtered.map(s => (
             <TouchableOpacity
               key={s.session_id}
@@ -201,7 +218,7 @@ export const HistoryScreen: React.FC<{navigation: any}> = ({navigation}) => {
                           {backgroundColor: c + '22', borderColor: c + '55'},
                         ]}>
                         <Text style={[styles.taskBadgeText, {color: c}]}>
-                          {t.id.slice(0, 8).toUpperCase()}{'  '}{t.status.toUpperCase()}
+                          {'Task ID: '}{t.id.slice(0, 8).toUpperCase()}{'  '}{t.status.toUpperCase()}
                         </Text>
                       </View>
                     );
