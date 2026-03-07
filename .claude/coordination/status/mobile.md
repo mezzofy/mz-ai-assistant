@@ -1,8 +1,28 @@
 # Context Checkpoint: Mobile Agent
-**Date:** 2026-03-07
-**Session:** v1.14.2 — chatStore fix + release APK build
-**Context:** ~15% at checkpoint
-**Reason:** v1.14.2 release APK built successfully
+**Date:** 2026-03-08
+**Session:** v1.14.3 — backend P0 fix + release APK build
+**Context:** ~12% at checkpoint
+**Reason:** v1.14.3 release APK built successfully
+
+---
+
+## v1.14.3 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 21 |
+| versionName | 1.14.3 |
+| Build time | 47s |
+| Branch | eric-design |
+| Commits | `ff9a141` (backend P0 fix + version bump), `0026f12` (SettingsScreen label) |
+
+**Changes in v1.14.3:**
+- `server/app/tasks/tasks.py`: register `process_chat_task`; `_update_agent_task_session()` writes real session UUID back to `agent_tasks.session_id` after first-message session creation
+- `server/app/api/chat.py`: default `notify_on_done=true` in `agent_tasks` INSERT
+- `SettingsScreen.tsx`: version label → v1.14.3
 
 ---
 
@@ -95,7 +115,8 @@
 | 1.13.0 | 17 | History refresh button + Settings storage size display |
 | 1.14.0 | 18 | Long-running chat task support + background task tracking + WS notifications |
 | 1.14.1 | 19 | HistoryScreen: show all session tasks; release notes |
-| **1.14.2** | **20** | **chatStore: skip assistant msg for queued tasks; safe optional chaining** |
+| 1.14.2 | 20 | chatStore: skip assistant msg for queued tasks; safe optional chaining |
+| **1.14.3** | **21** | **Backend P0: register Celery task, session_id writeback, notify_on_done default** |
 
 ---
 
