@@ -192,6 +192,11 @@ async def _run_chat_task(task_data: dict) -> dict:
             task_data["session_id"] = session["id"]
             task_data["conversation_history"] = session["messages"]
 
+            # Write the resolved session_id back to agent_tasks if it was null
+            # (first message has no session yet — worker creates it above)
+            if agent_task_id and not session_id:
+                await _update_agent_task_session(agent_task_id, session["id"])
+
             # Execute agent
             agent_result = await agent.execute(task_data)
 
@@ -333,6 +338,22 @@ async def _update_agent_task_failed(agent_task_id: str, error_msg: str):
             await db.commit()
     except Exception as e:
         logger.warning(f"Failed to update agent_task failed (id={agent_task_id}): {e}")
+
+
+async def _update_agent_task_session(agent_task_id: str, session_id: str):
+    """Write the resolved session_id back to agent_tasks after session creation."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text
+
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                text("UPDATE agent_tasks SET session_id = :session_id WHERE id = :id"),
+                {"session_id": session_id, "id": agent_task_id},
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to update agent_task session_id (id={agent_task_id}): {e}")
 
 
 # ── Health check task ──────────────────────────────────────────────────────────

@@ -136,8 +136,8 @@ async def send_message(
             await db.execute(
                 text(
                     "INSERT INTO agent_tasks "
-                    "(id, task_ref, user_id, session_id, department, title, status, queue_name) "
-                    "VALUES (:id, :ref, :uid, :sid, :dept, :title, 'queued', 'background')"
+                    "(id, task_ref, user_id, session_id, department, title, status, queue_name, notify_on_done) "
+                    "VALUES (:id, :ref, :uid, :sid, :dept, :title, 'queued', 'background', true)"
                 ),
                 {
                     "id": new_task_id,
