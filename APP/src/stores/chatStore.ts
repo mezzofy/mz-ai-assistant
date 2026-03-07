@@ -240,23 +240,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
 
-      set(s => ({
-        sessionId: response.session_id,
-        messages: [
-          ...s.messages,
-          {
-            id: Date.now(),
-            role: 'assistant',
-            text: response.response,
-            time: getTimeStr(),
-            artifacts: response.artifacts.length > 0 ? response.artifacts : undefined,
-            tools: response.tools_used.length > 0 ? response.tools_used : undefined,
-          },
-        ],
-        isTyping: false,
-        statusMessage: null,
-        ...(newActiveTask ? {activeTask: newActiveTask} : {}),
-      }));
+      // Only add an assistant message for synchronous (non-queued) responses.
+      // For queued responses, the task banner handles UX; result arrives via WS.
+      if (!newActiveTask) {
+        set(s => ({
+          sessionId: response.session_id,
+          messages: [
+            ...s.messages,
+            {
+              id: Date.now(),
+              role: 'assistant',
+              text: response.response,
+              time: getTimeStr(),
+              artifacts: (response.artifacts?.length ?? 0) > 0 ? response.artifacts : undefined,
+              tools: (response.tools_used?.length ?? 0) > 0 ? response.tools_used : undefined,
+            },
+          ],
+          isTyping: false,
+          statusMessage: null,
+        }));
+      } else {
+        // Queued: just clear the typing indicator; activeTask banner handles UX
+        set({isTyping: false, statusMessage: null, activeTask: newActiveTask});
+      }
 
       // Auto-set title from first user message if no custom title exists yet
       if (autoTitle && response.session_id) {
@@ -311,8 +317,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             role: 'assistant',
             text: response.response,
             time: getTimeStr(),
-            artifacts: response.artifacts.length > 0 ? response.artifacts : undefined,
-            tools: response.tools_used.length > 0 ? response.tools_used : undefined,
+            artifacts: (response.artifacts?.length ?? 0) > 0 ? response.artifacts : undefined,
+            tools: (response.tools_used?.length ?? 0) > 0 ? response.tools_used : undefined,
           },
         ],
         isTyping: false,
