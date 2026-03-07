@@ -170,12 +170,17 @@ async def _run_chat_task(task_data: dict) -> dict:
     device_token = task_data.get("device_token", "")
     platform = task_data.get("platform", "android")
     celery_task_id = task_data.get("_celery_task_id", "")
+    agent_task_id = task_data.get("agent_task_id")
 
     # Resolve agent
     agent_name = task_data.get("agent", "")
     agent = AGENT_MAP.get(agent_name) if agent_name else get_agent_for_task(task_data, config)
     if agent is None:
         raise RuntimeError(f"No agent found for task (agent={agent_name!r})")
+
+    # Mark task as running now that Celery worker has picked it up
+    if agent_task_id:
+        await _update_agent_task_status(agent_task_id, "running")
 
     file_url = None
     try:
@@ -190,7 +195,7 @@ async def _run_chat_task(task_data: dict) -> dict:
             # Execute agent
             agent_result = await agent.execute(task_data)
 
-            # Save result to DB
+            # Save result to DB (updates existing agent_tasks row to 'completed' if agent_task_id given)
             response = await process_result(
                 db=db,
                 user_id=user_id,
@@ -199,6 +204,7 @@ async def _run_chat_task(task_data: dict) -> dict:
                 agent_result=agent_result,
                 input_summary=task_data.get("input_summary", ""),
                 department=task_data.get("department", ""),
+                agent_task_id=agent_task_id,
             )
 
         # Extract file_url from artifacts if present
@@ -213,7 +219,7 @@ async def _run_chat_task(task_data: dict) -> dict:
             summary = (task_data["message"][:60] + "…") if len(task_data["message"]) > 60 else task_data["message"]
             notification_payload = json.dumps({
                 "type": "task_complete",
-                "task_id": celery_task_id,
+                "task_id": agent_task_id or celery_task_id,
                 "session_id": session["id"],
                 "message": summary,
                 "file_url": file_url,

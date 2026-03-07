@@ -126,7 +126,29 @@ async def send_message(
 
     # Long-running task detection — dispatch to Celery and return 202 immediately
     if _is_long_running(body.message):
+        import uuid as _uuid
         from app.tasks.tasks import process_chat_task
+
+        # Create agent_tasks row upfront so mobile can poll a stable DB ID
+        new_task_id = str(_uuid.uuid4())
+        task_ref = f"TASK-{new_task_id[:8].upper()}"
+        async with _db_session() as db:
+            await db.execute(
+                text(
+                    "INSERT INTO agent_tasks "
+                    "(id, task_ref, user_id, session_id, department, title, status, queue_name) "
+                    "VALUES (:id, :ref, :uid, :sid, :dept, :title, 'queued', 'background')"
+                ),
+                {
+                    "id": new_task_id,
+                    "ref": task_ref,
+                    "uid": user["user_id"],
+                    "sid": body.session_id,
+                    "dept": user.get("department", ""),
+                    "title": body.message[:80],
+                },
+            )
+
         task_payload = {
             "user_id": user["user_id"],
             "session_id": body.session_id,
@@ -137,17 +159,18 @@ async def send_message(
             "platform": body.platform,
             "source": "mobile",
             "_config": None,   # will be loaded inside _run_chat_task
+            "agent_task_id": new_task_id,
         }
         celery_result = process_chat_task.delay(task_payload)
         logger.info(
             f"send_message: long-running task queued "
-            f"user_id={user.get('user_id')} celery_id={celery_result.id}"
+            f"user_id={user.get('user_id')} agent_task_id={new_task_id} celery_id={celery_result.id}"
         )
         return JSONResponse(
             status_code=202,
             content={
                 "status": "queued",
-                "task_id": celery_result.id,
+                "task_id": new_task_id,
                 "message": "Your task has been queued. We'll notify you when it's ready.",
                 "estimated_seconds": 120,
             },

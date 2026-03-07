@@ -115,6 +115,14 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
     return () => clearInterval(interval);
   }, [activeTask, sessionId, pollActiveTask]);
 
+  // Auto-dismiss task bar 3 seconds after task completes
+  useEffect(() => {
+    if (activeTask?.status === 'completed') {
+      const timer = setTimeout(() => clearActiveTask(), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTask?.status, clearActiveTask]);
+
   // ── Null guard AFTER all hooks ─────────────────────────────────────────────
   if (!user) {
     return null;
