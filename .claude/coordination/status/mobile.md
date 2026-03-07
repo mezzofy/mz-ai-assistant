@@ -1,39 +1,29 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-07
-**Session:** v1.12.0 — Version Bump + Release Build
-**Context:** ~10% at checkpoint
-**Reason:** v1.12.0 release build complete — reporting to Lead
+**Session:** v1.13.0 — History Refresh Button + Settings Storage Display
+**Context:** ~15% at checkpoint
+**Reason:** v1.13.0 changes complete — ready for Lead review
 
 ---
 
-## v1.12.0 Changes (this session)
+## v1.13.0 Changes (this session)
 
 | # | File | Change |
 |---|------|--------|
-| 1 | `APP/src/screens/HistoryScreen.tsx` | Pull-to-refresh (RefreshControl) + "Task ID: " prefix on task badges |
-| 2 | `APP/package.json` | `"version": "1.11.0"` → `"1.12.0"` |
-| 3 | `APP/android/app/build.gradle` | `versionCode 15` → `16`, `versionName "1.11.0"` → `"1.12.0"` |
-| 4 | `APP/src/screens/SettingsScreen.tsx` | `v1.11.0` → `v1.12.0` (line 182) |
-
-**Features in v1.12.0 (eric-design branch):**
-- History tab: pull-to-refresh (orange spinner, reloads sessions + tasks in parallel)
-- History tab: task badges now show "Task ID: A1B2C3D4  RUNNING" prefix
+| 1 | `server/app/api/files.py` | Added `GET /files/storage-stats` endpoint (returns `{total_bytes, count}` for personal files) |
+| 2 | `APP/src/screens/HistoryScreen.tsx` | Header: row layout with refresh button (top-right); `ActivityIndicator` while refreshing, `refresh-outline` icon otherwise; `disabled={refreshing}` prevents double-tap |
+| 3 | `APP/src/api/files.ts` | Added `StorageStatsResponse` interface + `getStorageStatsApi()` calling `/files/storage-stats` |
+| 4 | `APP/src/stores/settingsStore.ts` | Replaced `fileCount`/`loadFileCount`/`listFilesApi` with `storageDisplay`/`loadStorageInfo`/`getStorageStatsApi` + `formatBytes` helper (B/KB/MB/GB) |
+| 5 | `APP/src/screens/SettingsScreen.tsx` | Destructures `storageDisplay`/`loadStorageInfo`; Storage & Data row shows formatted size; version string → `v1.13.0` |
+| 6 | `APP/android/app/build.gradle` | `versionCode 16 → 17`, `versionName "1.12.0" → "1.13.0"` |
+| 7 | `APP/package.json` | `"version": "1.12.0"` → `"1.13.0"` |
 
 ---
 
-## Build Results
+## Features in v1.13.0 (eric-design branch)
 
-### Android Release Build v1.12.0
-```
-cd APP/android && ./gradlew.bat assembleRelease
-```
-**Result:** ✅ BUILD SUCCESSFUL in 43s
-- Tasks: 438 actionable (30 executed, 408 up-to-date)
-- **APK:** `APP/android/app/build/outputs/apk/release/app-release.apk`
-- **Size:** 61 MB
-- **versionCode:** 16 · **versionName:** 1.12.0
-- Signing: `mezzofy-release.keystore` via `keystore.properties`
-- Commits: `cd6feb8` (HistoryScreen changes) · `62105d0` (version bump)
+1. **History tab refresh button** — tappable header button (top-right), consistent with FilesScreen pattern. Spinner while loading, disabled on double-tap. Pull-to-refresh still works unchanged.
+2. **Settings → Storage & Data** — now shows formatted total file size (`X.X MB`) instead of file count (`N files`). Backed by new `GET /files/storage-stats` endpoint that sums `os.path.getsize()` for the user's personal artifacts on disk.
 
 ---
 
@@ -51,7 +41,8 @@ cd APP/android && ./gradlew.bat assembleRelease
 | 1.9.0 | 13 | FolderContentsScreen fix |
 | 1.10.0 | 14 | Task ID & status bar (chat + history) + package.json sync |
 | 1.11.0 | 15 | File search, file rename, creator display in file metadata UI |
-| **1.12.0** | **16** | **History tab: pull-to-refresh + Task ID label on task badges** |
+| 1.12.0 | 16 | History tab: pull-to-refresh + Task ID label on task badges |
+| **1.13.0** | **17** | **History refresh button + Settings storage size display** |
 
 ---
 
