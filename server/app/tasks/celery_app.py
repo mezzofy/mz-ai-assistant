@@ -13,6 +13,7 @@ Beat (scheduled jobs) is started separately:
 
 import os
 from celery import Celery
+from celery.signals import worker_process_init
 
 # ── App init ──────────────────────────────────────────────────────────────────
 
@@ -69,3 +70,17 @@ celery_app.conf.task_routes = {
     "app.tasks.tasks.process_agent_task": {"queue": "default"},
     "app.tasks.tasks.health_check":       {"queue": "default"},
 }
+
+
+# ── Event loop safety (Bug B fix) ─────────────────────────────────────────────
+# AsyncSessionLocal and the SQLAlchemy engine are module-level singletons bound
+# to the event loop that was active when the Celery worker forked from the parent
+# process.  asyncio.run() creates and closes a new event loop per task call, so
+# on the second call the engine's asyncpg connections point at the closed parent
+# loop → "Future attached to a different loop".
+# Disposing the sync-engine's connection pool at worker-process-init ensures
+# each asyncio.run() call starts with fresh connections on the current loop.
+@worker_process_init.connect
+def reset_db_pool(**kwargs):
+    from app.core.database import engine
+    engine.sync_engine.dispose(close=False)

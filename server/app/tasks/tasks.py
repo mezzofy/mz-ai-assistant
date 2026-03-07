@@ -69,7 +69,10 @@ async def _run_agent_task(task_data: dict) -> dict:
 
     # Get agent — try by explicit name first, then auto-detect
     agent_name = task_data.get("agent", "")
-    agent = AGENT_MAP.get(agent_name) if agent_name else get_agent_for_task(task_data, config)
+    if agent_name and agent_name in AGENT_MAP:
+        agent = AGENT_MAP[agent_name](config)
+    else:
+        agent = get_agent_for_task(task_data, config)
 
     if agent is None:
         logger.warning(f"No agent found for task (agent={agent_name!r})")
@@ -133,7 +136,13 @@ def process_chat_task(self, task_data: dict):
         return result
     except Exception as exc:
         logger.error(f"process_chat_task failed: {exc}", exc_info=True)
-        raise self.retry(exc=exc, countdown=10)
+        agent_task_id = task_data.get("agent_task_id")
+        try:
+            raise self.retry(exc=exc, countdown=10)
+        except self.MaxRetriesExceededError:
+            if agent_task_id:
+                asyncio.run(_update_agent_task_failed(agent_task_id, str(exc)))
+            raise
 
 
 async def _run_chat_task(task_data: dict) -> dict:
@@ -174,7 +183,10 @@ async def _run_chat_task(task_data: dict) -> dict:
 
     # Resolve agent
     agent_name = task_data.get("agent", "")
-    agent = AGENT_MAP.get(agent_name) if agent_name else get_agent_for_task(task_data, config)
+    if agent_name and agent_name in AGENT_MAP:
+        agent = AGENT_MAP[agent_name](config)
+    else:
+        agent = get_agent_for_task(task_data, config)
     if agent is None:
         raise RuntimeError(f"No agent found for task (agent={agent_name!r})")
 
