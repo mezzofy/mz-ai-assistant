@@ -102,9 +102,16 @@ export const HistoryScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   return (
     <View style={[styles.container, {backgroundColor: colors.primary}]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, {color: colors.text}]}>Chat History</Text>
-        <Text style={[styles.count, {color: colors.textMuted}]}>{filtered.length} {activeFilter} conversations</Text>
+      <View style={[styles.header, {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}]}>
+        <View>
+          <Text style={[styles.title, {color: colors.text}]}>Chat History</Text>
+          <Text style={[styles.count, {color: colors.textMuted}]}>{filtered.length} {activeFilter} conversations</Text>
+        </View>
+        <TouchableOpacity onPress={handleRefresh} disabled={refreshing} style={{padding: 8}}>
+          {refreshing
+            ? <ActivityIndicator size="small" color={colors.accent} />
+            : <Icon name="refresh-outline" size={22} color={colors.accent} />}
+        </TouchableOpacity>
       </View>
 
       <View style={[styles.searchWrap, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>

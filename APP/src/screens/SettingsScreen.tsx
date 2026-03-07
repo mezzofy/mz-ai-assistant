@@ -37,14 +37,14 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
   const {
-    notifications, speechLanguage, appearance, fileCount,
-    toggleNotifications, setSpeechLanguage, setAppearance, loadSettings, loadFileCount,
+    notifications, speechLanguage, appearance, storageDisplay,
+    toggleNotifications, setSpeechLanguage, setAppearance, loadSettings, loadStorageInfo,
   } = useSettingsStore();
   const colors = useTheme();
 
   useEffect(() => {
     loadSettings();
-    loadFileCount();
+    loadStorageInfo();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -169,7 +169,7 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <SettingsRow
             icon="document-outline"
             label="Storage & Data"
-            value={fileCount !== null ? `${fileCount} files` : '—'}
+            value={storageDisplay !== null ? storageDisplay : '—'}
             colors={colors}
           />
           <SettingsRow icon="time-outline" label="AI Usage Stats" accent colors={colors} onPress={() => navigation.navigate('AIUsageStats')} />
@@ -179,7 +179,7 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <SettingsRow icon="log-out-outline" label="Sign Out" danger colors={colors} onPress={() => { logout(); }} />
         </View>
 
-        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.12.0</Text>
+        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.13.0</Text>
       </ScrollView>
     </View>
   );

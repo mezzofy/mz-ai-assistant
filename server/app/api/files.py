@@ -261,6 +261,27 @@ async def search_files(
     return {"results": results, "count": len(results)}
 
 
+@router.get("/storage-stats")
+async def get_storage_stats(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return total disk usage (bytes) and count of personal artifacts for the current user."""
+    user_id = current_user["user_id"]
+    result = await db.execute(
+        text("SELECT file_path FROM artifacts WHERE user_id = :uid AND scope = 'personal'"),
+        {"uid": user_id},
+    )
+    rows = result.fetchall()
+    total_bytes = 0
+    for row in rows:
+        try:
+            total_bytes += os.path.getsize(row.file_path)
+        except (OSError, TypeError):
+            pass  # File missing or path null — skip
+    return {"total_bytes": total_bytes, "count": len(rows)}
+
+
 @router.get("/{file_id}")
 async def get_file(
     file_id: str,
