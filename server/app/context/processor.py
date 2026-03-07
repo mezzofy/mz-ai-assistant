@@ -105,21 +105,24 @@ async def process_result(
     # 4. Create agent_tasks record (links this response to a trackable task)
     task_id: str | None = None
     try:
-        task_id = str(uuid.uuid4())
+        raw_id = uuid.uuid4()
+        task_ref = f"TASK-{str(raw_id)[:8].upper()}"
         await db.execute(
             text(
                 "INSERT INTO agent_tasks "
-                "(id, user_id, session_id, department, title, status, progress, started_at, completed_at) "
-                "VALUES (:id, :uid, :sid, :dept, :title, 'completed', 100, NOW(), NOW())"
+                "(id, task_ref, user_id, session_id, department, title, status, progress, started_at, completed_at) "
+                "VALUES (:id, :task_ref, :uid, :sid, :dept, :title, 'completed', 100, NOW(), NOW())"
             ),
             {
-                "id": task_id,
+                "id": str(raw_id),
+                "task_ref": task_ref,
                 "uid": user_id,
                 "sid": session_id,
                 "dept": department,
                 "title": user_message[:80],
             },
         )
+        task_id = str(raw_id)
     except Exception as e:
         logger.warning(f"Failed to create agent_task record (session={session_id}): {e}")
         task_id = None
