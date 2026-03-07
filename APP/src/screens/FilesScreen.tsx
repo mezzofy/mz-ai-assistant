@@ -454,13 +454,10 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
               </>
             ) : null}
             <Text style={[styles.fileDate, {color: colors.textMuted}]}>{formatDate(f.created_at)}</Text>
-            {f.creator_name ? (
-              <>
-                <Text style={[styles.fileDot, {color: colors.textDim}]}>·</Text>
-                <Text style={[styles.fileDate, {color: colors.textMuted}]}>{f.creator_name}</Text>
-              </>
-            ) : null}
           </View>
+          {f.creator_name ? (
+            <Text style={[styles.fileDate, {color: colors.textMuted}]}>{f.creator_name}</Text>
+          ) : null}
         </View>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
           {viewerType ? (

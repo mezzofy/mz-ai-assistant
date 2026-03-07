@@ -294,11 +294,7 @@ async def delete_file(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Delete an artifact record from DB (scope-aware RBAC).
-
-    The underlying file is NOT deleted from disk (preserves audit trail).
-    """
+    """Delete an artifact record from DB and its physical file from disk (scope-aware RBAC)."""
     from sqlalchemy import text
 
     artifact = await get_artifact(db, file_id)
@@ -308,11 +304,20 @@ async def delete_file(
 
     _check_delete_access(artifact, current_user)
 
+    file_path = artifact.get("file_path")
+
     await db.execute(
         text("DELETE FROM artifacts WHERE id = :id"),
         {"id": file_id},
     )
     await db.commit()
+
+    if file_path and os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+            logger.info(f"Deleted file from disk: {file_path}")
+        except OSError as e:
+            logger.warning(f"Could not delete file from disk: {e}")
 
     return {"deleted": True, "artifact_id": file_id}
 
@@ -405,6 +410,23 @@ async def rename_file(
         {"n": new_name, "id": file_id},
     )
     await db.commit()
+
+    old_path = artifact.get("file_path")
+    if old_path:
+        old_path = Path(old_path)
+        new_path = old_path.parent / new_name
+        if old_path.exists():
+            try:
+                old_path.rename(new_path)
+                await db.execute(
+                    text("UPDATE artifacts SET file_path = :p WHERE id = :id"),
+                    {"p": str(new_path), "id": file_id},
+                )
+                await db.commit()
+                logger.info(f"Renamed file on disk: {old_path} → {new_path}")
+            except OSError as e:
+                logger.warning(f"Could not rename file on disk: {e}")
+
     return {"renamed": True, "artifact_id": file_id, "filename": new_name}
 
 
