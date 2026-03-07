@@ -30,6 +30,7 @@ async def process_result(
     agent_result: dict,
     input_summary: str = "",
     department: str = "",
+    agent_task_id: str | None = None,
 ) -> dict:
     """
     Post-process agent execution result and build the API response.
@@ -102,30 +103,43 @@ async def process_result(
                 "download_url": None,
             })
 
-    # 4. Create agent_tasks record (links this response to a trackable task)
+    # 4. Create or update agent_tasks record
     task_id: str | None = None
     try:
-        raw_id = uuid.uuid4()
-        task_ref = f"TASK-{str(raw_id)[:8].upper()}"
-        await db.execute(
-            text(
-                "INSERT INTO agent_tasks "
-                "(id, task_ref, user_id, session_id, department, title, status, progress, started_at, completed_at) "
-                "VALUES (:id, :task_ref, :uid, :sid, :dept, :title, 'completed', 100, NOW(), NOW())"
-            ),
-            {
-                "id": str(raw_id),
-                "task_ref": task_ref,
-                "uid": user_id,
-                "sid": session_id,
-                "dept": department,
-                "title": user_message[:80],
-            },
-        )
-        task_id = str(raw_id)
+        if agent_task_id:
+            # Celery path: UPDATE the existing 'queued'/'running' row to 'completed'
+            await db.execute(
+                text(
+                    "UPDATE agent_tasks "
+                    "SET status = 'completed', progress = 100, completed_at = NOW() "
+                    "WHERE id = :id"
+                ),
+                {"id": agent_task_id},
+            )
+            task_id = agent_task_id
+        else:
+            # Sync path: INSERT a new completed record
+            raw_id = uuid.uuid4()
+            task_ref = f"TASK-{str(raw_id)[:8].upper()}"
+            await db.execute(
+                text(
+                    "INSERT INTO agent_tasks "
+                    "(id, task_ref, user_id, session_id, department, title, status, progress, started_at, completed_at) "
+                    "VALUES (:id, :task_ref, :uid, :sid, :dept, :title, 'completed', 100, NOW(), NOW())"
+                ),
+                {
+                    "id": str(raw_id),
+                    "task_ref": task_ref,
+                    "uid": user_id,
+                    "sid": session_id,
+                    "dept": department,
+                    "title": user_message[:80],
+                },
+            )
+            task_id = str(raw_id)
     except Exception as e:
-        logger.warning(f"Failed to create agent_task record (session={session_id}): {e}")
-        task_id = None
+        logger.warning(f"Failed to create/update agent_task record (session={session_id}): {e}")
+        task_id = agent_task_id  # return the original ID even if DB update failed
 
     # 5. Build and return formatted API response
     return {

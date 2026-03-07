@@ -10,7 +10,8 @@ export type WsInboundMessage =
   | {type: 'transcript'; text: string; is_final: boolean}
   | {type: 'camera_analysis'; description: string}
   | {type: 'complete'; response: ChatResponse}
-  | {type: 'error'; detail: string};
+  | {type: 'error'; detail: string}
+  | {type: 'task_complete'; task_id: string; session_id: string; message: string; file_url: string | null};
 
 export type WsCallbacks = {
   onStatus?: (message: string) => void;
@@ -19,6 +20,7 @@ export type WsCallbacks = {
   onComplete?: (response: ChatResponse) => void;
   onError?: (detail: string) => void;
   onDisconnect?: () => void;
+  onTaskComplete?: (data: {task_id: string; session_id: string; message: string; file_url: string | null}) => void;
 };
 
 // ── MzWebSocket ───────────────────────────────────────────────────────────────
@@ -26,6 +28,11 @@ export type WsCallbacks = {
 export class MzWebSocket {
   private ws: WebSocket | null = null;
   private callbacks: WsCallbacks = {};
+
+  /** Merge additional callbacks without reconnecting. Safe to call before connect(). */
+  setCallbacks(updates: Partial<WsCallbacks>): void {
+    this.callbacks = {...this.callbacks, ...updates};
+  }
 
   async connect(callbacks: WsCallbacks): Promise<void> {
     this.callbacks = callbacks;
@@ -132,6 +139,9 @@ export class MzWebSocket {
         break;
       case 'error':
         this.callbacks.onError?.(msg.detail);
+        break;
+      case 'task_complete':
+        this.callbacks.onTaskComplete?.(msg);
         break;
     }
   }

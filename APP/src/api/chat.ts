@@ -18,6 +18,7 @@ export interface ChatResponse {
   tools_used: string[];
   success: boolean;
   task_id?: string | null;
+  status?: string;  // 'queued' for 202 background tasks; absent for sync responses
 }
 
 export interface SessionSummary {
@@ -138,6 +139,7 @@ export interface TaskSummary {
   session_id: string | null;
   title: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  queue_name: string;
   created_at: string;
 }
 

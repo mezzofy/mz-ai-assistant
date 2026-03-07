@@ -14,6 +14,7 @@ import {
   SessionSummary,
   TaskSummary,
 } from '../api/chat';
+import {mzWs} from '../api/websocket';
 
 export type MediaInfo = {
   type: string;
@@ -207,15 +208,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       // Add assistant response and update sessionId in one atomic set
-      const newActiveTask: TaskSummary | null = response.task_id
-        ? {
-            id: response.task_id,
-            session_id: response.session_id,
-            title: text.slice(0, 80),
-            status: 'completed',
-            created_at: new Date().toISOString(),
-          }
-        : null;
+      // Only create activeTask for background tasks the server explicitly queued
+      const newActiveTask: TaskSummary | null =
+        response.task_id && response.status === 'queued'
+          ? {
+              id: response.task_id,
+              session_id: response.session_id ?? null,
+              title: text.slice(0, 80),
+              status: 'queued',
+              queue_name: 'background',
+              created_at: new Date().toISOString(),
+            }
+          : null;
+
+      // Wire up WS task_complete notification for background tasks
+      if (newActiveTask) {
+        const onTaskComplete = (data: {task_id: string; session_id: string; message: string; file_url: string | null}) => {
+          set(s => ({
+            activeTask: s.activeTask?.id === data.task_id
+              ? {...s.activeTask, status: 'completed' as const}
+              : s.activeTask,
+          }));
+          get().loadTasks();
+        };
+        if (mzWs.isConnected) {
+          // Already connected — just update the callback
+          mzWs.setCallbacks({onTaskComplete});
+        } else {
+          // Connect and register callback; polling is the fallback if this fails
+          mzWs.connect({onTaskComplete}).catch(() => {});
+        }
+      }
+
       set(s => ({
         sessionId: response.session_id,
         messages: [
