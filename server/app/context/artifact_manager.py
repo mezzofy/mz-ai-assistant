@@ -224,8 +224,10 @@ async def list_artifacts(
         text(
             f"""
             SELECT a.id, a.filename, a.file_type, a.scope,
-                   a.folder_id, a.created_at
+                   a.folder_id, a.created_at,
+                   a.user_id AS created_by_id, u.name AS creator_name
             FROM artifacts a
+            LEFT JOIN users u ON u.id = a.user_id
             WHERE {base_filter} {folder_filter}
             ORDER BY a.created_at DESC
             LIMIT :lim OFFSET :off
@@ -242,6 +244,8 @@ async def list_artifacts(
             "folder_id": str(row.folder_id) if row.folder_id else None,
             "download_url": f"/files/{row.id}",
             "created_at": row.created_at.isoformat() if row.created_at else None,
+            "creator_name": row.creator_name or "Unknown",
+            "created_by_id": str(row.created_by_id),
         }
         for row in result.fetchall()
     ]

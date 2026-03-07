@@ -21,6 +21,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, File, status
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
@@ -92,6 +93,13 @@ def _check_delete_access(artifact: dict, current_user: dict):
         if not _is_management(current_user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                 detail="Only the Management department can delete company files")
+
+
+def _check_rename_access(artifact: dict, current_user: dict):
+    """Raise 403 if current_user is not the file creator (any scope)."""
+    if artifact["user_id"] != current_user["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Only the file creator can rename this file")
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -205,6 +213,52 @@ async def list_files(
         offset=offset,
     )
     return {"artifacts": artifacts, "count": len(artifacts)}
+
+
+@router.get("/search")
+async def search_files(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(30, ge=1, le=100),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search files by name across all scopes accessible to the user."""
+    uid = current_user["user_id"]
+    dept = current_user.get("department", "")
+    pattern = f"%{q}%"
+    result = await db.execute(
+        text("""
+            SELECT a.id, a.filename, a.file_type, a.scope, a.folder_id, a.created_at,
+                   a.user_id AS created_by_id, u.name AS creator_name
+            FROM artifacts a
+            LEFT JOIN users u ON u.id = a.user_id
+            WHERE a.filename ILIKE :pat
+              AND (
+                (a.scope = 'personal' AND a.user_id = :uid)
+                OR (a.scope = 'department' AND a.department = :dept)
+                OR a.scope = 'company'
+              )
+            ORDER BY a.created_at DESC
+            LIMIT :lim
+        """),
+        {"pat": pattern, "uid": uid, "dept": dept, "lim": limit},
+    )
+    rows = result.fetchall()
+    results = [
+        {
+            "id": str(r.id),
+            "filename": r.filename,
+            "file_type": r.file_type,
+            "scope": r.scope,
+            "folder_id": str(r.folder_id) if r.folder_id else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "creator_name": r.creator_name or "Unknown",
+            "created_by_id": str(r.created_by_id),
+            "download_url": f"/files/{r.id}",
+        }
+        for r in rows
+    ]
+    return {"results": results, "count": len(results)}
 
 
 @router.get("/{file_id}")
@@ -322,6 +376,36 @@ async def move_file(
     await db.commit()
     logger.info(f"Moved artifact {file_id} → folder={body.folder_id}")
     return {"moved": True, "artifact_id": file_id, "folder_id": body.folder_id}
+
+
+class FileRenameRequest(BaseModel):
+    filename: str
+
+
+@router.patch("/{file_id}/rename")
+async def rename_file(
+    file_id: str,
+    body: FileRenameRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a file — creator-only regardless of scope."""
+    new_name = body.filename.strip()
+    if not new_name or len(new_name) > 255 or '/' in new_name or '\\' in new_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Invalid filename")
+    artifact = await get_artifact(db, file_id)
+    if artifact is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="File not found or access denied")
+    _check_read_access(artifact, current_user)
+    _check_rename_access(artifact, current_user)
+    await db.execute(
+        text("UPDATE artifacts SET filename = :n WHERE id = :id"),
+        {"n": new_name, "id": file_id},
+    )
+    await db.commit()
+    return {"renamed": True, "artifact_id": file_id, "filename": new_name}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

@@ -16,6 +16,8 @@ export interface ArtifactItem {
   file_size?: string;
   scope: FileScope;
   folder_id: string | null;
+  creator_name?: string;    // display name from users.name
+  created_by_id?: string;   // creator's user_id UUID
 }
 
 export interface FilesResponse {
@@ -76,6 +78,27 @@ export const moveFileApi = (
   apiFetch<MoveFileResponse>(`/files/${fileId}/move`, {
     method: 'PATCH',
     body: JSON.stringify({folder_id: folderId}),
+    headers: {'Content-Type': 'application/json'},
+  });
+
+export interface SearchResponse {
+  results: ArtifactItem[];
+  count: number;
+}
+
+export const searchFilesApi = (q: string, limit = 30): Promise<SearchResponse> =>
+  apiFetch<SearchResponse>(`/files/search?q=${encodeURIComponent(q)}&limit=${limit}`);
+
+export interface RenameFileResponse {
+  renamed: boolean;
+  artifact_id: string;
+  filename: string;
+}
+
+export const renameFileApi = (fileId: string, filename: string): Promise<RenameFileResponse> =>
+  apiFetch<RenameFileResponse>(`/files/${fileId}/rename`, {
+    method: 'PATCH',
+    body: JSON.stringify({filename}),
     headers: {'Content-Type': 'application/json'},
   });
 

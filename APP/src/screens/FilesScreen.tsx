@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,8 @@ import {
   uploadFileApi,
   deleteFileApi,
   moveFileApi,
+  renameFileApi,
+  searchFilesApi,
   ArtifactItem,
   FileScope,
   getFileDownloadUrl,
@@ -95,6 +97,14 @@ type FolderModalState = {
   name: string;
 };
 
+// ── Rename file modal state type ─────────────────────────────────────────────
+
+type RenameFileModal = {
+  visible: boolean;
+  file?: ArtifactItem;
+  name: string;
+};
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
@@ -114,6 +124,13 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [uploading, setUploading] = useState<Record<FileScope, boolean>>({
     company: false, department: false, personal: false,
   });
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<ArtifactItem[] | null>(null);
+  const [renameFileModal, setRenameFileModal] = useState<RenameFileModal>({
+    visible: false, name: '',
+  });
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -140,6 +157,20 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
   }, [loadSection]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  useEffect(() => {
+    if (searchDebounceRef.current) { clearTimeout(searchDebounceRef.current); }
+    if (!searchQuery.trim()) { setSearchResults(null); return; }
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await searchFilesApi(searchQuery.trim());
+        setSearchResults(res.results);
+      } catch {
+        setSearchResults([]);
+      }
+    }, 300);
+    return () => { if (searchDebounceRef.current) { clearTimeout(searchDebounceRef.current); } };
+  }, [searchQuery]);
 
   // ── Download ────────────────────────────────────────────────────────────────
 
@@ -325,6 +356,75 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
     }
   }, [handleUpload]);
 
+  // ── Rename file ─────────────────────────────────────────────────────────────
+
+  const canRename = (f: ArtifactItem): boolean => {
+    if (!user) { return false; }
+    return f.created_by_id === user.id;
+  };
+
+  const openRenameFile = (f: ArtifactItem) =>
+    setRenameFileModal({visible: true, file: f, name: f.filename});
+
+  const submitRenameFileModal = useCallback(async () => {
+    const {file, name} = renameFileModal;
+    const trimmed = name.trim();
+    if (!trimmed || !file) { return; }
+    setRenameFileModal(prev => ({...prev, visible: false}));
+    try {
+      await renameFileApi(file.id, trimmed);
+      await loadSection(file.scope);
+      if (searchResults !== null && searchQuery.trim()) {
+        const res = await searchFilesApi(searchQuery.trim());
+        setSearchResults(res.results);
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to rename file.');
+    }
+  }, [renameFileModal, loadSection, searchResults, searchQuery]);
+
+  // ── Search result render ─────────────────────────────────────────────────────
+
+  const renderSearchResult = (f: ArtifactItem) => {
+    const typeKey = getTypeKey(f.filename, f.file_type);
+    const ts = FILE_TYPE_STYLES[typeKey] || FILE_TYPE_STYLES.md;
+    const viewerType = getViewerType(f.filename, f.file_type);
+    const scopeBadgeColor = f.scope === 'company' ? colors.info : f.scope === 'department' ? colors.accent : colors.textMuted;
+    const scopeLabel = f.scope === 'company' ? 'COMPANY' : f.scope === 'department' ? 'DEPT' : 'PERSONAL';
+    return (
+      <TouchableOpacity
+        key={f.id}
+        style={[styles.card, {borderTopColor: colors.border}]}
+        activeOpacity={viewerType ? 0.7 : 1}
+        onPress={() => viewerType && navigation.navigate('FileViewer', {file: f})}>
+        <View style={[styles.typeIcon, {backgroundColor: ts.bg}]}>
+          <Text style={[styles.typeLabel, {color: ts.color}]}>{ts.label}</Text>
+        </View>
+        <View style={{flex: 1, marginRight: 8}}>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+            <Text style={[styles.fileName, {color: colors.text, flex: 1}]} numberOfLines={1}>{f.filename}</Text>
+            <View style={[styles.scopeBadge, {backgroundColor: scopeBadgeColor + '20', borderColor: scopeBadgeColor + '40'}]}>
+              <Text style={[styles.scopeBadgeText, {color: scopeBadgeColor}]}>{scopeLabel}</Text>
+            </View>
+          </View>
+          <View style={styles.fileMeta}>
+            {f.creator_name ? (
+              <Text style={[styles.fileDate, {color: colors.textMuted}]}>{f.creator_name}</Text>
+            ) : null}
+            <Text style={[styles.fileDot, {color: colors.textDim}]}>·</Text>
+            <Text style={[styles.fileDate, {color: colors.textMuted}]}>{formatDate(f.created_at)}</Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          onPress={() => handleDownload(f)}
+          style={styles.actionBtn}
+          hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+          <Icon name="download-outline" size={18} color={colors.accent} />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
+
   // ── Render helpers ──────────────────────────────────────────────────────────
 
   const renderFileCard = (f: ArtifactItem, canDeleteFile: boolean) => {
@@ -333,6 +433,7 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
     const viewerType = getViewerType(f.filename, f.file_type);
     const dlState = downloadState[f.id];
     const isDownloading = typeof dlState === 'number';
+    const canRenameFile = canRename(f);
 
     return (
       <TouchableOpacity
@@ -353,6 +454,12 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
               </>
             ) : null}
             <Text style={[styles.fileDate, {color: colors.textMuted}]}>{formatDate(f.created_at)}</Text>
+            {f.creator_name ? (
+              <>
+                <Text style={[styles.fileDot, {color: colors.textDim}]}>·</Text>
+                <Text style={[styles.fileDate, {color: colors.textMuted}]}>{f.creator_name}</Text>
+              </>
+            ) : null}
           </View>
         </View>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
@@ -390,6 +497,14 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
               style={styles.actionBtn}
               hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
               <Icon name="folder-open-outline" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
+          {canRenameFile ? (
+            <TouchableOpacity
+              onPress={() => openRenameFile(f)}
+              style={styles.actionBtn}
+              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+              <Icon name="pencil-outline" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity
@@ -490,12 +605,40 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
       {/* Header */}
       <View style={[styles.header]}>
         <Text style={[styles.title, {color: colors.text}]}>Files</Text>
-        <TouchableOpacity onPress={() => loadAll(true)} disabled={refreshing} style={{padding: 8}}>
-          {refreshing
-            ? <ActivityIndicator size="small" color={colors.accent} />
-            : <Icon name="refresh-outline" size={22} color={colors.accent} />}
-        </TouchableOpacity>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+          {searchActive ? (
+            <TouchableOpacity
+              onPress={() => { setSearchActive(false); setSearchQuery(''); setSearchResults(null); }}
+              style={{padding: 8}}>
+              <Icon name="close-outline" size={22} color={colors.accent} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => setSearchActive(true)} style={{padding: 8}}>
+              <Icon name="search-outline" size={22} color={colors.accent} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => loadAll(true)} disabled={refreshing} style={{padding: 8}}>
+            {refreshing
+              ? <ActivityIndicator size="small" color={colors.accent} />
+              : <Icon name="refresh-outline" size={22} color={colors.accent} />}
+          </TouchableOpacity>
+        </View>
       </View>
+      {searchActive ? (
+        <View style={[styles.searchBar, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
+          <Icon name="search-outline" size={16} color={colors.textDim} style={{marginRight: 6}} />
+          <TextInput
+            style={[styles.searchInput, {color: colors.text}]}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search files..."
+            placeholderTextColor={colors.textDim}
+            autoFocus
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+        </View>
+      ) : null}
 
       <ScrollView
         style={styles.list}
@@ -507,9 +650,19 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
             colors={[colors.accent]}
           />
         }>
-        {renderSection('company', 'COMPANY PUBLIC')}
-        {renderSection('department', deptLabel)}
-        {renderSection('personal', 'PERSONAL')}
+        {searchResults !== null ? (
+          searchResults.length === 0 ? (
+            <Text style={[styles.emptyText, {color: colors.textDim, paddingTop: 20}]}>No files found</Text>
+          ) : (
+            searchResults.map(f => renderSearchResult(f))
+          )
+        ) : (
+          <>
+            {renderSection('company', 'COMPANY PUBLIC')}
+            {renderSection('department', deptLabel)}
+            {renderSection('personal', 'PERSONAL')}
+          </>
+        )}
         <View style={{height: 24}} />
       </ScrollView>
 
@@ -551,6 +704,46 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 <Text style={[styles.modalBtnText, {color: '#fff'}]}>
                   {folderModal.mode === 'create' ? 'Create' : 'Rename'}
                 </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* File rename modal */}
+      <Modal
+        visible={renameFileModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameFileModal(prev => ({...prev, visible: false}))}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, {backgroundColor: colors.surface, borderColor: colors.border}]}>
+            <Text style={[styles.modalTitle, {color: colors.text}]}>Rename File</Text>
+            <TextInput
+              style={[styles.modalInput, {
+                color: colors.text,
+                borderColor: colors.border,
+                backgroundColor: colors.surfaceLight,
+              }]}
+              value={renameFileModal.name}
+              onChangeText={v => setRenameFileModal(prev => ({...prev, name: v}))}
+              placeholder="File name"
+              placeholderTextColor={colors.textDim}
+              autoFocus
+              onSubmitEditing={submitRenameFileModal}
+              returnKeyType="done"
+              maxLength={255}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setRenameFileModal(prev => ({...prev, visible: false}))}
+                style={[styles.modalBtn, {borderColor: colors.border}]}>
+                <Text style={[styles.modalBtnText, {color: colors.textMuted}]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitRenameFileModal}
+                style={[styles.modalBtn, styles.modalBtnPrimary, {backgroundColor: colors.accent}]}>
+                <Text style={[styles.modalBtnText, {color: '#fff'}]}>Rename</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -640,4 +833,22 @@ const styles = StyleSheet.create({
   },
   modalBtnPrimary: {borderWidth: 0},
   modalBtnText: {fontSize: 14, fontWeight: '600'},
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  searchInput: {flex: 1, fontSize: 15, paddingVertical: 0},
+  scopeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  scopeBadgeText: {fontSize: 9, fontWeight: '800', letterSpacing: 0.5},
 });
