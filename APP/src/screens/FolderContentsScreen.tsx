@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import DocumentPicker, {types as DocTypes} from 'react-native-document-picker';
@@ -22,6 +24,7 @@ import {
   uploadFileApi,
   deleteFileApi,
   moveFileApi,
+  renameFileApi,
   ArtifactItem,
   FileScope,
   getFileDownloadUrl,
@@ -62,6 +65,14 @@ const getMimeType = (filename: string): string => {
   return map[ext] ?? 'application/octet-stream';
 };
 
+// ── Rename file modal type ────────────────────────────────────────────────────
+
+type RenameFileModal = {
+  visible: boolean;
+  file?: ArtifactItem;
+  name: string;
+};
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -81,6 +92,17 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
   const [error, setError] = useState<string | null>(null);
   const [downloadState, setDownloadState] = useState<Record<string, number | 'done' | 'error'>>({});
   const [uploading, setUploading] = useState(false);
+  const [renameFileModal, setRenameFileModal] = useState<RenameFileModal>({
+    visible: false, name: '',
+  });
+
+  const canRename = (f: ArtifactItem): boolean => {
+    if (!user) { return false; }
+    return f.created_by_id === user.id;
+  };
+
+  const openRenameFile = (f: ArtifactItem) =>
+    setRenameFileModal({visible: true, file: f, name: f.filename});
 
   const loadFiles = useCallback(async (isRefresh = false) => {
     if (isRefresh) { setRefreshing(true); } else { setLoading(true); }
@@ -96,6 +118,19 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
       setRefreshing(false);
     }
   }, [scope, folder.id]);
+
+  const submitRenameFileModal = useCallback(async () => {
+    const {file, name} = renameFileModal;
+    const trimmed = name.trim();
+    if (!trimmed || !file) { return; }
+    setRenameFileModal(prev => ({...prev, visible: false}));
+    try {
+      await renameFileApi(file.id, trimmed);
+      await loadFiles();
+    } catch {
+      Alert.alert('Error', 'Failed to rename file.');
+    }
+  }, [renameFileModal, loadFiles]);
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
 
@@ -267,6 +302,7 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
               const viewerType = getViewerType(f.filename, f.file_type);
               const dlState = downloadState[f.id];
               const isDownloading = typeof dlState === 'number';
+              const canRenameFile = canRename(f);
 
               return (
                 <TouchableOpacity
@@ -287,6 +323,12 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
                         </>
                       ) : null}
                       <Text style={[styles.fileDate, {color: colors.textMuted}]}>{formatDate(f.created_at)}</Text>
+                      {f.creator_name ? (
+                        <>
+                          <Text style={[styles.fileDot, {color: colors.textDim}]}>·</Text>
+                          <Text style={[styles.fileDate, {color: colors.textMuted}]}>{f.creator_name}</Text>
+                        </>
+                      ) : null}
                     </View>
                   </View>
                   <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
@@ -312,6 +354,14 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
                         style={styles.actionBtn}
                         hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
                         <Icon name="folder-open-outline" size={18} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    ) : null}
+                    {canRenameFile ? (
+                      <TouchableOpacity
+                        onPress={() => openRenameFile(f)}
+                        style={styles.actionBtn}
+                        hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                        <Icon name="pencil-outline" size={18} color={colors.textMuted} />
                       </TouchableOpacity>
                     ) : null}
                     <TouchableOpacity
@@ -342,6 +392,46 @@ export const FolderContentsScreen: React.FC<Props> = ({navigation, route}) => {
           <View style={{height: 24}} />
         </ScrollView>
       )}
+
+      {/* File rename modal */}
+      <Modal
+        visible={renameFileModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameFileModal(prev => ({...prev, visible: false}))}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, {backgroundColor: colors.surface, borderColor: colors.border}]}>
+            <Text style={[styles.modalTitle, {color: colors.text}]}>Rename File</Text>
+            <TextInput
+              style={[styles.modalInput, {
+                color: colors.text,
+                borderColor: colors.border,
+                backgroundColor: colors.surfaceLight,
+              }]}
+              value={renameFileModal.name}
+              onChangeText={v => setRenameFileModal(prev => ({...prev, name: v}))}
+              placeholder="File name"
+              placeholderTextColor={colors.textDim}
+              autoFocus
+              onSubmitEditing={submitRenameFileModal}
+              returnKeyType="done"
+              maxLength={255}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={() => setRenameFileModal(prev => ({...prev, visible: false}))}
+                style={[styles.modalBtn, {borderColor: colors.border}]}>
+                <Text style={[styles.modalBtnText, {color: colors.textMuted}]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitRenameFileModal}
+                style={[styles.modalBtn, styles.modalBtnPrimary, {backgroundColor: colors.accent}]}>
+                <Text style={[styles.modalBtnText, {color: '#fff'}]}>Rename</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -395,4 +485,29 @@ const styles = StyleSheet.create({
   actionBtn: {width: 36, height: 36, alignItems: 'center', justifyContent: 'center'},
   retryBtn: {marginTop: 12, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, borderWidth: 1},
   retryText: {fontSize: 13, fontWeight: '600'},
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {width: 300, borderRadius: 16, padding: 20, borderWidth: 1},
+  modalTitle: {fontSize: 16, fontWeight: '700', marginBottom: 14},
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    marginBottom: 16,
+  },
+  modalButtons: {flexDirection: 'row', gap: 10, justifyContent: 'flex-end'},
+  modalBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  modalBtnPrimary: {borderWidth: 0},
+  modalBtnText: {fontSize: 14, fontWeight: '600'},
 });
