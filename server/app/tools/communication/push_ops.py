@@ -174,3 +174,39 @@ class PushOps(BaseTool):
         except Exception as e:
             logger.error(f"Failed to send push notification: {e}")
             return self._err(str(e))
+
+
+async def send_push(
+    user_id: str,
+    device_token: str,
+    platform: str,
+    title: str,
+    body: str,
+    data: Optional[dict] = None,
+) -> dict:
+    """
+    Standalone push helper callable from Celery tasks.
+
+    Wraps PushOps._send_push(). Platform is logged but FCM handles both
+    iOS (APNs via FCM) and Android transparently — no separate code path needed.
+
+    Returns:
+        {"success": bool, "message_id": str | None}
+    """
+    from app.core.config import get_config
+    config = get_config()
+    ops = PushOps(config)
+    result = await ops._send_push(
+        device_token=device_token,
+        title=title,
+        body=body,
+        data=data,
+    )
+    logger.info(
+        f"send_push: user={user_id} platform={platform} "
+        f"success={result.get('success')} msg={result.get('output', {}).get('message_id')}"
+    )
+    return {
+        "success": result.get("success", False),
+        "message_id": result.get("output", {}).get("message_id"),
+    }
