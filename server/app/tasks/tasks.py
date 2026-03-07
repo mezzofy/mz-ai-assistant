@@ -106,6 +106,153 @@ async def _run_agent_task(task_data: dict) -> dict:
     return result
 
 
+@celery_app.task(
+    bind=True,
+    max_retries=2,
+    name="app.tasks.tasks.process_chat_task",
+)
+def process_chat_task(self, task_data: dict):
+    """
+    Execute a long-running chat task as a Celery background job.
+
+    Dispatched by POST /chat/send when the message contains long-running keywords.
+    On completion: sends push notification + Redis pub/sub WS notification.
+    On failure: sends failure push, retries up to 2 times with 10s delay.
+
+    task_data keys:
+        user_id, session_id, message, department, agent,
+        device_token (optional), platform (optional, default "android")
+    """
+    task_data["_celery_task_id"] = self.request.id
+    try:
+        result = asyncio.run(_run_chat_task(task_data))
+        logger.info(
+            f"process_chat_task completed: user={task_data.get('user_id')!r} "
+            f"task_id={self.request.id}"
+        )
+        return result
+    except Exception as exc:
+        logger.error(f"process_chat_task failed: {exc}", exc_info=True)
+        raise self.retry(exc=exc, countdown=10)
+
+
+async def _run_chat_task(task_data: dict) -> dict:
+    """
+    Async core for process_chat_task.
+
+    Flow:
+        1. Resolve config + agent
+        2. Load/create session, get conversation history
+        3. Execute agent
+        4. Save result to DB via process_result()
+        5. Publish completion to Redis (WebSocket notification)
+        6. Send push notification (if device_token present)
+    """
+    import json
+    import os
+    from app.core.config import get_config
+    from app.agents.agent_registry import get_agent_for_task, AGENT_MAP
+    from app.core.database import AsyncSessionLocal
+    from app.context.session_manager import get_or_create_session
+    from app.context.processor import process_result
+    from app.tools.communication.push_ops import send_push
+
+    config = get_config()
+    task_data["_config"] = config
+    task_data.setdefault("source", "mobile")
+    task_data.setdefault("input_type", "text")
+    task_data.setdefault("permissions", ["all"])
+    task_data.setdefault("attachments", [])
+    task_data.setdefault("conversation_history", [])
+
+    user_id = task_data["user_id"]
+    session_id = task_data.get("session_id")
+    device_token = task_data.get("device_token", "")
+    platform = task_data.get("platform", "android")
+    celery_task_id = task_data.get("_celery_task_id", "")
+
+    # Resolve agent
+    agent_name = task_data.get("agent", "")
+    agent = AGENT_MAP.get(agent_name) if agent_name else get_agent_for_task(task_data, config)
+    if agent is None:
+        raise RuntimeError(f"No agent found for task (agent={agent_name!r})")
+
+    file_url = None
+    try:
+        async with AsyncSessionLocal() as db:
+            # Load or create session and conversation history
+            session = await get_or_create_session(
+                db, user_id, session_id, task_data.get("department", "")
+            )
+            task_data["session_id"] = session["id"]
+            task_data["conversation_history"] = session["messages"]
+
+            # Execute agent
+            agent_result = await agent.execute(task_data)
+
+            # Save result to DB
+            response = await process_result(
+                db=db,
+                user_id=user_id,
+                session_id=session["id"],
+                user_message=task_data["message"],
+                agent_result=agent_result,
+                input_summary=task_data.get("input_summary", ""),
+                department=task_data.get("department", ""),
+            )
+
+        # Extract file_url from artifacts if present
+        artifacts = response.get("artifacts", [])
+        if artifacts:
+            file_url = artifacts[0].get("download_url")
+
+        # Publish to Redis for WebSocket delivery
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        import redis.asyncio as aioredis
+        async with aioredis.from_url(redis_url) as redis_client:
+            summary = (task_data["message"][:60] + "…") if len(task_data["message"]) > 60 else task_data["message"]
+            notification_payload = json.dumps({
+                "type": "task_complete",
+                "task_id": celery_task_id,
+                "session_id": session["id"],
+                "message": summary,
+                "file_url": file_url,
+            })
+            await redis_client.publish(f"user:{user_id}:notifications", notification_payload)
+
+        # Send push notification if device_token is present
+        if device_token:
+            # Summarize to ≤10 words for push body
+            words = task_data["message"].split()
+            push_body = " ".join(words[:10]) + ("…" if len(words) > 10 else "")
+            push_data = {"session_id": session["id"], "file_url": file_url or ""}
+            await send_push(
+                user_id=user_id,
+                device_token=device_token,
+                platform=platform,
+                title="Your task is ready",
+                body=push_body,
+                data=push_data,
+            )
+
+        return response
+
+    except Exception as exc:
+        # Send failure push if device_token is available; then re-raise for Celery retry
+        if device_token:
+            try:
+                await send_push(
+                    user_id=user_id,
+                    device_token=device_token,
+                    platform=platform,
+                    title="Task failed",
+                    body="Something went wrong. Please try again.",
+                )
+            except Exception:
+                pass  # Don't let push failure block the retry
+        raise
+
+
 async def _update_job_last_run(job_id: str):
     """Update scheduled_jobs.last_run timestamp after successful execution."""
     try:

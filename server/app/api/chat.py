@@ -17,8 +17,10 @@ Auth:
     WebSocket: JWT in query param ?token=<JWT> (middleware bypasses WS)
 """
 
+import asyncio
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -33,6 +35,7 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,6 +63,8 @@ router = APIRouter(tags=["chat"])
 class SendTextRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    device_token: Optional[str] = None          # FCM registration token for push
+    platform: str = "android"                   # "ios" or "android"
 
 
 class SendURLRequest(BaseModel):
@@ -77,6 +82,20 @@ class SendArtifactRequest(BaseModel):
 class SessionUpdateRequest(BaseModel):
     is_favorite: Optional[bool] = None
     is_archived: Optional[bool] = None
+
+
+# ── Long-running task detection ───────────────────────────────────────────────
+
+_LONG_RUNNING_KEYWORDS = [
+    "research", "report", "generate pdf", "create pdf", "analyze all",
+    "weekly", "monthly", "compare", "pitch deck", "scrape", "linkedin",
+]
+
+
+def _is_long_running(message: str) -> bool:
+    """Return True if the message contains a long-running task keyword."""
+    lower = message.lower()
+    return any(kw in lower for kw in _LONG_RUNNING_KEYWORDS)
 
 
 # ── REST: POST /chat/send ─────────────────────────────────────────────────────
@@ -104,6 +123,35 @@ async def send_message(
         "message": body.message,
         "input_type": "text",
     })
+
+    # Long-running task detection — dispatch to Celery and return 202 immediately
+    if _is_long_running(body.message):
+        from app.tasks.tasks import process_chat_task
+        task_payload = {
+            "user_id": user["user_id"],
+            "session_id": body.session_id,
+            "message": body.message,
+            "department": user.get("department", ""),
+            "agent": user.get("department", ""),   # use dept as agent name; registry resolves
+            "device_token": body.device_token or "",
+            "platform": body.platform,
+            "source": "mobile",
+            "_config": None,   # will be loaded inside _run_chat_task
+        }
+        celery_result = process_chat_task.delay(task_payload)
+        logger.info(
+            f"send_message: long-running task queued "
+            f"user_id={user.get('user_id')} celery_id={celery_result.id}"
+        )
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "queued",
+                "task_id": celery_result.id,
+                "message": "Your task has been queued. We'll notify you when it's ready.",
+                "estimated_seconds": 120,
+            },
+        )
 
     # Process input (text passthrough)
     task = await process_input(task)
@@ -471,6 +519,16 @@ async def websocket_endpoint(websocket: WebSocket):
     from app.input.speech_handler import SpeechSession
     speech_session = SpeechSession(config)
 
+    # Subscribe to Redis notifications channel for this user
+    import redis.asyncio as aioredis
+    _redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    _redis_client = aioredis.from_url(_redis_url)
+    _pubsub = _redis_client.pubsub()
+    await _pubsub.subscribe(f"user:{user_id}:notifications")
+    _redis_task = asyncio.create_task(
+        _listen_redis_notifications(_pubsub, websocket, user_id)
+    )
+
     try:
         while True:
             raw = await websocket.receive_text()
@@ -548,7 +606,30 @@ async def websocket_endpoint(websocket: WebSocket):
         except Exception:
             pass
     finally:
+        _redis_task.cancel()
+        try:
+            await _pubsub.unsubscribe(f"user:{user_id}:notifications")
+            await _redis_client.aclose()
+        except Exception:
+            pass
         await ws_manager.disconnect(user_id)
+
+
+async def _listen_redis_notifications(
+    pubsub,
+    websocket: WebSocket,
+    user_id: str,
+) -> None:
+    """
+    Async task that forwards Redis pub/sub messages to the WebSocket client.
+    Used to deliver task_complete notifications when the Celery task finishes.
+    """
+    async for message in pubsub.listen():
+        if message.get("type") == "message":
+            try:
+                await websocket.send_text(message["data"].decode())
+            except Exception:
+                break
 
 
 async def _handle_ws_text(
