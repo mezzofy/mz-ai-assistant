@@ -7,6 +7,7 @@ Supports multi-turn chat, tool/function calling, and streaming.
 Config section: config["llm"]["claude"]
 """
 
+import asyncio
 import logging
 from typing import Any, AsyncIterator, Optional
 
@@ -21,6 +22,12 @@ class AnthropicClient:
     native format (type/name/description/input_schema).
     """
 
+    _BASE_SYSTEM_PROMPT = (
+        "You are a helpful AI assistant. Be concise and direct. "
+        "Format responses clearly using markdown where appropriate. "
+        "Think step by step for complex tasks."
+    )
+
     def __init__(self, config: dict):
         """
         Args:
@@ -32,9 +39,9 @@ class AnthropicClient:
         self._api_key: str = claude_cfg.get("api_key", "")
         self._model: str = claude_cfg.get("model", "claude-sonnet-4-6")
         self._max_tokens: int = int(claude_cfg.get("max_tokens", 4096))
-        self._temperature: float = float(claude_cfg.get("temperature", 0.7))
+        self._temperature: float = float(claude_cfg.get("temperature", 0.5))
 
-        self._client = anthropic.AsyncAnthropic(api_key=self._api_key)
+        self._client = anthropic.AsyncAnthropic(api_key=self._api_key, timeout=60.0)
         logger.info(f"AnthropicClient ready (model={self._model})")
 
     @property
@@ -67,25 +74,47 @@ class AnthropicClient:
                 "model": str,
             }
         """
+        effective_system = system or self._BASE_SYSTEM_PROMPT
+
         kwargs: dict[str, Any] = {
             "model": self._model,
             "max_tokens": max_tokens or self._max_tokens,
             "messages": self._sanitize_messages(messages),
         }
 
-        if system:
-            kwargs["system"] = system
+        if effective_system:
+            kwargs["system"] = effective_system
 
         if tools:
             # Convert from ToolExecutor format to Anthropic tool format
             kwargs["tools"] = self._format_tools(tools)
 
-        try:
-            response = await self._client.messages.create(**kwargs)
-            return self._parse_response(response)
-        except Exception as e:
-            logger.error(f"AnthropicClient.chat failed: {e}")
-            raise
+        _RETRY_STATUS = {429, 500, 529}
+        _RETRY_DELAYS = [1, 2, 4]
+
+        last_exc: Exception | None = None
+        for attempt, delay in enumerate(_RETRY_DELAYS, start=1):
+            try:
+                response = await self._client.messages.create(**kwargs)
+                return self._parse_response(response)
+            except Exception as e:
+                status = getattr(e, "status_code", None)
+                is_retryable = (
+                    status in _RETRY_STATUS
+                    or "timeout" in str(e).lower()
+                    or "connection" in str(e).lower()
+                )
+                if is_retryable and attempt < len(_RETRY_DELAYS) + 1:
+                    logger.warning(
+                        f"AnthropicClient.chat attempt {attempt} failed "
+                        f"(status={status}): {e} — retrying in {delay}s"
+                    )
+                    await asyncio.sleep(delay)
+                    last_exc = e
+                    continue
+                logger.error(f"AnthropicClient.chat failed (attempt {attempt}): {e}")
+                raise
+        raise last_exc  # unreachable guard
 
     async def stream_chat(
         self,
