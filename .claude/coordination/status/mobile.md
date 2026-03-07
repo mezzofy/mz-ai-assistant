@@ -1,8 +1,29 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-08
-**Session:** v1.14.4 — backend Celery fixes + release APK build
+**Session:** v1.14.5 — BUG-005 session_id fix + History badge fix + release APK build
 **Context:** ~12% at checkpoint
-**Reason:** v1.14.4 release APK built successfully
+**Reason:** v1.14.5 release APK built successfully
+
+---
+
+## v1.14.5 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 23 |
+| versionName | 1.14.5 |
+| Build time | 43s |
+| Branch | eric-design |
+| Commits | `9b6d8fb` (versionCode 23, package.json, SettingsScreen) |
+
+**Changes in v1.14.5 (BUG-005):**
+- `server/app/api/chat.py`: call `get_or_create_session()` synchronously before `agent_tasks` INSERT — `session_id` is never NULL on task creation
+- `APP/src/stores/chatStore.ts`: capture `session_id` from 202 response for correct task polling
+- `APP/src/screens/HistoryScreen.tsx`: show Task ID badges for failed and in-progress tasks (not just completed)
+- `SettingsScreen.tsx`: version label → v1.14.5
 
 ---
 
@@ -138,7 +159,8 @@
 | 1.14.1 | 19 | HistoryScreen: show all session tasks; release notes |
 | 1.14.2 | 20 | chatStore: skip assistant msg for queued tasks; safe optional chaining |
 | 1.14.3 | 21 | Backend P0: register Celery task, session_id writeback, notify_on_done default |
-| **1.14.4** | **22** | **Backend: fix AGENT_MAP instantiation, event loop, stuck task status** |
+| 1.14.4 | 22 | Backend: fix AGENT_MAP instantiation, event loop, stuck task status |
+| **1.14.5** | **23** | **BUG-005: session_id always set; History badges fixed for all task states** |
 
 ---
 
