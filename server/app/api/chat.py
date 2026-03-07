@@ -129,10 +129,18 @@ async def send_message(
         import uuid as _uuid
         from app.tasks.tasks import process_chat_task
 
-        # Create agent_tasks row upfront so mobile can poll a stable DB ID
         new_task_id = str(_uuid.uuid4())
         task_ref = f"TASK-{new_task_id[:8].upper()}"
+
+        # Create (or retrieve) session BEFORE inserting agent_tasks.
+        # This guarantees session_id is never null in agent_tasks, even if the
+        # Celery worker fails before it can write session_id back.
         async with _db_session() as db:
+            session = await get_or_create_session(
+                db, user["user_id"], body.session_id, user.get("department", "")
+            )
+            resolved_session_id = session["id"]
+
             await db.execute(
                 text(
                     "INSERT INTO agent_tasks "
@@ -143,7 +151,7 @@ async def send_message(
                     "id": new_task_id,
                     "ref": task_ref,
                     "uid": user["user_id"],
-                    "sid": body.session_id,
+                    "sid": resolved_session_id,   # ← real session ID, never null
                     "dept": user.get("department", ""),
                     "title": body.message[:80],
                 },
@@ -151,7 +159,7 @@ async def send_message(
 
         task_payload = {
             "user_id": user["user_id"],
-            "session_id": body.session_id,
+            "session_id": resolved_session_id,    # ← pass to Celery so it reuses the session
             "message": body.message,
             "department": user.get("department", ""),
             "agent": user.get("department", ""),   # use dept as agent name; registry resolves
@@ -164,13 +172,15 @@ async def send_message(
         celery_result = process_chat_task.delay(task_payload)
         logger.info(
             f"send_message: long-running task queued "
-            f"user_id={user.get('user_id')} agent_task_id={new_task_id} celery_id={celery_result.id}"
+            f"user_id={user.get('user_id')} agent_task_id={new_task_id} "
+            f"session_id={resolved_session_id} celery_id={celery_result.id}"
         )
         return JSONResponse(
             status_code=202,
             content={
                 "status": "queued",
                 "task_id": new_task_id,
+                "session_id": resolved_session_id,  # ← mobile can link task to session immediately
                 "message": "Your task has been queued. We'll notify you when it's ready.",
                 "estimated_seconds": 120,
             },

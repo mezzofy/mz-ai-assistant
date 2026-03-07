@@ -260,8 +260,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           statusMessage: null,
         }));
       } else {
-        // Queued: just clear the typing indicator; activeTask banner handles UX
-        set({isTyping: false, statusMessage: null, activeTask: newActiveTask});
+        // Queued: clear typing, store session ID, set active task banner
+        set({
+          isTyping: false,
+          statusMessage: null,
+          activeTask: newActiveTask,
+          sessionId: response.session_id || null,  // link chat to the queued session
+        });
       }
 
       // Auto-set title from first user message if no custom title exists yet
