@@ -192,10 +192,13 @@ def mock_process_result():
     """Patch process_result() to return a minimal formatted response."""
     canned = {
         "session_id": str(uuid.uuid4()),
-        "message": "Test agent response content.",
+        "response": "Test agent response content.",
+        "input_processed": None,
         "artifacts": [],
         "agent_used": "test_agent",
-        "processing_time_ms": 42,
+        "tools_used": [],
+        "success": True,
+        "task_id": str(uuid.uuid4()),
     }
     with patch("app.api.chat.process_result", new_callable=AsyncMock, return_value=canned) as mock:
         yield mock
@@ -221,9 +224,15 @@ def mock_db_session():
     """
     Patch _db_session() async context manager to yield a mock AsyncSession.
     Used for chat endpoint tests that call _db_session().
+
+    execute() returns a MagicMock with scalar() = 0 so the concurrency limit
+    check in send_message (running_count >= 3) always passes without error.
     """
+    mock_execute_result = MagicMock()
+    mock_execute_result.scalar.return_value = 0
+
     mock_session = AsyncMock()
-    mock_session.execute = AsyncMock()
+    mock_session.execute = AsyncMock(return_value=mock_execute_result)
     mock_session.commit = AsyncMock()
     mock_session.rollback = AsyncMock()
 
