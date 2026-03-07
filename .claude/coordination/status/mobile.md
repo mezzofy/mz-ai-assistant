@@ -1,8 +1,28 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-07
-**Session:** v1.14.1 — Release APK build
-**Context:** ~10% at checkpoint
-**Reason:** v1.14.1 release APK built successfully
+**Session:** v1.14.2 — chatStore fix + release APK build
+**Context:** ~15% at checkpoint
+**Reason:** v1.14.2 release APK built successfully
+
+---
+
+## v1.14.2 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 20 |
+| versionName | 1.14.2 |
+| Build time | 43s |
+| Branch | eric-design |
+| Commit | `41d50d2` — chatStore queued-task UX fix + version bump |
+
+**Changes in v1.14.2:**
+- `chatStore.ts`: skip adding assistant message for queued tasks — task banner handles UX; only synchronous responses add a message bubble
+- `chatStore.ts`: safe optional chaining on `artifacts?.length` and `tools_used?.length` (prevents crash when fields absent)
+- `SettingsScreen.tsx`: version label → v1.14.2
 
 ---
 
@@ -74,7 +94,8 @@
 | 1.12.0 | 16 | History tab: pull-to-refresh + Task ID label on task badges |
 | 1.13.0 | 17 | History refresh button + Settings storage size display |
 | 1.14.0 | 18 | Long-running chat task support + background task tracking + WS notifications |
-| **1.14.1** | **19** | **HistoryScreen: show all session tasks; release notes** |
+| 1.14.1 | 19 | HistoryScreen: show all session tasks; release notes |
+| **1.14.2** | **20** | **chatStore: skip assistant msg for queued tasks; safe optional chaining** |
 
 ---
 

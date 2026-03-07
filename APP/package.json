@@ -1,6 +1,6 @@
 {
   "name": "MezzofyAI",
-  "version": "1.14.1",
+  "version": "1.14.3",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
