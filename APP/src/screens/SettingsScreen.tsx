@@ -179,7 +179,7 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <SettingsRow icon="log-out-outline" label="Sign Out" danger colors={colors} onPress={() => { logout(); }} />
         </View>
 
-        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.13.0</Text>
+        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.14.0</Text>
       </ScrollView>
     </View>
   );

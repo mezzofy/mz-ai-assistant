@@ -114,6 +114,11 @@ teams:
     marketing: "19:marketing@thread.tacv2"
     support: "19:support@thread.tacv2"
     management: "19:management@thread.tacv2"
+    hr: "19:hr@thread.tacv2"
+
+# Notifications
+notifications:
+  hr_manager_email: "${HR_MANAGER_EMAIL}"   # Recipient for weekly HR summary + monthly headcount emails
 
 # Task Queue (Celery + Redis)
 celery:
@@ -198,6 +203,7 @@ agents:
     - marketing
     - support
     - management
+    - hr
 
 # File Storage
 storage:

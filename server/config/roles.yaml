@@ -9,6 +9,7 @@ departments:
   - marketing
   - support
   - management
+  - hr
 
 roles:
   # ── Finance Department ───────────────────────────────────
@@ -81,6 +82,21 @@ roles:
       - support_admin
       - scheduler_manage
 
+  # ── HR Department ─────────────────────────────────────────
+  hr_viewer:
+    department: hr
+    permissions:
+      - hr_read
+
+  hr_manager:
+    department: hr
+    permissions:
+      - hr_read
+      - hr_write
+      - email_send
+      - calendar_access
+      - scheduler_manage         # Can create scheduled HR reports
+
   # ── Management ───────────────────────────────────────────
   executive:
     department: management
@@ -91,6 +107,7 @@ roles:
       - sales_read
       - marketing_read
       - support_read
+      - hr_read
       - audit_read
       - email_send
       - calendar_access
@@ -154,5 +171,10 @@ permission_tool_map:
     - get_kpi_metrics
     - get_all_leads
     - get_all_reports
+  hr_read:
+    - query_analytics            # Used by hr_agent for leave, payroll, recruitment queries
+    - query_hr_data
+  hr_write:
+    - update_hr_record
   audit_read:
     - query_audit_log

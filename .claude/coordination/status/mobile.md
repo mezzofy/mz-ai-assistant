@@ -1,12 +1,27 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-07
-**Session:** v1.13.0 — History Refresh Button + Settings Storage Display
+**Session:** v1.14.0 — Version bump + release APK build
 **Context:** ~15% at checkpoint
-**Reason:** v1.13.0 changes complete — ready for Lead review
+**Reason:** v1.14.0 release APK built successfully
 
 ---
 
-## v1.13.0 Changes (this session)
+## v1.14.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 18 |
+| versionName | 1.14.0 |
+| Build time | 1m |
+| Branch | eric-design |
+| Commit | 1314ad2 — chore(mobile): bump version to v1.14.0 (versionCode 18) |
+
+---
+
+## v1.13.0 Changes (previous session)
 
 | # | File | Change |
 |---|------|--------|
@@ -42,7 +57,8 @@
 | 1.10.0 | 14 | Task ID & status bar (chat + history) + package.json sync |
 | 1.11.0 | 15 | File search, file rename, creator display in file metadata UI |
 | 1.12.0 | 16 | History tab: pull-to-refresh + Task ID label on task badges |
-| **1.13.0** | **17** | **History refresh button + Settings storage size display** |
+| 1.13.0 | 17 | History refresh button + Settings storage size display |
+| **1.14.0** | **18** | **Long-running chat task support + background task tracking + WS notifications** |
 
 ---
 

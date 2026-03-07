@@ -100,6 +100,40 @@ STATIC_BEAT_SCHEDULE = {
             },
         }],
     },
+
+    # Weekly HR summary — Friday 5PM SGT (09:00 UTC)
+    "weekly-hr-summary": {
+        "task": "app.tasks.tasks.process_agent_task",
+        "schedule": crontab(hour=9, minute=0, day_of_week=5),  # 5PM SGT = 09:00 UTC
+        "args": [{
+            "agent": "hr",
+            "source": "scheduler",
+            "department": "hr",
+            "user_id": "system",
+            "event": "weekly_hr_summary",
+            "message": "Generate weekly HR summary covering headcount, leave, recruitment, and payroll",
+            "deliver_to": {
+                "teams_channel": "hr",
+            },
+        }],
+    },
+
+    # Monthly headcount report — 1st of month 9AM SGT (01:00 UTC)
+    "monthly-headcount": {
+        "task": "app.tasks.tasks.process_agent_task",
+        "schedule": crontab(hour=1, minute=0, day_of_month=1),  # 9AM SGT = 01:00 UTC
+        "args": [{
+            "agent": "hr",
+            "source": "scheduler",
+            "department": "hr",
+            "user_id": "system",
+            "event": "monthly_headcount",
+            "message": "Generate monthly headcount report with department breakdown and attrition analysis",
+            "deliver_to": {
+                "teams_channel": "hr",
+            },
+        }],
+    },
 }
 
 

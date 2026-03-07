@@ -82,10 +82,11 @@ VALID_ROLES = {
     "sales_rep", "sales_manager",
     "marketing_creator", "marketing_manager",
     "support_agent", "support_manager",
+    "hr_viewer", "hr_manager",
     "executive", "admin",
 }
 
-VALID_DEPARTMENTS = {"finance", "sales", "marketing", "support", "management"}
+VALID_DEPARTMENTS = {"finance", "sales", "marketing", "support", "management", "hr"}
 
 
 def is_management(role: str) -> bool:

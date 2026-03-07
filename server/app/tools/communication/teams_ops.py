@@ -131,8 +131,8 @@ class TeamsOps(BaseTool):
                     "properties": {
                         "channel_name": {
                             "type": "string",
-                            "description": "Channel to read. One of: general, sales, finance, marketing, support, management.",
-                            "enum": ["general", "sales", "finance", "marketing", "support", "management"],
+                            "description": "Channel to read. One of: general, sales, finance, marketing, support, management, hr.",
+                            "enum": ["general", "sales", "finance", "marketing", "support", "management", "hr"],
                         },
                         "limit": {
                             "type": "integer",
