@@ -1,47 +1,31 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-05
+**Date:** 2026-03-07
 **Project:** mz-ai-assistant
-**Session:** 14 (change request — LLM usage stats endpoint)
-**Context:** ~20% at checkpoint
-**Reason:** Task 1 complete — single endpoint, two files
-
----
+**Session:** 15 (HRAgent companion config)
+**Context:** ~30% at checkpoint
+**Reason:** Task complete
 
 ## Completed This Session
+- ✅ `server/config/roles.yaml` — added `hr` to departments; `hr_viewer` + `hr_manager` roles; `hr_read` on executive; `hr_read`/`hr_write` in permission_tool_map
+- ✅ `server/app/core/rbac.py` — added `"hr_viewer"`, `"hr_manager"` to VALID_ROLES; `"hr"` to VALID_DEPARTMENTS
+- ✅ `server/app/tasks/beat_schedule.py` — added `weekly-hr-summary` (Fri 5PM SGT / 09:00 UTC) and `monthly-headcount` (1st of month 9AM SGT / 01:00 UTC)
+- ✅ `server/config/config.example.yaml` — added `teams.channels.hr`, `notifications.hr_manager_email`, `hr` in `agents.available`
+- ✅ `server/app/tools/communication/teams_ops.py` — added `hr` to `teams_read_messages` enum
+- ✅ Committed: `7cc5187`
 
-| # | File | Change |
-|---|------|--------|
-| 1 | `server/app/api/llm.py` | CREATED — GET /llm/usage-stats endpoint |
-| 2 | `server/app/main.py` | MODIFIED — added `llm` import + `app.include_router(llm.router, prefix="/llm")` |
+## Decisions Made
+- `hr_viewer` gets only `hr_read` (read-only, like `finance_viewer`)
+- `hr_manager` gets `hr_read + hr_write + email_send + calendar_access + scheduler_manage` (matches `finance_manager` / `support_manager` pattern)
+- `executive` gets `hr_read` (consistent with cross-department read access for all other depts)
+- Beat job `event` field uses `"weekly_hr_summary"` / `"monthly_headcount"` — exact strings that `hr_agent.execute()` checks with `in`
 
----
+## Files Modified
+- `server/config/roles.yaml` (modified)
+- `server/app/core/rbac.py` (modified)
+- `server/app/tasks/beat_schedule.py` (modified)
+- `server/config/config.example.yaml` (modified)
+- `server/app/tools/communication/teams_ops.py` (modified)
 
-## Task Summary
-
-**Plan:** `plans/llm-usage-stats-plan.md` Task 1 ✅ COMPLETE
-
-- GET /llm/usage-stats requires Bearer JWT auth via `get_current_user`
-- Queries `llm_usage` table with `user_id = :user_id` filter — no cross-user data visible
-- Returns `LlmUsageStats` Pydantic model: totals + per-model breakdown (ordered by count DESC)
-- COALESCE guards on all SUM() calls — empty result returns zeros, not null
-- Period is "all_time" for v1
-- Follows `files.py` pattern exactly: `Depends(get_current_user)`, `Depends(get_db)`, inline `sqlalchemy.text` queries
-
----
-
-## No New Types Exported
-
-Response shape defined in `llm.py` as Pydantic models (`LlmUsageStats`, `ModelUsage`).
-Mobile agent must implement matching TypeScript interfaces — see plan Task 2 for the exact shape.
-
----
-
-## Resume Instructions (if needed)
-
-After /clear, load in order:
-1. CLAUDE.md
-2. .claude/agents/backend.md
-3. .claude/coordination/memory.md
-4. This checkpoint file
-
-Task 1 is complete. Return to Lead terminal for handoff to Mobile Agent (Task 2).
+## Status
+All tasks complete. No follow-up needed from Backend Agent.
+EC2 deploy requires: `git pull` + add `HR_MANAGER_EMAIL` to `.env` + restart 3 services.
