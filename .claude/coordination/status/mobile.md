@@ -1,8 +1,29 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-08
-**Session:** v1.14.3 — backend P0 fix + release APK build
+**Session:** v1.14.4 — backend Celery fixes + release APK build
 **Context:** ~12% at checkpoint
-**Reason:** v1.14.3 release APK built successfully
+**Reason:** v1.14.4 release APK built successfully
+
+---
+
+## v1.14.4 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 22 |
+| versionName | 1.14.4 |
+| Build time | 42s |
+| Branch | eric-design |
+| Commits | `820ba6a` (backend fixes + SettingsScreen), `8f3cd43` (versionCode 22, package.json) |
+
+**Changes in v1.14.4:**
+- `tasks.py`: fix AGENT_MAP — stores classes not instances; call `AGENT_MAP[name](config)` to instantiate
+- `celery_app.py`: `@worker_process_init` signal disposes SQLAlchemy engine pool on worker startup (prevents asyncpg connections bound to parent-process event loop)
+- `tasks.py`: catch `MaxRetriesExceededError` in `process_chat_task()` → update `agent_tasks.status` to `'failed'` (prevents stuck 'running' tasks)
+- `SettingsScreen.tsx`: version label → v1.14.4
 
 ---
 
@@ -116,7 +137,8 @@
 | 1.14.0 | 18 | Long-running chat task support + background task tracking + WS notifications |
 | 1.14.1 | 19 | HistoryScreen: show all session tasks; release notes |
 | 1.14.2 | 20 | chatStore: skip assistant msg for queued tasks; safe optional chaining |
-| **1.14.3** | **21** | **Backend P0: register Celery task, session_id writeback, notify_on_done default** |
+| 1.14.3 | 21 | Backend P0: register Celery task, session_id writeback, notify_on_done default |
+| **1.14.4** | **22** | **Backend: fix AGENT_MAP instantiation, event loop, stuck task status** |
 
 ---
 

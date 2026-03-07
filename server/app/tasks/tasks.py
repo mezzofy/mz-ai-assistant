@@ -86,6 +86,45 @@ async def _run_agent_task(task_data: dict) -> dict:
     agent_task_id = task_data.get("agent_task_id")
     if agent_task_id:
         await _update_agent_task_status(agent_task_id, "running")
+
+    # Inject progress callback so the LLM manager can report step + tool progress
+    if agent_task_id:
+        import json as _json
+        _agent_class_name = type(agent).__name__
+        _routing = f"department:{task_data.get('department', 'unknown')}"
+        await _update_agent_task_step(
+            agent_task_id,
+            _json.dumps({
+                "agent": _agent_class_name,
+                "routing": _routing,
+                "tool": None,
+                "iteration": 0,
+                "max_iterations": 5,
+                "description": "Initializing",
+            }),
+            5,
+        )
+
+        async def _progress_callback(tool, iteration, max_iter):
+            _progress = min(5 + iteration * 15, 80)
+            await _update_agent_task_step(
+                agent_task_id,
+                _json.dumps({
+                    "agent": _agent_class_name,
+                    "routing": _routing,
+                    "tool": tool,
+                    "iteration": iteration,
+                    "max_iterations": max_iter,
+                    "description": (
+                        f"Using tool: {tool}" if tool
+                        else f"Thinking (step {iteration}/{max_iter})"
+                    ),
+                }),
+                _progress,
+            )
+
+        task_data["_progress_callback"] = _progress_callback
+
     try:
         result = await agent.execute(task_data)
         if agent_task_id:
@@ -193,6 +232,44 @@ async def _run_chat_task(task_data: dict) -> dict:
     # Mark task as running now that Celery worker has picked it up
     if agent_task_id:
         await _update_agent_task_status(agent_task_id, "running")
+
+    # Inject progress callback so the LLM manager can report step + tool progress
+    if agent_task_id:
+        import json as _json
+        _agent_class_name = type(agent).__name__
+        _routing = f"department:{task_data.get('department', 'unknown')}"
+        await _update_agent_task_step(
+            agent_task_id,
+            _json.dumps({
+                "agent": _agent_class_name,
+                "routing": _routing,
+                "tool": None,
+                "iteration": 0,
+                "max_iterations": 5,
+                "description": "Initializing",
+            }),
+            5,
+        )
+
+        async def _progress_callback(tool, iteration, max_iter):
+            _progress = min(5 + iteration * 15, 80)
+            await _update_agent_task_step(
+                agent_task_id,
+                _json.dumps({
+                    "agent": _agent_class_name,
+                    "routing": _routing,
+                    "tool": tool,
+                    "iteration": iteration,
+                    "max_iterations": max_iter,
+                    "description": (
+                        f"Using tool: {tool}" if tool
+                        else f"Thinking (step {iteration}/{max_iter})"
+                    ),
+                }),
+                _progress,
+            )
+
+        task_data["_progress_callback"] = _progress_callback
 
     file_url = None
     try:
@@ -322,7 +399,8 @@ async def _update_agent_task_done(agent_task_id: str, result: dict):
             await db.execute(
                 text(
                     "UPDATE agent_tasks "
-                    "SET status = 'completed', completed_at = NOW(), result = :result "
+                    "SET status = 'completed', completed_at = NOW(), result = :result, "
+                    "progress = 100, current_step = NULL "
                     "WHERE id = :id"
                 ),
                 {"result": json.dumps(result), "id": agent_task_id},
@@ -366,6 +444,26 @@ async def _update_agent_task_session(agent_task_id: str, session_id: str):
             await db.commit()
     except Exception as e:
         logger.warning(f"Failed to update agent_task session_id (id={agent_task_id}): {e}")
+
+
+async def _update_agent_task_step(agent_task_id: str, step_json: str, progress: int):
+    """Update current_step and progress for an in-flight agent task."""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text
+
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                text(
+                    "UPDATE agent_tasks "
+                    "SET current_step = :step, progress = :progress "
+                    "WHERE id = :id"
+                ),
+                {"step": step_json, "progress": progress, "id": agent_task_id},
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to update agent_task step (id={agent_task_id}): {e}")
 
 
 # ── Health check task ──────────────────────────────────────────────────────────
