@@ -219,9 +219,14 @@ class LLMManager:
         artifacts: list[dict] = []
         iterations = 0
         used_model = model
+        callback = task.get("_progress_callback")
 
         for i in range(max_iterations):
             iterations = i + 1
+
+            # Report "thinking" step before each LLM call
+            if callback:
+                await callback(tool=None, iteration=iterations, max_iter=max_iterations)
 
             try:
                 response = await model.chat(history, tools=tool_defs, system=system)
@@ -291,6 +296,10 @@ class LLMManager:
                 tool_name = tc["name"]
                 tools_called.append(tool_name)
                 logger.info(f"LLMManager: executing tool '{tool_name}' (iteration {iterations})")
+
+                # Report tool call before execution
+                if callback:
+                    await callback(tool=tool_name, iteration=iterations, max_iter=max_iterations)
 
                 try:
                     result = await self.tool_executor.execute(tool_name, **tc["arguments"])
