@@ -48,6 +48,7 @@ from app.context.session_manager import (
     get_or_create_session,
     get_session_messages,
     list_user_sessions,
+    append_message,
 )
 from app.context.processor import process_result
 from app.output.output_formatter import format_ws_message
@@ -156,6 +157,14 @@ async def send_message(
                     "title": body.message[:80],
                 },
             )
+            # Save user message immediately so chat history is never blank
+            # if the Celery worker crashes before process_result() runs.
+            try:
+                await append_message(db, resolved_session_id, "user", body.message)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to pre-save user message (session={resolved_session_id}): {e}"
+                )
 
         task_payload = {
             "user_id": user["user_id"],

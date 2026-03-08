@@ -14,8 +14,46 @@ import asyncio
 import logging
 
 from app.tasks.celery_app import celery_app
+from celery.signals import worker_ready
 
 logger = logging.getLogger("mezzofy.tasks.core")
+
+
+# ── Stale task recovery on worker startup ──────────────────────────────────────
+
+@worker_ready.connect
+def recover_stale_tasks(**kwargs):
+    """Mark abandoned 'running' tasks as failed when the worker (re)starts."""
+    try:
+        asyncio.run(_recover_stale_tasks())
+    except Exception as e:
+        logger.error(f"recover_stale_tasks failed: {e}")
+
+
+async def _recover_stale_tasks():
+    """Update agent_tasks rows stuck in 'running' for >15 minutes to 'failed'."""
+    from app.core.database import AsyncSessionLocal
+    from sqlalchemy import text
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            text(
+                """
+                UPDATE agent_tasks
+                SET status = 'failed',
+                    completed_at = NOW(),
+                    error = 'Task interrupted due to worker restart'
+                WHERE status = 'running'
+                  AND started_at < NOW() - INTERVAL '15 minutes'
+                RETURNING id, task_ref
+                """
+            )
+        )
+        await db.commit()
+        rows = result.fetchall()
+        if rows:
+            refs = [r.task_ref for r in rows]
+            logger.info(f"Recovered {len(rows)} stale task(s) on startup: {refs}")
 
 
 # ── Main background task ───────────────────────────────────────────────────────
@@ -176,6 +214,15 @@ def process_chat_task(self, task_data: dict):
     except Exception as exc:
         logger.error(f"process_chat_task failed: {exc}", exc_info=True)
         agent_task_id = task_data.get("agent_task_id")
+        # Soft time limit — mark failed immediately, do NOT retry
+        from celery.exceptions import SoftTimeLimitExceeded
+        if isinstance(exc, SoftTimeLimitExceeded):
+            logger.warning(f"process_chat_task soft time limit exceeded: {agent_task_id}")
+            if agent_task_id:
+                asyncio.run(_update_agent_task_failed(
+                    agent_task_id, "Task exceeded time limit (9 minutes)"
+                ))
+            raise
         try:
             raise self.retry(exc=exc, countdown=10)
         except self.MaxRetriesExceededError:

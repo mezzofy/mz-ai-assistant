@@ -53,11 +53,14 @@ async def process_result(
     agent_used = agent_result.get("agent_used", "unknown")
     success = agent_result.get("success", True)
 
-    # 1. Store user message in conversation history
-    try:
-        await append_message(db, session_id, "user", user_message)
-    except Exception as e:
-        logger.warning(f"Failed to store user message (session={session_id}): {e}")
+    # 1. Store user message in conversation history.
+    # Background tasks (agent_task_id set) pre-save the user message in chat.py
+    # immediately after queueing, so we skip it here to avoid a duplicate entry.
+    if not agent_task_id:
+        try:
+            await append_message(db, session_id, "user", user_message)
+        except Exception as e:
+            logger.warning(f"Failed to store user message (session={session_id}): {e}")
 
     # 2. Store assistant response in conversation history
     try:

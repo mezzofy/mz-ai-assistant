@@ -383,7 +383,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           minute: '2-digit',
         }),
       }));
-      set({messages, sessionId});
+      // Restore task banner if this session has a background task.
+      // tasks[] is already populated by loadTasks() called in HistoryScreen
+      // before navigation, so the find is synchronous and reliable.
+      const sessionTask = get().tasks.find(t => t.session_id === sessionId) ?? null;
+      set({messages, sessionId, activeTask: sessionTask});
     } catch {
       // Silent — keep current messages
     }
