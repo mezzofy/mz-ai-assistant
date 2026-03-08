@@ -443,7 +443,7 @@ async def _run_chat_task(task_data: dict) -> dict:
             notification_payload = json.dumps({
                 "type": "task_complete",
                 "task_id": agent_task_id or celery_task_id,
-                "session_id": session["id"],
+                "session_id": str(session["id"]),
                 "message": summary,
                 "file_url": file_url,
             })
