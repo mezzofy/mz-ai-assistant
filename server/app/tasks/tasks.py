@@ -19,11 +19,28 @@ from celery.signals import worker_ready
 logger = logging.getLogger("mezzofy.tasks.core")
 
 
-# ── Stale task recovery on worker startup ──────────────────────────────────────
+# ── Worker startup: initialize singletons + recover stale tasks ────────────────
 
 @worker_ready.connect
-def recover_stale_tasks(**kwargs):
-    """Mark abandoned 'running' tasks as failed when the worker (re)starts."""
+def on_worker_ready(**kwargs):
+    """Initialize LLMManager/SkillRegistry and recover stale tasks on worker start."""
+    from app.core.config import load_config
+    config = load_config()
+
+    try:
+        from app.llm import llm_manager as llm_mod
+        llm_mod.init(config)
+        logger.info("LLMManager initialized in Celery worker")
+    except Exception as e:
+        logger.error(f"LLMManager init failed in worker: {e}")
+
+    try:
+        from app.skills import skill_registry as sr_mod
+        sr_mod.init(config)
+        logger.info("Skill registry initialized in Celery worker")
+    except Exception as e:
+        logger.error(f"Skill registry init failed in worker: {e}")
+
     try:
         asyncio.run(_recover_stale_tasks())
     except Exception as e:
@@ -260,6 +277,9 @@ def process_chat_task(self, task_data: dict):
                     agent_task_id, "Task exceeded time limit (9 minutes)"
                 ))
             raise
+        # Strip worker-injected non-serializable keys before Celery re-enqueues the retry
+        for _key in ("_progress_callback", "_config", "_celery_task_id"):
+            task_data.pop(_key, None)
         try:
             raise self.retry(exc=exc, countdown=10)
         except self.MaxRetriesExceededError:
