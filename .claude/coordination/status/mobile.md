@@ -1,8 +1,26 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-08
-**Session:** v1.14.6 — BUG-006 stale task recovery + user message pre-save + SoftTimeLimitExceeded + activeTask in loadHistory
-**Context:** ~15% at checkpoint
-**Reason:** v1.14.6 release APK built successfully
+**Session:** v1.14.7 — BUG-007 progress visibility + new chat isolation
+**Context:** ~20% at checkpoint
+**Reason:** v1.14.7 code changes complete; APK build pending
+
+---
+
+## v1.14.7 Changes (BUG-007)
+
+**Files modified:**
+- `APP/src/api/chat.ts`: added `progress?`, `current_step?`, `started_at?` to `TaskSummary` interface
+- `APP/src/stores/chatStore.ts`: `pollActiveTask` — session guard `if (get().sessionId !== sessionId) return;` (Fix B); `sendToServer` — `response.response || 'Task completed.'` fallback (Fix C)
+- `APP/src/screens/ChatScreen.tsx`: banner condition `activeTask && activeTask.session_id === sessionId` (Fix D); added progress % + step description sub-line to banner body
+- `APP/android/app/build.gradle`: versionCode 24→25, versionName "1.14.6"→"1.14.7"
+- `APP/package.json`: "1.14.6"→"1.14.7"
+- `APP/src/screens/SettingsScreen.tsx`: version label v1.14.6→v1.14.7
+
+**Bugs fixed:**
+- A: `progress` + `current_step` now mapped into TypeScript and displayed in banner
+- B: Stale poll response discarded when session changed (race condition on "+" new chat)
+- C: Empty assistant bubble prevented by `|| 'Task completed.'` fallback
+- D: Banner is session-scoped — only shows when `activeTask.session_id === sessionId`
 
 ---
 
@@ -182,7 +200,8 @@
 | 1.14.3 | 21 | Backend P0: register Celery task, session_id writeback, notify_on_done default |
 | 1.14.4 | 22 | Backend: fix AGENT_MAP instantiation, event loop, stuck task status |
 | 1.14.5 | 23 | BUG-005: session_id always set; History badges fixed for all task states |
-| **1.14.6** | **24** | **BUG-006: stale task recovery; user msg pre-save; SoftTimeLimitExceeded handler; activeTask in loadHistory** |
+| 1.14.6 | 24 | BUG-006: stale task recovery; user msg pre-save; SoftTimeLimitExceeded handler; activeTask in loadHistory |
+| **1.14.7** | **25** | **BUG-007: progress visibility in banner; new-chat race fix; empty bubble guard; session-scoped banner** |
 
 ---
 

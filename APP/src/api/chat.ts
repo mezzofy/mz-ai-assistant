@@ -141,6 +141,9 @@ export interface TaskSummary {
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
   queue_name: string;
   created_at: string;
+  progress?: number;            // 0–100; updated by _update_agent_task_step()
+  current_step?: string | null; // JSON string: {agent, tool, iteration, description, ...}
+  started_at?: string | null;   // ISO timestamp
 }
 
 export interface TasksResponse {

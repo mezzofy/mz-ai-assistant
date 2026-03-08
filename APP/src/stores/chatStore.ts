@@ -250,7 +250,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             {
               id: Date.now(),
               role: 'assistant',
-              text: response.response,
+              text: response.response || 'Task completed.',
               time: getTimeStr(),
               artifacts: (response.artifacts?.length ?? 0) > 0 ? response.artifacts : undefined,
               tools: (response.tools_used?.length ?? 0) > 0 ? response.tools_used : undefined,
@@ -364,6 +364,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   pollActiveTask: async (sessionId: string) => {
     try {
       const result = await getActiveTasksApi();
+      // Guard: discard response if session changed while the request was in-flight
+      // (e.g., user tapped "+" and resetChat() ran between the call and the response)
+      if (get().sessionId !== sessionId) { return; }
       const task = result.tasks.find(t => t.session_id === sessionId) ?? null;
       set({activeTask: task});
     } catch (err) {

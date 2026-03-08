@@ -447,7 +447,7 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
       )}
 
       {/* Active Task Bar */}
-      {activeTask && (
+      {activeTask && activeTask.session_id === sessionId && (
         <View style={styles.taskBar}>
           {activeTask.status === 'completed' ? (
             <Icon name="checkmark-circle" size={16} color="#fff" />
@@ -456,9 +456,29 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
           ) : (
             <ActivityIndicator size="small" color="#fff" />
           )}
-          <Text style={styles.taskBarText} numberOfLines={1}>
-            {'TASK #'}{activeTask.id.slice(0, 8).toUpperCase()}{'  '}{activeTask.status.toUpperCase()}
-          </Text>
+          <View style={{flex: 1, overflow: 'hidden'}}>
+            <Text style={styles.taskBarText} numberOfLines={1}>
+              {'TASK #'}{activeTask.id.slice(0, 8).toUpperCase()}{'  '}{activeTask.status.toUpperCase()}
+              {activeTask.progress != null && activeTask.progress > 0
+                ? `  ${activeTask.progress}%`
+                : ''}
+            </Text>
+            {activeTask.status === 'running' && (() => {
+              try {
+                const step = activeTask.current_step
+                  ? JSON.parse(activeTask.current_step)
+                  : null;
+                const desc = step?.description;
+                return desc ? (
+                  <Text style={[styles.taskBarText, {fontSize: 10, opacity: 0.8}]} numberOfLines={1}>
+                    {desc}
+                  </Text>
+                ) : null;
+              } catch {
+                return null;
+              }
+            })()}
+          </View>
           <TouchableOpacity onPress={clearActiveTask} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
             <Icon name="close" size={14} color="#fff" />
           </TouchableOpacity>
