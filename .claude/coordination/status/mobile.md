@@ -1,8 +1,29 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-08
-**Session:** v1.14.5 — BUG-005 session_id fix + History badge fix + release APK build
-**Context:** ~12% at checkpoint
-**Reason:** v1.14.5 release APK built successfully
+**Session:** v1.14.6 — BUG-006 stale task recovery + user message pre-save + SoftTimeLimitExceeded + activeTask in loadHistory
+**Context:** ~15% at checkpoint
+**Reason:** v1.14.6 release APK built successfully
+
+---
+
+## v1.14.6 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 24 |
+| versionName | 1.14.6 |
+| Build time | 1m 2s |
+| Branch | eric-design |
+| Commits | `ec3a071` (all 7 files — BUG-006 fixes + version bump) |
+
+**Changes in v1.14.6 (BUG-006):**
+- `server/app/api/chat.py`: add `append_message` import; pre-save user message immediately after `agent_tasks` INSERT — chat history never blank if worker crashes
+- `server/app/context/processor.py`: wrap user-message append with `if not agent_task_id:` — prevents duplicate user message when task completes
+- `server/app/tasks/tasks.py`: `@worker_ready.connect` stale recovery — marks `running` tasks >15 min as failed on worker start; `SoftTimeLimitExceeded` handler — marks failed immediately, no retry
+- `APP/src/stores/chatStore.ts`: `loadHistory()` now sets `activeTask` from tasks array — restores task banner when opening session from History
 
 ---
 
@@ -160,7 +181,8 @@
 | 1.14.2 | 20 | chatStore: skip assistant msg for queued tasks; safe optional chaining |
 | 1.14.3 | 21 | Backend P0: register Celery task, session_id writeback, notify_on_done default |
 | 1.14.4 | 22 | Backend: fix AGENT_MAP instantiation, event loop, stuck task status |
-| **1.14.5** | **23** | **BUG-005: session_id always set; History badges fixed for all task states** |
+| 1.14.5 | 23 | BUG-005: session_id always set; History badges fixed for all task states |
+| **1.14.6** | **24** | **BUG-006: stale task recovery; user msg pre-save; SoftTimeLimitExceeded handler; activeTask in loadHistory** |
 
 ---
 
