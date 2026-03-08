@@ -12,35 +12,60 @@ Celery workers run in separate processes; async agent code is called via asyncio
 
 import asyncio
 import logging
+import os
 
 from app.tasks.celery_app import celery_app
-from celery.signals import worker_ready
+from celery.signals import worker_process_init, worker_ready
 
 logger = logging.getLogger("mezzofy.tasks.core")
 
 
-# ── Worker startup: initialize singletons + recover stale tasks ────────────────
+# ── Per-worker-process init (fires in each forked child after fork) ────────────
 
-@worker_ready.connect
-def on_worker_ready(**kwargs):
-    """Initialize LLMManager/SkillRegistry and recover stale tasks on worker start."""
+@worker_process_init.connect
+def init_worker_process(**kwargs):
+    """
+    Initialize singletons in each forked Celery worker process.
+
+    worker_process_init fires inside the child process after fork, so globals
+    set here are visible to all tasks running in that child.  worker_ready
+    fires in the main process only — changes there are NOT inherited by children.
+    """
     from app.core.config import load_config
     config = load_config()
+
+    # Dispose the inherited SQLAlchemy async connection pool.
+    # After fork the child inherits the parent's pool connections which are
+    # bound to the parent's (now-closed) event loop → "Future attached to a
+    # different loop" errors.  dispose() discards those connections so the
+    # child creates fresh ones on first use.
+    try:
+        from app.core.database import engine
+        engine.sync_engine.dispose()
+        logger.info(f"DB engine pool disposed in worker pid={os.getpid()}")
+    except Exception as e:
+        logger.warning(f"engine.dispose() in worker init failed (non-fatal): {e}")
 
     try:
         from app.llm import llm_manager as llm_mod
         llm_mod.init(config)
-        logger.info("LLMManager initialized in Celery worker")
+        logger.info(f"LLMManager initialized in worker pid={os.getpid()}")
     except Exception as e:
-        logger.error(f"LLMManager init failed in worker: {e}")
+        logger.error(f"LLMManager init failed in worker pid={os.getpid()}: {e}")
 
     try:
         from app.skills import skill_registry as sr_mod
         sr_mod.init(config)
-        logger.info("Skill registry initialized in Celery worker")
+        logger.info(f"Skill registry initialized in worker pid={os.getpid()}")
     except Exception as e:
-        logger.error(f"Skill registry init failed in worker: {e}")
+        logger.error(f"Skill registry init failed in worker pid={os.getpid()}: {e}")
 
+
+# ── Stale task recovery on worker startup (main process, runs once) ────────────
+
+@worker_ready.connect
+def on_worker_ready(**kwargs):
+    """Mark abandoned 'running' tasks as failed when the worker (re)starts."""
     try:
         asyncio.run(_recover_stale_tasks())
     except Exception as e:
