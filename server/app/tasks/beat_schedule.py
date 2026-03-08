@@ -36,6 +36,13 @@ STATIC_BEAT_SCHEDULE = {
         "options": {"expires": 240},  # expire if not consumed in 4 min
     },
 
+    # Hung task cleanup — every 10 minutes
+    "stuck-task-cleanup": {
+        "task": "app.tasks.tasks.cleanup_stuck_tasks",
+        "schedule": crontab(minute="*/10"),
+        "options": {"queue": "default"},
+    },
+
     # Weekly KPI report — Monday 9AM SGT (Celery uses UTC internally; UTC+8 → 01:00 UTC)
     "weekly-kpi-report": {
         "task": "app.tasks.tasks.process_agent_task",

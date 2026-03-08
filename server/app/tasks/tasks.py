@@ -56,6 +56,43 @@ async def _recover_stale_tasks():
             logger.info(f"Recovered {len(rows)} stale task(s) on startup: {refs}")
 
 
+# ── Periodic hung-task cleanup ─────────────────────────────────────────────────
+
+@celery_app.task(name="app.tasks.tasks.cleanup_stuck_tasks")
+def cleanup_stuck_tasks():
+    """Periodic cleanup: mark tasks stuck in 'running' for >1 hour as failed."""
+    asyncio.run(_cleanup_stuck_tasks_async())
+
+
+async def _cleanup_stuck_tasks_async():
+    """UPDATE agent_tasks: running AND started_at < NOW() - 1 hour → failed."""
+    from app.core.database import AsyncSessionLocal
+    from sqlalchemy import text
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            text(
+                "UPDATE agent_tasks "
+                "SET status = 'failed', "
+                "    completed_at = NOW(), "
+                "    error = 'Task timed out: exceeded 1-hour execution limit' "
+                "WHERE status = 'running' "
+                "  AND started_at < NOW() - INTERVAL '1 hour' "
+                "RETURNING id, task_ref"
+            )
+        )
+        rows = result.fetchall()
+        await db.commit()
+
+    if rows:
+        refs = [r.task_ref for r in rows]
+        logger.warning(
+            f"cleanup_stuck_tasks: marked {len(rows)} hung task(s) as failed — refs: {refs}"
+        )
+    else:
+        logger.debug("cleanup_stuck_tasks: no stuck tasks found")
+
+
 # ── Main background task ───────────────────────────────────────────────────────
 
 @celery_app.task(bind=True, max_retries=3, name="app.tasks.tasks.process_agent_task")
