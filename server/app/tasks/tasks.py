@@ -66,6 +66,13 @@ def init_worker_process(**kwargs):
 @worker_ready.connect
 def on_worker_ready(**kwargs):
     """Mark abandoned 'running' tasks as failed when the worker (re)starts."""
+    # Dispose the engine pool so _recover_stale_tasks() opens fresh connections
+    # in its own event loop (avoids "Future attached to a different loop" errors).
+    try:
+        from app.core.database import engine
+        engine.sync_engine.dispose()
+    except Exception:
+        pass
     try:
         asyncio.run(_recover_stale_tasks())
     except Exception as e:
@@ -298,6 +305,13 @@ def process_chat_task(self, task_data: dict):
         if isinstance(exc, SoftTimeLimitExceeded):
             logger.warning(f"process_chat_task soft time limit exceeded: {agent_task_id}")
             if agent_task_id:
+                # Dispose pool so the new asyncio.run() opens fresh connections
+                # (avoids "Future attached to a different loop" from the closed loop)
+                try:
+                    from app.core.database import engine
+                    engine.sync_engine.dispose()
+                except Exception:
+                    pass
                 asyncio.run(_update_agent_task_failed(
                     agent_task_id, "Task exceeded time limit (9 minutes)"
                 ))
@@ -309,6 +323,12 @@ def process_chat_task(self, task_data: dict):
             raise self.retry(exc=exc, countdown=10)
         except self.MaxRetriesExceededError:
             if agent_task_id:
+                # Dispose pool so the new asyncio.run() opens fresh connections
+                try:
+                    from app.core.database import engine
+                    engine.sync_engine.dispose()
+                except Exception:
+                    pass
                 asyncio.run(_update_agent_task_failed(agent_task_id, str(exc)))
             raise
 
