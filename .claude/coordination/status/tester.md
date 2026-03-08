@@ -1,13 +1,42 @@
 # Context Checkpoint: Tester Agent
-**Date:** 2026-02-28
+**Date:** 2026-03-08
 **Project:** mz-ai-assistant
-**Session:** Phase 9 (E2E Tests)
-**Context:** ~35% at checkpoint
-**Reason:** Phase 9 complete — all E2E tests written and passing
+**Session:** Phase 10 (Integration Test — Research Task)
+**Context:** ~20% at checkpoint
+**Reason:** Integration test created; EC2 live-run task tracked
 
 ---
 
-## Completed This Session (Phase 9)
+## Completed This Session (Phase 10)
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1 | Create `test_integration_research_task.py` | ✅ Done | 1 `@pytest.mark.integration` test — dispatches research task, polls, validates `.txt` artifact |
+| 2 | Task tracker: Task #1 (implement integration test) | ✅ Completed | Marked completed in task tracker |
+| 3 | Task tracker: Task #2 (EC2 live run) | ✅ Created | Left as `pending` — requires EC2 connectivity |
+
+---
+
+## Files Created This Session
+
+- `server/tests/test_integration_research_task.py` — 1 integration test (research task end-to-end)
+
+---
+
+## Pending Work
+
+### Task #2 — EC2 Live Run
+Run integration test against `http://3.1.255.48:8000`:
+1. Get JWT: `POST /auth/login` with `admin@mezzofy.com` / `MezzofyAI2024!`
+2. Run: `TEST_SERVER_URL=http://3.1.255.48:8000 TEST_JWT_TOKEN=$TOKEN pytest tests/test_integration_research_task.py -v -m integration --no-cov`
+
+Pass criteria: 202 + task_id → polls to `completed` within 180s → ≥1 `.txt` artifact → artifact download 200 + non-empty.
+
+---
+
+## Previous Session Data (Phase 9 — E2E Tests)
+
+**Completed This Session (Phase 9)**
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
@@ -15,6 +44,7 @@
 | 2 | Base suite verification | ✅ 236 passed | Confirmed before writing E2E tests |
 | 3 | Create `test_e2e_mobile.py` | ✅ 11 tests | TestMobileAuthFlow (4) + TestMobileChatFlow (3) + TestMobileFilesFlow (4) |
 | 4 | Full suite run | ✅ 247 passed | 236 + 11 new = 247, 0 failed |
+| 5 | Create `test_integration_research_task.py` | ✅ 1 test | Dispatches research task, polls, validates artifact — collected OK |
 
 ---
 
