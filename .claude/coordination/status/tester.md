@@ -7,13 +7,14 @@
 
 ---
 
-## Completed This Session (Phase 10)
+## Completed This Session (Phase 10 — 2026-03-09)
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | Create `test_integration_research_task.py` | ✅ Done | 1 `@pytest.mark.integration` test — dispatches research task, polls, validates `.txt` artifact |
-| 2 | Task tracker: Task #1 (implement integration test) | ✅ Completed | Marked completed in task tracker |
-| 3 | Task tracker: Task #2 (EC2 live run) | ✅ Created | Left as `pending` — requires EC2 connectivity |
+| 1 | Create `test_integration_research_task.py` | ✅ Done | 1 `@pytest.mark.integration` test |
+| 2 | EC2 live run — integration test | ✅ **PASSED** | 1 passed in 255.81s on EC2 (http://3.1.255.48:8000) |
+| 3 | Root cause analysis — task stuck in `running` | ✅ Done | 4 bugs identified + fixed by backend/lead |
+| 4 | `TIMEOUT_S` 180 → 600 | ✅ Done | Accounts for Anthropic rate-limit backoffs |
 
 ---
 
@@ -23,14 +24,26 @@
 
 ---
 
-## Pending Work
+## Integration Test Result (2026-03-09)
 
-### Task #2 — EC2 Live Run
-Run integration test against `http://3.1.255.48:8000`:
-1. Get JWT: `POST /auth/login` with `admin@mezzofy.com` / `MezzofyAI2024!`
-2. Run: `TEST_SERVER_URL=http://3.1.255.48:8000 TEST_JWT_TOKEN=$TOKEN pytest tests/test_integration_research_task.py -v -m integration --no-cov`
+```
+1 passed, 210 warnings in 255.81s (0:04:15)
+```
 
-Pass criteria: 202 + task_id → polls to `completed` within 180s → ≥1 `.txt` artifact → artifact download 200 + non-empty.
+**Pass criteria all met:**
+- ✅ POST /chat/send → 202 + task_id
+- ✅ GET /tasks/{id} polls to `completed`
+- ✅ result.artifacts has ≥1 `.txt` artifact
+- ✅ Artifact download returns 200 + non-empty body
+
+**Bugs fixed to make it pass (see memory.md BUG-008/009):**
+- Missing `await db.commit()` in `_run_chat_task()` — root cause of `running` forever
+- `agent_tasks.result` column not stored → `GET /tasks/{id}` returned null artifacts
+- `engine.sync_engine.dispose()` before exception-path `asyncio.run()` calls
+- AnthropicClient 429 retry delays: 1/2/4s → 30/60/60s
+- LLM system prompt file-save question now conditional (skip if user specified location)
+
+**No pending work.** Integration test is green.
 
 ---
 
