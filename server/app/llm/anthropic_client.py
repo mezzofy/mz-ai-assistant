@@ -90,21 +90,29 @@ class AnthropicClient:
             kwargs["tools"] = self._format_tools(tools)
 
         _RETRY_STATUS = {429, 500, 529}
-        _RETRY_DELAYS = [1, 2, 4]
+        # 429 rate-limit: wait for the token-per-minute bucket to refill (30–60s).
+        # 500/529 server errors and timeouts: short exponential backoff is fine.
+        _RATE_LIMIT_DELAYS = [30, 60, 60]
+        _SERVER_ERROR_DELAYS = [1, 2, 4]
 
         last_exc: Exception | None = None
-        for attempt, delay in enumerate(_RETRY_DELAYS, start=1):
+        attempt = 0
+        while True:
+            attempt += 1
             try:
                 response = await self._client.messages.create(**kwargs)
                 return self._parse_response(response)
             except Exception as e:
                 status = getattr(e, "status_code", None)
+                is_rate_limit = status == 429
                 is_retryable = (
                     status in _RETRY_STATUS
                     or "timeout" in str(e).lower()
                     or "connection" in str(e).lower()
                 )
-                if is_retryable and attempt < len(_RETRY_DELAYS) + 1:
+                delays = _RATE_LIMIT_DELAYS if is_rate_limit else _SERVER_ERROR_DELAYS
+                if is_retryable and attempt <= len(delays):
+                    delay = delays[attempt - 1]
                     logger.warning(
                         f"AnthropicClient.chat attempt {attempt} failed "
                         f"(status={status}): {e} — retrying in {delay}s"

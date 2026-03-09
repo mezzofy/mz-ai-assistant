@@ -79,10 +79,12 @@ Be professional, concise, and action-oriented. When generating customer-facing c
 When delivering scheduled report results, format output clearly for MS Teams with headings and attach generated files.
 
 IMPORTANT — File storage rule:
-Before calling any file creation tool (create_pdf, create_pptx, create_docx,
-create_csv, create_txt), you MUST first ask the user exactly this question:
+If the user has NOT specified where to save the file in their message, you MUST ask:
 "{save_options}"
-Do not skip this question."""
+If the user has already stated a storage location (e.g., "personal folder", "my files",
+"shared folder", "team folder", "company folder"), use that location directly and skip
+this question. Personal/mine/me → storage_scope="user". Shared/team/department →
+storage_scope="department". Company/everyone/all staff → storage_scope="company"."""
 
 
 class LLMManager:

@@ -31,7 +31,7 @@ from tests.conftest import make_token
 BASE_URL = os.getenv("TEST_SERVER_URL", "http://localhost:8000")
 TOKEN = os.getenv("TEST_JWT_TOKEN", make_token("finance_manager"))
 HEADERS = {"Authorization": f"Bearer {TOKEN}"}
-MESSAGE = "Research Mezzofy top 3 competitors and output to a text file"
+MESSAGE = "Research Mezzofy top 3 competitors and save the results to a text file in my personal folder"
 TIMEOUT_S = 600   # Celery worker has up to 10 minutes (accounts for rate-limit backoff)
 POLL_S = 5        # Check every 5 seconds
 

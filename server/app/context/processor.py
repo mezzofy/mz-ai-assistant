@@ -110,14 +110,30 @@ async def process_result(
     task_id: str | None = None
     try:
         if agent_task_id:
-            # Celery path: UPDATE the existing 'queued'/'running' row to 'completed'
+            # Celery path: UPDATE the existing 'queued'/'running' row to 'completed'.
+            # Also store the result JSON (with artifacts) so GET /tasks/{id} can
+            # return artifact download URLs without a separate query.
+            import json as _json
+            _result_payload = _json.dumps({
+                "success": success,
+                "artifacts": [
+                    {
+                        "id": a.get("id"),
+                        "type": a.get("file_type", "file"),
+                        "name": a.get("filename", "artifact"),
+                        "download_url": a.get("download_url"),
+                    }
+                    for a in response_artifacts
+                ],
+            })
             await db.execute(
                 text(
                     "UPDATE agent_tasks "
-                    "SET status = 'completed', progress = 100, completed_at = NOW() "
+                    "SET status = 'completed', progress = 100, completed_at = NOW(), "
+                    "result = CAST(:result AS jsonb), current_step = NULL "
                     "WHERE id = :id"
                 ),
-                {"id": agent_task_id},
+                {"result": _result_payload, "id": agent_task_id},
             )
             task_id = agent_task_id
         else:
