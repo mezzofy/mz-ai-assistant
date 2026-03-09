@@ -441,9 +441,8 @@ class LLMManager:
         Checked when no Chinese characters are present in the message.
         """
         apac_signals = {
-            "china", "chinese market", "mainland", "apac", "asia pacific",
-            "singapore", "malaysia", "taiwan", "hong kong", "mandarin",
-            "中国", "亚太", "新加坡"
+            "china", "chinese market", "mainland", "apac",
+            "mandarin", "中国", "亚太", "新加坡"
         }
         msg_lower = message.lower()
         if any(signal in msg_lower for signal in apac_signals):
