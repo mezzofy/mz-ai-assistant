@@ -219,6 +219,19 @@ See `docs/RN-mz-ai-assistant-v1.0.md` for release notes.
 
 ---
 
+## Post-Deployment (2026-03-09)
+
+- ✅ **Chat Flow Map documented** — `docs/TD-chat-flow-v1.0.md` created
+  - Full 10-layer flow map from user input → response, verified against live code
+  - Documents all entry points, sync/async fork, agent selection, tool-calling loop, WebSocket path, background delivery
+  - Source of truth for onboarding and architecture reviews
+
+- **BUG-003 FIXED:** `apac_signals` over-broad Kimi routing — English city names caused Claude → Kimi misroute
+  - **File:** `server/app/llm/llm_manager.py`
+  - **Root cause:** `"singapore"`, `"malaysia"`, `"taiwan"`, `"hong kong"`, `"asia pacific"` in `apac_signals` set matched general English business queries
+  - **Fix:** Removed those 5 English terms; kept only exclusive Chinese-market signals (`"china"`, `"chinese market"`, `"mainland"`, `"apac"`, `"mandarin"`, `"中国"`, `"亚太"`, `"新加坡"`)
+  - **Commit:** `63db1b7` — deployed to EC2 and git-synced
+
 ## Post-Deployment (2026-03-01)
 
 - **BUG-002 FIXED:** ManagementAgent routing bug — AI always returned KPI dashboard
