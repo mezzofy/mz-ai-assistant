@@ -449,6 +449,10 @@ async def _run_chat_task(task_data: dict) -> dict:
                 department=task_data.get("department", ""),
                 agent_task_id=agent_task_id,
             )
+            # Commit all writes: conversation history, artifacts, agent_task status.
+            # Without this commit the session closes and rolls back every write above
+            # (autocommit=False), leaving the agent_task stuck in 'running' forever.
+            await db.commit()
 
         # Extract file_url from artifacts if present
         artifacts = response.get("artifacts", [])
