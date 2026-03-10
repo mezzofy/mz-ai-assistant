@@ -58,8 +58,8 @@ class ManagementAgent(BaseAgent):
         if source == "scheduler" and "kpi_report" in event:
             return await self._weekly_kpi_workflow(task)
 
-        # File attached → document analysis takes priority over keyword matching
-        if task.get("anthropic_file_id") or task.get("input_type") == "file":
+        # File or image attached → analysis takes priority over keyword matching
+        if task.get("anthropic_file_id") or task.get("input_type") in ("file", "image"):
             return await self._general_response(task)
 
         # Mobile/Teams: only run KPI workflow if message is clearly about KPIs

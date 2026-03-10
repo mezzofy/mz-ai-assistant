@@ -105,6 +105,15 @@ directly. Do NOT call read_pdf, read_txt, search_user_files, or any extraction t
 for the attached document. The FILE SEARCH RULE above applies only when the user
 references documents that are NOT already in this conversation."""
 
+# Appended to system prompt when an image is attached via Files API
+_ATTACHED_IMAGE_DIRECTIVE = """
+
+ATTACHED IMAGE:
+The user has provided an image as a native file attachment (Anthropic Files API).
+It is already present in this conversation as an image block — Claude can see it
+directly. Do NOT call analyze_image, ocr_image, or any image processing tool
+for the attached image. Answer based on what you can see in the image directly."""
+
 
 class LLMManager:
     """
@@ -227,11 +236,18 @@ class LLMManager:
         history = list(task.get("messages", []))
         file_id = task.get("anthropic_file_id")
         if file_id:
-            # Pass PDF to Claude as a native document block (Files API)
-            user_content = [
-                {"type": "document", "source": {"type": "file", "file_id": file_id}},
-                {"type": "text", "text": message or "Please analyze this document."},
-            ]
+            if task.get("input_type") == "image":
+                # Pass image to Claude as a native image block (Files API)
+                user_content = [
+                    {"type": "image", "source": {"type": "file", "file_id": file_id}},
+                    {"type": "text", "text": message or "Please analyze this image."},
+                ]
+            else:
+                # Pass document (PDF) to Claude as a native document block (Files API)
+                user_content = [
+                    {"type": "document", "source": {"type": "file", "file_id": file_id}},
+                    {"type": "text", "text": message or "Please analyze this document."},
+                ]
             history.append({"role": "user", "content": user_content})
         else:
             if not history or history[-1].get("content") != message:
@@ -451,9 +467,12 @@ class LLMManager:
             save_options=save_options,
         )
 
-        # If a file was attached via Files API, tell Claude not to call read_pdf
+        # If a file/image was attached via Files API, tell Claude not to call extraction tools
         if (task or {}).get("anthropic_file_id"):
-            prompt += _ATTACHED_FILE_DIRECTIVE
+            if (task or {}).get("input_type") == "image":
+                prompt += _ATTACHED_IMAGE_DIRECTIVE
+            else:
+                prompt += _ATTACHED_FILE_DIRECTIVE
 
         return prompt
 

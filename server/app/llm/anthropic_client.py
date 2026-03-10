@@ -89,13 +89,18 @@ class AnthropicClient:
             # Convert from ToolExecutor format to Anthropic tool format
             kwargs["tools"] = self._format_tools(tools)
 
-        # Add Files API beta header when any message contains a document block
+        # Add Files API beta header when any message contains a document or image-via-file block
+        def _is_files_api_block(b: dict) -> bool:
+            if b.get("type") == "document":
+                return True
+            if b.get("type") == "image":
+                src = b.get("source", {})
+                return isinstance(src, dict) and src.get("type") == "file"
+            return False
+
         _has_files_api = any(
             isinstance(m.get("content"), list)
-            and any(
-                isinstance(b, dict) and b.get("type") == "document"
-                for b in m["content"]
-            )
+            and any(isinstance(b, dict) and _is_files_api_block(b) for b in m["content"])
             for m in kwargs["messages"]
         )
         if _has_files_api:
