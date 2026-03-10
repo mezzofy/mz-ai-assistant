@@ -253,15 +253,18 @@ def mock_celery_delay():
 
     # Patch at source module so lazy imports inside functions pick up the mocks
     with patch.object(_tasks_mod, "process_agent_task") as mock_task, \
+         patch.object(_tasks_mod, "process_chat_task") as mock_chat_task, \
          patch.object(_webhook_tasks_mod, "handle_mezzofy_event") as mock_mezzofy, \
          patch.object(_webhook_tasks_mod, "handle_teams_mention") as mock_teams, \
          patch.object(_webhook_tasks_mod, "handle_custom_event") as mock_custom:
         mock_task.delay.return_value = mock_result
+        mock_chat_task.delay.return_value = mock_result
         mock_mezzofy.delay.return_value = mock_result
         mock_teams.delay.return_value = mock_result
         mock_custom.delay.return_value = mock_result
         yield {
             "process_agent_task": mock_task,
+            "process_chat_task": mock_chat_task,
             "handle_mezzofy_event": mock_mezzofy,
             "handle_teams_mention": mock_teams,
             "handle_custom_event": mock_custom,

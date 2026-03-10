@@ -37,7 +37,7 @@ class TestSendMessage:
     ):
         response = await client.post(
             "/chat/send",
-            json={"message": "Hello, generate a report"},
+            json={"message": "Hello, what can you help me with?"},
             headers=auth_headers("finance_manager"),
         )
         assert response.status_code == 200
@@ -192,7 +192,7 @@ class TestDepartmentRouting:
     ):
         response, mock_router = await self._send_as_role(
             client, "finance_manager",
-            "Generate the monthly financial statement",
+            "Show me the finance team overview",
             mock_config, mock_session_manager, mock_db_session, mock_audit_log,
         )
         assert response.status_code == 200
@@ -377,7 +377,7 @@ class TestSalesWorkflow:
                    }):
             response = await client.post(
                 "/chat/send",
-                json={"message": "Find 20 F&B companies in Singapore on LinkedIn and send intro emails"},
+                json={"message": "Find 20 F&B companies in Singapore and send intro emails"},
                 headers=auth_headers("sales_rep"),
             )
 
@@ -406,7 +406,7 @@ class TestSalesWorkflow:
                    }):
             response = await client.post(
                 "/chat/send",
-                json={"message": "Create a pitch deck for ABC Restaurant Group"},
+                json={"message": "Create a presentation for ABC Restaurant Group"},
                 headers=auth_headers("sales_rep"),
             )
 
