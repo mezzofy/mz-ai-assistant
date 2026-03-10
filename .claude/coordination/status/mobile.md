@@ -1,8 +1,30 @@
 # Context Checkpoint: Mobile Agent
-**Date:** 2026-03-08
-**Session:** v1.14.7 — BUG-007 progress visibility + new chat isolation
+**Date:** 2026-03-10 22:05
+**Session:** v1.15.0 — Image processing + remove audio/video input modes
 **Context:** ~20% at checkpoint
-**Reason:** v1.14.7 code changes complete; APK build pending
+**Reason:** v1.15.0 release preparation complete; APK built successfully
+
+---
+
+## v1.15.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | 61 MB |
+| versionCode | 26 |
+| versionName | 1.15.0 |
+| Build time | 1m 7s |
+| Branch | eric-design |
+| Commit | `03121ce` — chore(mobile): bump version to v1.15.0 (versionCode 26) |
+
+**Changes in v1.15.0:**
+- `server/app/api/files.py`: image OCR+vision inline analysis on upload; `image_analysis` in response
+- `server/app/api/chat.py`: `_IMAGE_EXTENSIONS` set; `send_artifact()` routes images through `image_handler`
+- `server/tests/test_files.py`: 5 new tests (all passing)
+- `APP/src/utils/theme.ts`: `INPUT_MODES` 9→7 (video, audio removed)
+- `APP/src/screens/ChatScreen.tsx`: `handleModeAction()` simplified; `MediaType` import removed
 
 ---
 
@@ -201,7 +223,8 @@
 | 1.14.4 | 22 | Backend: fix AGENT_MAP instantiation, event loop, stuck task status |
 | 1.14.5 | 23 | BUG-005: session_id always set; History badges fixed for all task states |
 | 1.14.6 | 24 | BUG-006: stale task recovery; user msg pre-save; SoftTimeLimitExceeded handler; activeTask in loadHistory |
-| **1.14.7** | **25** | **BUG-007: progress visibility in banner; new-chat race fix; empty bubble guard; session-scoped banner** |
+| 1.14.7 | 25 | BUG-007: progress visibility in banner; new-chat race fix; empty bubble guard; session-scoped banner |
+| **1.15.0** | **26** | **Image OCR+vision analysis on upload; remove video/audio input modes** |
 
 ---
 
