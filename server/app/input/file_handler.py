@@ -2,7 +2,7 @@
 File Handler — text extraction from uploaded documents.
 
 Supported formats and extraction libraries:
-  PDF   → PDFOps.read_pdf (pypdf)
+  PDF   → Anthropic Files API (primary) → PDFOps.read_pdf (pypdf, fallback)
   DOCX  → DocxOps.read_docx (paragraphs + tables)
   PPTX  → PPTXOps.read_pptx (slide text + speaker notes)
   CSV   → CSVOps.read_csv (up to 500 rows + numeric summary)
@@ -12,6 +12,7 @@ Supported formats and extraction libraries:
   TXT   → plain UTF-8 read
 """
 
+import asyncio
 import logging
 import os
 import tempfile
@@ -21,6 +22,36 @@ logger = logging.getLogger("mezzofy.input.file")
 
 # Truncate extracted text at this many chars to avoid overwhelming LLM context
 _MAX_EXTRACTED_CHARS = 6000
+
+
+def _upload_pdf_to_files_api_sync(
+    file_bytes: bytes, filename: str, config: dict
+) -> Optional[str]:
+    """
+    Upload PDF bytes to Anthropic Files API (synchronous).
+
+    Returns the file_id string on success, or None on failure.
+    Intended to be called via run_in_executor from async code.
+    """
+    try:
+        import anthropic
+
+        api_key = config.get("llm", {}).get("claude", {}).get("api_key", "")
+        if not api_key:
+            logger.warning("Files API upload skipped: no Claude API key in config")
+            return None
+
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.beta.files.upload(
+            file=(filename, file_bytes, "application/pdf"),
+        )
+        logger.info(
+            f"Files API upload succeeded: file_id={response.id} filename={filename!r}"
+        )
+        return response.id
+    except Exception as e:
+        logger.warning(f"Files API upload failed for {filename!r}: {e}")
+        return None
 
 
 async def handle_file(
@@ -41,6 +72,30 @@ async def handle_file(
     """
     config = task.get("_config", {})
     ext = os.path.splitext(filename)[1].lower()
+
+    # ── Primary path for PDFs: Anthropic Files API ────────────────────────────
+    # Claude handles scanned/image-based PDFs natively (built-in OCR).
+    # pypdf is kept as a fallback in case the Files API upload fails.
+    if ext == ".pdf":
+        loop = asyncio.get_event_loop()
+        file_id = await loop.run_in_executor(
+            None, _upload_pdf_to_files_api_sync, file_bytes, filename, config
+        )
+        if file_id:
+            user_msg = (task.get("message") or "").strip()
+            return {
+                **task,
+                "input_type": "file",
+                "anthropic_file_id": file_id,
+                "anthropic_file_name": filename,
+                "extracted_text": user_msg or "Please analyze this document.",
+                "media_content": {"filename": filename, "extension": ".pdf"},
+                "input_summary": f"File: {filename} (uploaded via Files API)",
+            }
+        logger.warning(
+            f"handle_file: Files API upload failed for {filename!r} — falling back to pypdf"
+        )
+    # ── End Files API path ────────────────────────────────────────────────────
 
     tmp_path: Optional[str] = None
     try:

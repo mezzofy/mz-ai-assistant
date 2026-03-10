@@ -403,6 +403,7 @@ class TestSendArtifactRouting:
         mock_artifact.filename = "photo.jpg"
         mock_artifact.file_path = "/tmp/photo.jpg"
         mock_artifact.file_type = "jpeg"
+        mock_artifact.anthropic_file_id = None
         mock_db_session.execute.return_value.fetchone.return_value = mock_artifact
 
         captured_task: dict = {}
@@ -437,6 +438,7 @@ class TestSendArtifactRouting:
         mock_artifact.filename = "report.pdf"
         mock_artifact.file_path = "/tmp/report.pdf"
         mock_artifact.file_type = "pdf"
+        mock_artifact.anthropic_file_id = None
         mock_db_session.execute.return_value.fetchone.return_value = mock_artifact
 
         captured_task: dict = {}

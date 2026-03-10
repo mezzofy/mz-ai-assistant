@@ -374,7 +374,7 @@ async def send_artifact(body: SendArtifactRequest, request: Request):
     async with _db_session() as db:
         result = await db.execute(
             text(
-                "SELECT id, filename, file_path, file_type FROM artifacts "
+                "SELECT id, filename, file_path, file_type, anthropic_file_id FROM artifacts "
                 "WHERE id = :aid AND user_id = :uid"
             ),
             {"aid": body.artifact_id, "uid": user["user_id"]},
@@ -399,7 +399,34 @@ async def send_artifact(body: SendArtifactRequest, request: Request):
     file_ext = Path(artifact.filename).suffix.lower()
     is_image = file_ext in _IMAGE_EXTENSIONS or (artifact.file_type or "").startswith("image")
     task.update({"message": body.message, "input_type": "image" if is_image else "file"})
-    task = await process_input(task, file_bytes=file_bytes, filename=artifact.filename)
+
+    # Use cached Anthropic file_id for PDFs to skip re-upload on repeat requests
+    cached_file_id = getattr(artifact, "anthropic_file_id", None)
+    if cached_file_id and file_ext == ".pdf":
+        task["anthropic_file_id"] = cached_file_id
+        task["anthropic_file_name"] = artifact.filename
+        task["extracted_text"] = body.message or "Please analyze this document."
+        task["media_content"] = {"filename": artifact.filename, "extension": file_ext}
+        task["input_summary"] = f"File: {artifact.filename} (cached Files API)"
+    else:
+        task = await process_input(task, file_bytes=file_bytes, filename=artifact.filename)
+        # Persist a newly obtained file_id so subsequent calls can skip re-upload
+        new_file_id = task.get("anthropic_file_id")
+        if new_file_id and not cached_file_id:
+            try:
+                async with _db_session() as db:
+                    await db.execute(
+                        text(
+                            "UPDATE artifacts SET anthropic_file_id = :fid WHERE id = :aid"
+                        ),
+                        {"fid": new_file_id, "aid": body.artifact_id},
+                    )
+                    await db.commit()
+            except Exception as cache_err:
+                logger.warning(
+                    f"send_artifact: failed to cache anthropic_file_id for artifact "
+                    f"{body.artifact_id}: {cache_err}"
+                )
 
     async with _db_session() as db:
         session = await get_or_create_session(

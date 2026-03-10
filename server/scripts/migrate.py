@@ -249,6 +249,13 @@ def run_migrations(conn):
     """)
     print("  ✅ artifacts.scope / artifacts.department")
 
+    # artifacts: add anthropic_file_id column for Files API caching
+    cur.execute("""
+        ALTER TABLE artifacts
+            ADD COLUMN IF NOT EXISTS anthropic_file_id VARCHAR(255) DEFAULT NULL
+    """)
+    print("  ✅ artifacts.anthropic_file_id")
+
     # artifacts: add folder_id FK if missing (must check column existence first)
     cur.execute("""
         SELECT column_name FROM information_schema.columns

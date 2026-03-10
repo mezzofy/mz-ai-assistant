@@ -89,6 +89,18 @@ class AnthropicClient:
             # Convert from ToolExecutor format to Anthropic tool format
             kwargs["tools"] = self._format_tools(tools)
 
+        # Add Files API beta header when any message contains a document block
+        _has_files_api = any(
+            isinstance(m.get("content"), list)
+            and any(
+                isinstance(b, dict) and b.get("type") == "document"
+                for b in m["content"]
+            )
+            for m in kwargs["messages"]
+        )
+        if _has_files_api:
+            kwargs["betas"] = ["files-api-2025-04-14"]
+
         _RETRY_STATUS = {429, 500, 529}
         # 429 rate-limit: wait for the token-per-minute bucket to refill (30–60s).
         # 500/529 server errors and timeouts: short exponential backoff is fine.

@@ -215,8 +215,17 @@ class LLMManager:
 
         # Build initial message list
         history = list(task.get("messages", []))
-        if not history or history[-1].get("content") != message:
-            history.append({"role": "user", "content": message})
+        file_id = task.get("anthropic_file_id")
+        if file_id:
+            # Pass PDF to Claude as a native document block (Files API)
+            user_content = [
+                {"type": "document", "source": {"type": "file", "file_id": file_id}},
+                {"type": "text", "text": message or "Please analyze this document."},
+            ]
+            history.append({"role": "user", "content": user_content})
+        else:
+            if not history or history[-1].get("content") != message:
+                history.append({"role": "user", "content": message})
 
         # Get tool definitions
         all_tool_defs = self.tool_executor.get_all_definitions()

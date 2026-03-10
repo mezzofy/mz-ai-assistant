@@ -45,6 +45,7 @@ def _make_artifact_row(
     row.filename = filename
     row.file_path = file_path
     row.file_type = file_type
+    row.anthropic_file_id = None  # No cached Files API ID — force process_input path
     return row
 
 

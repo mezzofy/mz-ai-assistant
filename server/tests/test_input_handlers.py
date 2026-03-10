@@ -555,6 +555,87 @@ class TestPDFFileHandler:
         assert result == ""
 
 
+# ── file_handler Files API PDF tests ─────────────────────────────────────────
+
+class TestPDFFilesAPI:
+    """
+    Tests for the Anthropic Files API primary path in handle_file.
+
+    When the upload succeeds the returned task must contain 'anthropic_file_id'
+    and 'extracted_text' must be the user's message (or a default prompt).
+    When the upload fails, the handler falls through to the pypdf path.
+    """
+
+    async def test_handle_file_pdf_returns_anthropic_file_id_on_success(self):
+        """handle_file returns anthropic_file_id when Files API upload succeeds."""
+        from app.input.file_handler import handle_file
+
+        fake_file_id = "file_abc123"
+        task = {"_config": {"llm": {"claude": {"api_key": "sk-test"}}}, "message": "Summarize this"}
+
+        with patch(
+            "app.input.file_handler._upload_pdf_to_files_api_sync",
+            return_value=fake_file_id,
+        ):
+            result = await handle_file(task, b"%PDF fake bytes", "report.pdf")
+
+        assert result.get("anthropic_file_id") == fake_file_id
+        assert result.get("extracted_text") == "Summarize this"
+        assert result.get("input_type") == "file"
+
+    async def test_handle_file_pdf_default_message_when_no_user_message(self):
+        """extracted_text defaults to 'Please analyze this document.' when message is empty."""
+        from app.input.file_handler import handle_file
+
+        task = {"_config": {}, "message": ""}
+
+        with patch(
+            "app.input.file_handler._upload_pdf_to_files_api_sync",
+            return_value="file_xyz",
+        ):
+            result = await handle_file(task, b"%PDF fake bytes", "doc.pdf")
+
+        assert result.get("extracted_text") == "Please analyze this document."
+
+    async def test_handle_file_pdf_falls_back_to_pypdf_when_upload_fails(self):
+        """When Files API upload returns None, handle_file falls through to pypdf."""
+        from app.input.file_handler import handle_file
+
+        async def fake_pdf_execute(operation, **kwargs):
+            return {
+                "success": True,
+                "output": {"pages": [{"text": "Fallback pypdf text"}], "total_pages": 1},
+            }
+
+        mock_pdf_ops = AsyncMock()
+        mock_pdf_ops.execute = fake_pdf_execute
+
+        task = {"_config": {}, "message": "Read this PDF"}
+
+        with patch("app.input.file_handler._upload_pdf_to_files_api_sync", return_value=None), \
+             patch("app.tools.document.pdf_ops.PDFOps", return_value=mock_pdf_ops):
+            result = await handle_file(task, b"%PDF fake bytes", "fallback.pdf")
+
+        # Must NOT have anthropic_file_id — used the pypdf fallback
+        assert "anthropic_file_id" not in result
+        # Must contain the extracted pypdf text
+        assert "Fallback pypdf text" in result.get("extracted_text", "")
+
+    async def test_handle_file_pdf_input_summary_contains_files_api(self):
+        """input_summary mentions Files API when upload succeeds."""
+        from app.input.file_handler import handle_file
+
+        task = {"_config": {}, "message": ""}
+
+        with patch(
+            "app.input.file_handler._upload_pdf_to_files_api_sync",
+            return_value="file_001",
+        ):
+            result = await handle_file(task, b"%PDF", "whitepaper.pdf")
+
+        assert "Files API" in result.get("input_summary", "")
+
+
 # ── file_handler Office format tests ──────────────────────────────────────────
 
 class TestFileHandler:
