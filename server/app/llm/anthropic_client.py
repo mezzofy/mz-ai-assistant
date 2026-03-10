@@ -99,7 +99,7 @@ class AnthropicClient:
             for m in kwargs["messages"]
         )
         if _has_files_api:
-            kwargs["betas"] = ["files-api-2025-04-14"]
+            kwargs["extra_headers"] = {"anthropic-beta": "files-api-2025-04-14"}
 
         _RETRY_STATUS = {429, 500, 529}
         # 429 rate-limit: wait for the token-per-minute bucket to refill (30–60s).
