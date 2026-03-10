@@ -75,6 +75,7 @@ class ToolExecutor:
         self._register_ops("database.crm_ops", "CRMOps")
         self._register_ops("mezzofy.data_ops", "MezzofyDataOps")
         self._register_ops("mezzofy.knowledge_ops", "KnowledgeOps")
+        self._register_ops("files_ops", "FilesOps")
         # Note: speech_ops (SpeechOps) is NOT registered here — WebSocket-only
 
         self._loaded = True

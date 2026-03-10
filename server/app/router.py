@@ -144,10 +144,12 @@ async def _execute_with_instance(agent, task: dict) -> dict:
         f"(source={task.get('source', 'mobile')}, "
         f"message={task.get('message', '')[:60]!r})"
     )
-    # Set per-request user context for tool artifact routing
+    # Set per-request user context for tool artifact routing and file scope access
     set_user_context(
         dept=task.get("department", "general"),
         email=task.get("email", ""),
+        role=task.get("role", "user"),
+        user_id=task.get("user_id", ""),
     )
     # Map conversation_history → messages for execute_with_tools compatibility.
     # chat.py stores session history under "conversation_history";

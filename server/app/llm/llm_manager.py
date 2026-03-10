@@ -84,7 +84,16 @@ If the user has NOT specified where to save the file in their message, you MUST 
 If the user has already stated a storage location (e.g., "personal folder", "my files",
 "shared folder", "team folder", "company folder"), use that location directly and skip
 this question. Personal/mine/me → storage_scope="user". Shared/team/department →
-storage_scope="department". Company/everyone/all staff → storage_scope="company"."""
+storage_scope="department". Company/everyone/all staff → storage_scope="company".
+
+FILE SEARCH RULE:
+When the user asks about information that might be in their documents or files
+(e.g. "check the SLA", "what does our pricing doc say", "find our contract terms",
+"look up our policy on X"), you MUST call search_user_files(query=<topic>) FIRST
+to discover relevant files, then call read_pdf / read_txt / read_csv on the returned
+file_path(s) to extract the content, then answer based on what you find. Do not ask
+the user to provide a file path — discover it yourself. If no files are found, respond:
+"I couldn't find any documents matching '<topic>' in your accessible folders." """
 
 
 class LLMManager:
