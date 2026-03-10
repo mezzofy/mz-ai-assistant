@@ -472,3 +472,84 @@ class TestManagementAgentBug004:
 
         assert len(captured_tasks) == 1
         assert captured_tasks[0].get("message") == "Give me a department overview"
+
+
+# ── file_handler PDF tests (BUG-A + BUG-B fix) ───────────────────────────────
+
+class TestPDFFileHandler:
+    """
+    Tests for the PDF extraction path in file_handler._extract_by_extension.
+
+    Covers the two bugs fixed:
+      BUG-A: pypdf2 renamed to pypdf — import now works
+      BUG-B: tool name was 'extract_text_from_pdf' (non-existent); now 'read_pdf'
+    """
+
+    async def test_pdf_calls_read_pdf_not_old_name(self):
+        """_extract_by_extension calls PDFOps.execute('read_pdf'), not 'extract_text_from_pdf'."""
+        from app.input.file_handler import _extract_by_extension
+
+        captured_ops = []
+
+        async def fake_execute(operation, **kwargs):
+            captured_ops.append(operation)
+            return {
+                "success": True,
+                "output": {"pages": [{"text": "Page one text"}], "total_pages": 1},
+            }
+
+        mock_pdf_ops = AsyncMock()
+        mock_pdf_ops.execute = fake_execute
+
+        with patch("app.tools.document.pdf_ops.PDFOps", return_value=mock_pdf_ops):
+            await _extract_by_extension(".pdf", "/tmp/fake.pdf", {})
+
+        assert "read_pdf" in captured_ops, (
+            "BUG-B regression: _extract_by_extension did not call read_pdf"
+        )
+        assert "extract_text_from_pdf" not in captured_ops, (
+            "BUG-B regression: _extract_by_extension called the old non-existent tool name"
+        )
+
+    async def test_pdf_pages_text_joined_as_string(self):
+        """Text from all pages is joined with double newlines and returned as a string."""
+        from app.input.file_handler import _extract_by_extension
+
+        async def fake_execute(operation, **kwargs):
+            return {
+                "success": True,
+                "output": {
+                    "pages": [
+                        {"text": "Introduction paragraph."},
+                        {"text": "Second page content."},
+                        {"text": "Conclusion."},
+                    ],
+                    "total_pages": 3,
+                },
+            }
+
+        mock_pdf_ops = AsyncMock()
+        mock_pdf_ops.execute = fake_execute
+
+        with patch("app.tools.document.pdf_ops.PDFOps", return_value=mock_pdf_ops):
+            result = await _extract_by_extension(".pdf", "/tmp/fake.pdf", {})
+
+        assert "Introduction paragraph." in result
+        assert "Second page content." in result
+        assert "Conclusion." in result
+        assert isinstance(result, str)
+
+    async def test_pdf_returns_empty_string_on_failure(self):
+        """Returns empty string when read_pdf reports success: False."""
+        from app.input.file_handler import _extract_by_extension
+
+        async def fake_execute(operation, **kwargs):
+            return {"success": False, "output": {}}
+
+        mock_pdf_ops = AsyncMock()
+        mock_pdf_ops.execute = fake_execute
+
+        with patch("app.tools.document.pdf_ops.PDFOps", return_value=mock_pdf_ops):
+            result = await _extract_by_extension(".pdf", "/tmp/fake.pdf", {})
+
+        assert result == ""

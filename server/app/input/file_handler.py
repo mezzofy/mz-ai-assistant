@@ -2,7 +2,7 @@
 File Handler — text extraction from uploaded documents.
 
 Supported formats and extraction libraries:
-  PDF   → PDFOps.extract_text_from_pdf (pdfplumber)
+  PDF   → PDFOps.read_pdf (pypdf)
   DOCX  → python-docx
   PPTX  → python-pptx (slide text + speaker notes)
   CSV   → pandas (first 100 rows as string)
@@ -91,8 +91,12 @@ async def _extract_by_extension(ext: str, file_path: str, config: dict) -> str:
         try:
             from app.tools.document.pdf_ops import PDFOps
             ops = PDFOps(config)
-            result = await ops.execute("extract_text_from_pdf", file_path=file_path)
-            return result.get("output", "") if result.get("success") else ""
+            result = await ops.execute("read_pdf", file_path=file_path)
+            if not result.get("success"):
+                return ""
+            data = result.get("output", {})
+            pages = data.get("pages", []) if isinstance(data, dict) else []
+            return "\n\n".join(p.get("text", "") for p in pages if p.get("text"))
         except Exception as e:
             logger.warning(f"PDF extraction failed: {e}")
             return ""
