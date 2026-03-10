@@ -192,7 +192,9 @@ class TestGetFile:
             "file_type": "pdf",
             "scope": "company",   # company scope — any authenticated user can read
         }
-        with patch("app.api.files.get_artifact", new_callable=AsyncMock, return_value=artifact):
+        # Patch artifact root to tmp_path so the bounds check passes
+        with patch("app.api.files.get_artifact", new_callable=AsyncMock, return_value=artifact), \
+             patch("app.api.files.get_artifacts_dir", return_value=tmp_path):
             response = await client.get(
                 f"/files/{artifact['id']}",
                 headers=auth_headers("sales_rep"),
@@ -254,3 +256,98 @@ class TestPathSanitization:
 
     def test_deep_nested_path_stripped(self):
         assert Path("/var/run/../../root/.ssh/id_rsa").name == "id_rsa"
+
+
+# ── Security hardening tests ──────────────────────────────────────────────────
+
+class TestRenameSecurityHardening:
+    """FINDING 1 — Path traversal guards in rename endpoint."""
+
+    async def test_rename_rejects_null_byte_filename(self, client, mock_get_db):
+        """Null-byte in filename must be rejected with 400."""
+        response = await client.patch(
+            f"/files/{uuid.uuid4()}/rename",
+            json={"filename": "\x00evil.pdf"},
+            headers=auth_headers("sales_rep"),
+        )
+        assert response.status_code == 400
+
+    async def test_rename_rejects_leading_dot_filename(self, client, mock_get_db):
+        """Dotfile names (e.g. .bashrc) must be rejected with 400."""
+        response = await client.patch(
+            f"/files/{uuid.uuid4()}/rename",
+            json={"filename": ".bashrc"},
+            headers=auth_headers("sales_rep"),
+        )
+        assert response.status_code == 400
+
+    async def test_rename_rejects_slash_in_filename(self, client, mock_get_db):
+        """Forward-slash in filename must be rejected with 400 (pre-existing guard)."""
+        response = await client.patch(
+            f"/files/{uuid.uuid4()}/rename",
+            json={"filename": "../../etc/passwd"},
+            headers=auth_headers("sales_rep"),
+        )
+        assert response.status_code == 400
+
+
+class TestUploadSecurityHardening:
+    """FINDING 3 (MIME mismatch) + FINDING 4 (size limit)."""
+
+    async def test_upload_rejects_oversized_file(self, client, mock_get_db):
+        """Files larger than _MAX_UPLOAD_BYTES must return 413."""
+        with patch("app.api.files._MAX_UPLOAD_BYTES", 10):
+            response = await client.post(
+                "/files/upload",
+                files={"media_file": ("big.pdf", io.BytesIO(b"A" * 11), "application/pdf")},
+                headers=auth_headers("sales_rep"),
+            )
+        assert response.status_code == 413
+
+    async def test_upload_rejects_mime_mismatch(self, client, mock_get_db):
+        """Binary masquerading as image/jpeg must be rejected with 415 (magic check)."""
+        elf_header = b"\x7fELF" + b"\x00" * 60  # minimal ELF magic bytes
+
+        with patch("app.api.files.get_user_artifacts_dir", return_value=Path("/tmp/artifacts")), \
+             patch("pathlib.Path.mkdir"), \
+             patch("app.api.files._magic.from_buffer", return_value="application/x-executable"):
+            response = await client.post(
+                "/files/upload",
+                files={"media_file": ("photo.jpg", io.BytesIO(elf_header), "image/jpeg")},
+                headers=auth_headers("sales_rep"),
+            )
+        assert response.status_code == 415
+        assert "does not match declared type" in response.json()["detail"]
+
+
+class TestDownloadPathEscape:
+    """FINDING 2 — Artifact root bounds-check on download."""
+
+    async def test_download_path_escaping_artifact_root_returns_404(
+        self, client, mock_get_db, tmp_path
+    ):
+        """DB record whose file_path escapes the artifact root must return 404."""
+        # Create a real file outside the artifact root (e.g., /tmp)
+        decoy = tmp_path / "passwd"
+        decoy.write_text("root:x:0:0\n")
+
+        artifact = {
+            "id": str(uuid.uuid4()),
+            "user_id": "user-sales",
+            "filename": "passwd",
+            "file_path": str(decoy),      # arbitrary path outside artifact root
+            "file_type": "txt",
+            "scope": "company",
+        }
+
+        # Point artifact root at a different tmp dir so decoy is clearly outside it
+        artifact_root = tmp_path / "artifacts"
+        artifact_root.mkdir()
+
+        with patch("app.api.files.get_artifact", new_callable=AsyncMock, return_value=artifact), \
+             patch("app.api.files.get_artifacts_dir", return_value=artifact_root):
+            response = await client.get(
+                f"/files/{artifact['id']}",
+                headers=auth_headers("sales_rep"),
+            )
+        assert response.status_code == 404

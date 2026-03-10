@@ -14,6 +14,7 @@ Access rules:
 """
 
 import logging
+import magic as _magic
 import os
 from pathlib import Path
 from typing import Optional
@@ -27,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_db
 from app.context.artifact_manager import (
     get_artifact,
+    get_artifacts_dir,
     list_artifacts,
     register_artifact,
     sync_user_artifacts,
@@ -48,6 +50,8 @@ _ALLOWED_MIME_PREFIXES = {
     "text/markdown",    # .md files
     "text/x-markdown",  # Safari / older browsers
 }
+
+_MAX_UPLOAD_BYTES = 100 * 1024 * 1024   # 100 MB
 
 
 # ── RBAC helpers ──────────────────────────────────────────────────────────────
@@ -128,13 +132,20 @@ async def upload_file(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="You do not have permission to upload to this scope")
 
-    # MIME type validation
+    # MIME type validation (client-declared)
     content_type = media_file.content_type or ""
     allowed = any(content_type.startswith(prefix) for prefix in _ALLOWED_MIME_PREFIXES)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=f"Unsupported file type: {content_type}",
+        )
+
+    # Size pre-check from Content-Length (advisory — full check comes after read)
+    if media_file.size and media_file.size > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large (max 100 MB)",
         )
 
     dept = current_user.get("department", "general")
@@ -151,6 +162,21 @@ async def upload_file(
     save_path = upload_dir / safe_filename
 
     file_bytes = await media_file.read()
+
+    # Post-read size check (guards against missing Content-Length)
+    if len(file_bytes) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large (max 100 MB)",
+        )
+
+    # Server-side MIME validation using libmagic (defeats Content-Type spoofing)
+    actual_mime = _magic.from_buffer(file_bytes[:2048], mime=True)
+    if not any(actual_mime.startswith(prefix) for prefix in _ALLOWED_MIME_PREFIXES):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"File content does not match declared type ({actual_mime})",
+        )
     try:
         save_path.write_bytes(file_bytes)
     except Exception as e:
@@ -302,6 +328,14 @@ async def get_file(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="File has been removed from storage")
 
+    # Defense-in-depth: ensure the DB-stored path stays within the artifact root
+    resolved = Path(file_path).resolve()
+    artifact_root = get_artifacts_dir().resolve()
+    if not str(resolved).startswith(str(artifact_root)):
+        logger.warning(f"get_file: path escape attempt blocked: {file_path!r}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="File not found or access denied")
+
     return FileResponse(
         path=file_path,
         filename=artifact["filename"],
@@ -332,6 +366,14 @@ async def delete_file(
         {"id": file_id},
     )
     await db.commit()
+
+    if file_path and os.path.exists(file_path):
+        # Bounds-check before any disk operation
+        resolved = Path(file_path).resolve()
+        artifact_root = get_artifacts_dir().resolve()
+        if not str(resolved).startswith(str(artifact_root)):
+            logger.warning(f"delete_file: path escape attempt blocked: {file_path!r}")
+            file_path = None  # skip disk delete; DB record already removed above
 
     if file_path and os.path.exists(file_path):
         try:
@@ -417,7 +459,14 @@ async def rename_file(
 ):
     """Rename a file — creator-only regardless of scope."""
     new_name = body.filename.strip()
-    if not new_name or len(new_name) > 255 or '/' in new_name or '\\' in new_name:
+    if (
+        not new_name
+        or len(new_name) > 255
+        or '/' in new_name
+        or '\\' in new_name
+        or '\x00' in new_name
+        or new_name.startswith('.')
+    ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Invalid filename")
     artifact = await get_artifact(db, file_id)
@@ -436,6 +485,12 @@ async def rename_file(
     if old_path:
         old_path = Path(old_path)
         new_path = old_path.parent / new_name
+        # Bounds check: resolved new_path must stay inside the artifact root
+        artifact_root = get_artifacts_dir().resolve()
+        if not str(new_path.resolve()).startswith(str(artifact_root)):
+            logger.warning(f"rename_file: path escape attempt blocked: {new_path!r}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Invalid filename")
         if old_path.exists():
             try:
                 old_path.rename(new_path)

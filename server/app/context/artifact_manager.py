@@ -45,6 +45,9 @@ def get_user_artifacts_dir(dept: str, email: str) -> Path:
     Return the per-user directory: {base}/{dept}/{email}/
     Creates it if it doesn't exist.
     """
+    for val, label in [(dept, "department"), (email, "email")]:
+        if not val or '/' in val or '\\' in val or '..' in val or '\x00' in val:
+            raise ValueError(f"Invalid {label} in artifact path: {val!r}")
     path = get_artifacts_dir() / dept / email
     path.mkdir(parents=True, exist_ok=True)
     return path
