@@ -320,6 +320,147 @@ class TestUploadSecurityHardening:
         assert "does not match declared type" in response.json()["detail"]
 
 
+class TestImageProcessingInUpload:
+    """Image uploads trigger OCR + vision analysis returned in image_analysis field."""
+
+    async def test_image_upload_returns_image_analysis(self, client, mock_get_db):
+        """Image upload runs handle_image and returns ocr_text + description."""
+        fake_artifact = {"id": str(uuid.uuid4()), "download_url": "/files/img1"}
+        fake_image_result = {
+            "media_content": {
+                "filename": "photo.jpg",
+                "ocr_text": "Invoice #1042 Total: $250.00",
+                "description": "A photo of a printed invoice",
+            }
+        }
+        with patch("app.api.files.get_user_artifacts_dir", return_value=Path("/tmp/artifacts")), \
+             patch("pathlib.Path.mkdir"), \
+             patch("pathlib.Path.write_bytes"), \
+             patch("app.api.files.register_artifact", new_callable=AsyncMock, return_value=fake_artifact), \
+             patch("app.api.files._magic.from_buffer", return_value="image/jpeg"), \
+             patch("app.core.config.get_config", return_value={}), \
+             patch("app.input.image_handler.handle_image", new_callable=AsyncMock, return_value=fake_image_result):
+            response = await client.post(
+                "/files/upload",
+                files={"media_file": ("photo.jpg", io.BytesIO(b"fake-jpeg"), "image/jpeg")},
+                headers=auth_headers("sales_rep"),
+            )
+        assert response.status_code == 200
+        data = response.json()
+        assert "image_analysis" in data
+        assert data["image_analysis"]["ocr_text"] == "Invoice #1042 Total: $250.00"
+        assert data["image_analysis"]["description"] == "A photo of a printed invoice"
+
+    async def test_non_image_upload_has_no_image_analysis(self, client, mock_get_db):
+        """PDF upload does not include image_analysis in response."""
+        fake_artifact = {"id": str(uuid.uuid4()), "download_url": "/files/pdf1"}
+        with patch("app.api.files.get_user_artifacts_dir", return_value=Path("/tmp/artifacts")), \
+             patch("pathlib.Path.mkdir"), \
+             patch("pathlib.Path.write_bytes"), \
+             patch("app.api.files.register_artifact", new_callable=AsyncMock, return_value=fake_artifact), \
+             patch("app.api.files._magic.from_buffer", return_value="application/pdf"):
+            response = await client.post(
+                "/files/upload",
+                files={"media_file": ("report.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")},
+                headers=auth_headers("sales_rep"),
+            )
+        assert response.status_code == 200
+        assert "image_analysis" not in response.json()
+
+    async def test_image_processing_failure_does_not_block_upload(self, client, mock_get_db):
+        """If handle_image raises, upload still returns 200 with empty image_analysis."""
+        fake_artifact = {"id": str(uuid.uuid4()), "download_url": "/files/img2"}
+        with patch("app.api.files.get_user_artifacts_dir", return_value=Path("/tmp/artifacts")), \
+             patch("pathlib.Path.mkdir"), \
+             patch("pathlib.Path.write_bytes"), \
+             patch("app.api.files.register_artifact", new_callable=AsyncMock, return_value=fake_artifact), \
+             patch("app.api.files._magic.from_buffer", return_value="image/png"), \
+             patch("app.core.config.get_config", return_value={}), \
+             patch("app.input.image_handler.handle_image", new_callable=AsyncMock,
+                   side_effect=RuntimeError("OCR service down")):
+            response = await client.post(
+                "/files/upload",
+                files={"media_file": ("screenshot.png", io.BytesIO(b"\x89PNG\r\n"), "image/png")},
+                headers=auth_headers("sales_rep"),
+            )
+        assert response.status_code == 200
+        data = response.json()
+        assert "image_analysis" in data
+        assert data["image_analysis"] == {}
+
+
+class TestSendArtifactRouting:
+    """send_artifact() must route image files through image_handler, others through file_handler."""
+
+    async def test_send_artifact_routes_jpg_through_image_handler(
+        self, client, mock_db_session, mock_session_manager, mock_process_result
+    ):
+        """Artifact with .jpg filename must result in input_type='image' passed to process_input."""
+        file_id = str(uuid.uuid4())
+
+        mock_artifact = MagicMock()
+        mock_artifact.id = file_id
+        mock_artifact.filename = "photo.jpg"
+        mock_artifact.file_path = "/tmp/photo.jpg"
+        mock_artifact.file_type = "jpeg"
+        mock_db_session.execute.return_value.fetchone.return_value = mock_artifact
+
+        captured_task: dict = {}
+
+        async def _fake_process_input(task, file_bytes=None, filename=None):
+            captured_task.update(task)
+            task["extracted_text"] = "image content"
+            return task
+
+        with patch("app.api.chat._artifact_path_exists", return_value=True), \
+             patch("app.api.chat._read_artifact_bytes", return_value=b"fake-jpeg"), \
+             patch("app.api.chat.process_input", side_effect=_fake_process_input), \
+             patch("app.api.chat.route_request", new_callable=AsyncMock,
+                   return_value={"success": True, "content": "ok", "artifacts": []}):
+            response = await client.post(
+                "/chat/send-artifact",
+                json={"artifact_id": file_id, "message": "analyze this"},
+                headers=auth_headers("sales_rep"),
+            )
+
+        assert response.status_code == 200
+        assert captured_task.get("input_type") == "image"
+
+    async def test_send_artifact_routes_pdf_through_file_handler(
+        self, client, mock_db_session, mock_session_manager, mock_process_result
+    ):
+        """Artifact with .pdf filename must result in input_type='file' passed to process_input."""
+        file_id = str(uuid.uuid4())
+
+        mock_artifact = MagicMock()
+        mock_artifact.id = file_id
+        mock_artifact.filename = "report.pdf"
+        mock_artifact.file_path = "/tmp/report.pdf"
+        mock_artifact.file_type = "pdf"
+        mock_db_session.execute.return_value.fetchone.return_value = mock_artifact
+
+        captured_task: dict = {}
+
+        async def _fake_process_input(task, file_bytes=None, filename=None):
+            captured_task.update(task)
+            task["extracted_text"] = "pdf content"
+            return task
+
+        with patch("app.api.chat._artifact_path_exists", return_value=True), \
+             patch("app.api.chat._read_artifact_bytes", return_value=b"%PDF-1.4"), \
+             patch("app.api.chat.process_input", side_effect=_fake_process_input), \
+             patch("app.api.chat.route_request", new_callable=AsyncMock,
+                   return_value={"success": True, "content": "ok", "artifacts": []}):
+            response = await client.post(
+                "/chat/send-artifact",
+                json={"artifact_id": file_id, "message": "summarize"},
+                headers=auth_headers("sales_rep"),
+            )
+
+        assert response.status_code == 200
+        assert captured_task.get("input_type") == "file"
+
+
 class TestDownloadPathEscape:
     """FINDING 2 — Artifact root bounds-check on download."""
 

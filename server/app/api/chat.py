@@ -92,6 +92,8 @@ _LONG_RUNNING_KEYWORDS = [
     "weekly", "monthly", "compare", "pitch deck", "scrape", "linkedin",
 ]
 
+_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".heic"}
+
 
 def _is_long_running(message: str) -> bool:
     """Return True if the message contains a long-running task keyword."""
@@ -392,9 +394,11 @@ async def send_artifact(body: SendArtifactRequest, request: Request):
         logger.error(f"send_artifact: failed to read {file_path}: {e}")
         raise HTTPException(status_code=500, detail="Failed to read file from storage")
 
-    # 3. Build task and route through existing pipeline (reuses file_handler.py)
+    # 3. Build task and route through existing pipeline
     task = _base_task(user, body.session_id, config)
-    task.update({"message": body.message, "input_type": "file"})
+    file_ext = Path(artifact.filename).suffix.lower()
+    is_image = file_ext in _IMAGE_EXTENSIONS or (artifact.file_type or "").startswith("image")
+    task.update({"message": body.message, "input_type": "image" if is_image else "file"})
     task = await process_input(task, file_bytes=file_bytes, filename=artifact.filename)
 
     async with _db_session() as db:

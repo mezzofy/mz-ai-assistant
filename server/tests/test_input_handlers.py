@@ -553,3 +553,121 @@ class TestPDFFileHandler:
             result = await _extract_by_extension(".pdf", "/tmp/fake.pdf", {})
 
         assert result == ""
+
+
+# ── file_handler Office format tests ──────────────────────────────────────────
+
+class TestFileHandler:
+    """Tests for upgraded Office format extraction paths in file_handler."""
+
+    async def test_docx_extraction_includes_table_content(self):
+        """DocxOps.read_docx table rows appear in extracted text."""
+        from app.input.file_handler import _extract_by_extension
+
+        async def fake_execute(operation, **kwargs):
+            return {
+                "success": True,
+                "output": {
+                    "paragraphs": [{"text": "Intro paragraph", "type": "Normal"}],
+                    "tables": [
+                        {"table_index": 0, "rows": [["Name", "Score"], ["Alice", "95"]]}
+                    ],
+                },
+            }
+
+        mock_docx_ops = AsyncMock()
+        mock_docx_ops.execute = fake_execute
+
+        with patch("app.tools.document.docx_ops.DocxOps", return_value=mock_docx_ops):
+            result = await _extract_by_extension(".docx", "/tmp/fake.docx", {})
+
+        assert "Intro paragraph" in result
+        assert "Alice" in result
+        assert "95" in result
+
+    async def test_pptx_extraction_includes_slide_notes(self):
+        """PPTXOps.read_pptx speaker notes appear in extracted text."""
+        from app.input.file_handler import _extract_by_extension
+
+        async def fake_execute(operation, **kwargs):
+            return {
+                "success": True,
+                "output": {
+                    "slide_count": 1,
+                    "slides": [
+                        {
+                            "slide": 1,
+                            "text": ["Revenue Overview"],
+                            "notes": "Emphasise Q3 growth",
+                        }
+                    ],
+                },
+            }
+
+        mock_pptx_ops = AsyncMock()
+        mock_pptx_ops.execute = fake_execute
+
+        with patch("app.tools.document.pptx_ops.PPTXOps", return_value=mock_pptx_ops):
+            result = await _extract_by_extension(".pptx", "/tmp/fake.pptx", {})
+
+        assert "Revenue Overview" in result
+        assert "Emphasise Q3 growth" in result
+        assert "[Notes:" in result
+
+    async def test_csv_extraction_uses_500_row_limit_and_numeric_summary(self):
+        """CSVOps.read_csv is called with max_rows=500 and numeric summary is included."""
+        from app.input.file_handler import _extract_by_extension
+
+        captured_kwargs: dict = {}
+
+        async def fake_execute(operation, **kwargs):
+            captured_kwargs.update(kwargs)
+            return {
+                "success": True,
+                "output": {
+                    "headers": ["product", "sales"],
+                    "rows": [["Widget A", 120], ["Widget B", 85]],
+                    "numeric_summary": {
+                        "sales": {"min": 85.0, "max": 120.0, "mean": 102.5, "count": 2}
+                    },
+                },
+            }
+
+        mock_csv_ops = AsyncMock()
+        mock_csv_ops.execute = fake_execute
+
+        with patch("app.tools.document.csv_ops.CSVOps", return_value=mock_csv_ops):
+            result = await _extract_by_extension(".csv", "/tmp/fake.csv", {})
+
+        assert captured_kwargs.get("max_rows") == 500
+        assert "product" in result
+        assert "Widget A" in result
+        assert "[Column Summary]" in result
+        assert "sales" in result
+        assert "102.50" in result
+
+    async def test_doc_legacy_format_returns_fallback_message(self):
+        """Legacy .doc that raises an exception returns a user-friendly fallback message."""
+        from app.input.file_handler import _extract_by_extension
+
+        with patch("docx.Document", side_effect=Exception("not a zip file")):
+            result = await _extract_by_extension(".doc", "/tmp/legacy.doc", {})
+
+        assert "legacy Word 97-2003" in result
+        assert ".docx" in result
+
+    async def test_ppt_legacy_format_returns_fallback_message(self):
+        """Legacy .ppt that raises an exception returns a user-friendly fallback message.
+
+        Patches sys.modules so the lazy 'from pptx import Presentation' import fails
+        regardless of whether python-pptx is installed in the test environment.
+        """
+        import sys
+        from unittest.mock import patch as _patch
+        from app.input.file_handler import _extract_by_extension
+
+        with _patch.dict(sys.modules, {"pptx": None}):
+            result = await _extract_by_extension(".ppt", "/tmp/legacy.ppt", {})
+
+        assert "legacy PowerPoint 97-2003" in result
+        assert ".pptx" in result

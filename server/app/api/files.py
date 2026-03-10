@@ -45,7 +45,9 @@ _ALLOWED_MIME_PREFIXES = {
     "image/", "video/", "audio/",
     "application/pdf",
     "application/vnd.openxmlformats-officedocument",  # DOCX, PPTX, XLSX
-    "application/vnd.ms-",                             # older Office formats
+    "application/vnd.ms-",                             # older Office formats (.xls, .ppt variants)
+    "application/msword",                              # .doc (Word 97-2003)
+    "application/x-mspowerpoint",                      # .ppt (some browsers)
     "text/plain", "text/csv",
     "text/markdown",    # .md files
     "text/x-markdown",  # Safari / older browsers
@@ -201,7 +203,24 @@ async def upload_file(
     )
     await db.commit()
 
-    return {
+    # Image analysis — run inline for image uploads; result included in response (not stored in DB)
+    image_analysis: dict = {}
+    if actual_mime.startswith("image/"):
+        try:
+            from app.input.image_handler import handle_image
+            from app.core.config import get_config
+            config = get_config()
+            _task = {"_config": config, "message": ""}
+            result = await handle_image(_task, file_bytes, safe_filename)
+            mc = result.get("media_content", {})
+            image_analysis = {
+                "ocr_text": mc.get("ocr_text", ""),
+                "description": mc.get("description", ""),
+            }
+        except Exception as exc:
+            logger.warning(f"Image analysis failed for {safe_filename}: {exc}")
+
+    response_data: dict = {
         "artifact_id": artifact["id"],
         "filename": safe_filename,
         "file_type": file_type,
@@ -209,6 +228,9 @@ async def upload_file(
         "size_bytes": len(file_bytes),
         "download_url": artifact["download_url"],
     }
+    if actual_mime.startswith("image/"):
+        response_data["image_analysis"] = image_analysis
+    return response_data
 
 
 @router.get("/")

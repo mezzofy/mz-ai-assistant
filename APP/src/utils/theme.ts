@@ -55,14 +55,12 @@ export const LIGHT_THEME: ThemeColors = {
 };
 
 export const INPUT_MODES = [
-  {id: 'text', icon: 'chatbox-outline', label: 'Text', color: BRAND.accent},
-  {id: 'image', icon: 'image-outline', label: 'Image', color: '#4DA6FF'},
-  {id: 'video', icon: 'videocam-outline', label: 'Video', color: '#C77DFF'},
-  {id: 'camera', icon: 'camera-outline', label: 'Camera', color: '#FF6B8A'},
-  {id: 'speech', icon: 'mic-outline', label: 'Speech', color: '#f97316'},
-  {id: 'audio', icon: 'musical-note-outline', label: 'Audio', color: '#FFB84D'},
-  {id: 'file', icon: 'document-outline', label: 'File', color: '#4DA6FF'},
-  {id: 'url', icon: 'globe-outline', label: 'URL', color: '#FF6B8A'},
+  {id: 'text',    icon: 'chatbox-outline',    label: 'Text',     color: BRAND.accent},
+  {id: 'image',   icon: 'image-outline',      label: 'Image',    color: '#4DA6FF'},
+  {id: 'camera',  icon: 'camera-outline',     label: 'Camera',   color: '#FF6B8A'},
+  {id: 'speech',  icon: 'mic-outline',        label: 'Speech',   color: '#f97316'},
+  {id: 'file',    icon: 'document-outline',   label: 'File',     color: '#4DA6FF'},
+  {id: 'url',     icon: 'globe-outline',      label: 'URL',      color: '#FF6B8A'},
   {id: 'myfiles', icon: 'folder-open-outline', label: 'My Files', color: '#00D4AA'},
 ];
 

@@ -4,7 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform, Modal, ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {launchImageLibrary, MediaType} from 'react-native-image-picker';
+import {launchImageLibrary} from 'react-native-image-picker';
 import DocumentPicker, {types as DocTypes, isCancel as isDocPickerCancel} from 'react-native-document-picker';
 import Voice, {SpeechResultsEvent} from '@react-native-voice/voice';
 import {INPUT_MODES, FILE_TYPE_STYLES} from '../utils/theme';
@@ -171,9 +171,8 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
     setInputMode(mode);
     setShowModes(false);
 
-    if (mode === 'image' || mode === 'video') {
-      const mediaType: MediaType = mode === 'image' ? 'photo' : 'video';
-      launchImageLibrary({mediaType, selectionLimit: 1}, response => {
+    if (mode === 'image') {
+      launchImageLibrary({mediaType: 'photo', selectionLimit: 1}, response => {
         if (response.didCancel || response.errorCode || !response.assets?.length) {
           return;
         }
@@ -182,16 +181,16 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
         setMediaUri(asset.uri);
         setMediaPreview({
           type: mode,
-          name: asset.fileName || `media_${Date.now()}.${mode === 'image' ? 'jpg' : 'mp4'}`,
+          name: asset.fileName || `media_${Date.now()}.jpg`,
           size: formatBytes(asset.fileSize),
-          emoji: mode === 'image' ? '📷' : '🎥',
-          mimeType: asset.type || (mode === 'image' ? 'image/jpeg' : 'video/mp4'),
+          emoji: '📷',
+          mimeType: asset.type || 'image/jpeg',
         });
       });
-    } else if (mode === 'file' || mode === 'audio') {
+    } else if (mode === 'file') {
       try {
         const results = await DocumentPicker.pick({
-          type: mode === 'audio' ? [DocTypes.audio] : [DocTypes.allFiles],
+          type: [DocTypes.allFiles],
         });
         const result = results[0];
         setMediaUri(result.uri);
@@ -199,8 +198,8 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
           type: mode,
           name: result.name || `file_${Date.now()}`,
           size: result.size ? formatBytes(result.size) : '—',
-          emoji: mode === 'audio' ? '🔊' : '📎',
-          mimeType: result.type || (mode === 'audio' ? 'audio/m4a' : 'application/octet-stream'),
+          emoji: '📎',
+          mimeType: result.type || 'application/octet-stream',
         });
       } catch (e) {
         if (!isDocPickerCancel(e)) {

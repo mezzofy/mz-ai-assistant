@@ -3,10 +3,12 @@ File Handler — text extraction from uploaded documents.
 
 Supported formats and extraction libraries:
   PDF   → PDFOps.read_pdf (pypdf)
-  DOCX  → python-docx
-  PPTX  → python-pptx (slide text + speaker notes)
-  CSV   → pandas (first 100 rows as string)
+  DOCX  → DocxOps.read_docx (paragraphs + tables)
+  PPTX  → PPTXOps.read_pptx (slide text + speaker notes)
+  CSV   → CSVOps.read_csv (up to 500 rows + numeric summary)
   XLSX  → pandas
+  DOC   → python-docx (legacy Word 97-2003, best-effort)
+  PPT   → python-pptx (legacy PowerPoint 97-2003, best-effort)
   TXT   → plain UTF-8 read
 """
 
@@ -103,35 +105,76 @@ async def _extract_by_extension(ext: str, file_path: str, config: dict) -> str:
 
     if ext == ".docx":
         try:
-            import docx as python_docx
-            doc = python_docx.Document(file_path)
-            return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+            from app.tools.document.docx_ops import DocxOps
+            result = await DocxOps(config).execute("read_docx", file_path=file_path)
+            data = result.get("output", {}) if result.get("success") else {}
+            parts = [p["text"] for p in data.get("paragraphs", []) if p.get("text")]
+            for table in data.get("tables", []):
+                for row in table.get("rows", []):
+                    parts.append("  |  ".join(cell for cell in row if cell))
+            return "\n".join(parts)
         except Exception as e:
             logger.warning(f"DOCX extraction failed: {e}")
             return ""
 
     if ext == ".pptx":
         try:
-            from pptx import Presentation
-            prs = Presentation(file_path)
-            texts = []
-            for slide in prs.slides:
-                for shape in slide.shapes:
-                    if hasattr(shape, "text") and shape.text.strip():
-                        texts.append(shape.text.strip())
-            return "\n".join(texts)
+            from app.tools.document.pptx_ops import PPTXOps
+            result = await PPTXOps(config).execute("read_pptx", file_path=file_path)
+            data = result.get("output", {}) if result.get("success") else {}
+            parts = []
+            for slide in data.get("slides", []):
+                parts.extend(slide.get("text", []))
+                if slide.get("notes"):
+                    parts.append(f"[Notes: {slide['notes']}]")
+            return "\n".join(parts)
         except Exception as e:
             logger.warning(f"PPTX extraction failed: {e}")
             return ""
 
     if ext == ".csv":
         try:
-            import pandas as pd
-            df = pd.read_csv(file_path, nrows=100)
-            return df.to_string(index=False)
+            from app.tools.document.csv_ops import CSVOps
+            result = await CSVOps(config).execute("read_csv", file_path=file_path, max_rows=500)
+            data = result.get("output", {}) if result.get("success") else {}
+            headers = data.get("headers", [])
+            rows = data.get("rows", [])
+            lines = ["  |  ".join(str(h) for h in headers)] if headers else []
+            for row in rows:
+                lines.append("  |  ".join(str(v) for v in row))
+            summary = data.get("numeric_summary", {})
+            if summary:
+                lines.append("\n[Column Summary]")
+                for col, stats in summary.items():
+                    lines.append(f"  {col}: min={stats.get('min')}, max={stats.get('max')}, mean={stats.get('mean'):.2f}")
+            return "\n".join(lines)
         except Exception as e:
             logger.warning(f"CSV extraction failed: {e}")
             return ""
+
+    if ext == ".doc":
+        try:
+            import docx as python_docx
+            doc = python_docx.Document(file_path)
+            return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        except Exception:
+            return (
+                "[Note: This file is in legacy Word 97-2003 (.doc) format which could not be "
+                "fully parsed. For best results, please re-save as .docx and re-upload.]"
+            )
+
+    if ext == ".ppt":
+        try:
+            from pptx import Presentation
+            prs = Presentation(file_path)
+            texts = [shape.text.strip() for slide in prs.slides
+                     for shape in slide.shapes if hasattr(shape, "text") and shape.text.strip()]
+            return "\n".join(texts)
+        except Exception:
+            return (
+                "[Note: This file is in legacy PowerPoint 97-2003 (.ppt) format which could not be "
+                "fully parsed. For best results, please re-save as .pptx and re-upload.]"
+            )
 
     if ext in (".xlsx", ".xls"):
         try:
