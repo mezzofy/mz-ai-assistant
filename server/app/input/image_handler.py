@@ -51,7 +51,8 @@ async def handle_image(
     # Vision analysis
     description = ""
     try:
-        analyze_result = await image_ops.execute("analyze_image", image_bytes=image_b64)
+        vision_prompt = (task.get("message") or "").strip() or "Describe what you see in this image in detail."
+        analyze_result = await image_ops.execute("analyze_image", image_bytes=image_b64, prompt=vision_prompt)
         if analyze_result.get("success"):
             description = (analyze_result.get("output") or "").strip()
     except Exception as e:
