@@ -36,7 +36,7 @@ class TestFileUpload:
             "id": str(uuid.uuid4()),
             "download_url": "/files/abc123",
         }
-        with patch("app.api.files.get_artifacts_dir", return_value=Path("/tmp/artifacts")), \
+        with patch("app.api.files.get_user_artifacts_dir", return_value=Path("/tmp/artifacts")), \
              patch("pathlib.Path.mkdir"), \
              patch("pathlib.Path.write_bytes"), \
              patch("app.api.files.register_artifact", new_callable=AsyncMock, return_value=fake_artifact):
@@ -53,7 +53,7 @@ class TestFileUpload:
 
     async def test_upload_pdf_accepted(self, client, mock_get_db):
         fake_artifact = {"id": str(uuid.uuid4()), "download_url": "/files/pdf1"}
-        with patch("app.api.files.get_artifacts_dir", return_value=Path("/tmp/artifacts")), \
+        with patch("app.api.files.get_user_artifacts_dir", return_value=Path("/tmp/artifacts")), \
              patch("pathlib.Path.mkdir"), \
              patch("pathlib.Path.write_bytes"), \
              patch("app.api.files.register_artifact", new_callable=AsyncMock, return_value=fake_artifact):
@@ -83,7 +83,7 @@ class TestFileUpload:
     async def test_upload_path_traversal_filename_sanitized(self, client, mock_get_db):
         """Filename with path traversal sequences must be sanitized (Path().name)."""
         fake_artifact = {"id": str(uuid.uuid4()), "download_url": "/files/safe"}
-        with patch("app.api.files.get_artifacts_dir", return_value=Path("/tmp/artifacts")), \
+        with patch("app.api.files.get_user_artifacts_dir", return_value=Path("/tmp/artifacts")), \
              patch("pathlib.Path.mkdir"), \
              patch("pathlib.Path.write_bytes"), \
              patch("app.api.files.register_artifact", new_callable=AsyncMock, return_value=fake_artifact):
@@ -103,7 +103,7 @@ class TestFileUpload:
 
     async def test_upload_audio_accepted(self, client, mock_get_db):
         fake_artifact = {"id": str(uuid.uuid4()), "download_url": "/files/aud1"}
-        with patch("app.api.files.get_artifacts_dir", return_value=Path("/tmp/artifacts")), \
+        with patch("app.api.files.get_user_artifacts_dir", return_value=Path("/tmp/artifacts")), \
              patch("pathlib.Path.mkdir"), \
              patch("pathlib.Path.write_bytes"), \
              patch("app.api.files.register_artifact", new_callable=AsyncMock, return_value=fake_artifact):
@@ -119,7 +119,8 @@ class TestFileUpload:
 
 class TestListFiles:
     async def test_list_returns_empty_for_new_user(self, client, mock_get_db):
-        with patch("app.api.files.list_user_artifacts", new_callable=AsyncMock, return_value=[]):
+        with patch("app.api.files.sync_user_artifacts", new_callable=AsyncMock), \
+             patch("app.api.files.list_artifacts", new_callable=AsyncMock, return_value=[]):
             response = await client.get(
                 "/files/",
                 headers=auth_headers("sales_rep"),
@@ -132,7 +133,8 @@ class TestListFiles:
             {"id": str(uuid.uuid4()), "filename": "report.pdf", "file_type": "pdf"},
             {"id": str(uuid.uuid4()), "filename": "photo.jpg", "file_type": "jpeg"},
         ]
-        with patch("app.api.files.list_user_artifacts", new_callable=AsyncMock, return_value=artifacts):
+        with patch("app.api.files.sync_user_artifacts", new_callable=AsyncMock), \
+             patch("app.api.files.list_artifacts", new_callable=AsyncMock, return_value=artifacts):
             response = await client.get(
                 "/files/",
                 headers=auth_headers("finance_manager"),
@@ -169,6 +171,7 @@ class TestGetFile:
             "filename": "report.pdf",
             "file_path": "/nonexistent/path/report.pdf",
             "file_type": "pdf",
+            "scope": "company",   # company scope — no user_id check needed
         }
         with patch("app.api.files.get_artifact", new_callable=AsyncMock, return_value=artifact):
             response = await client.get(
@@ -187,6 +190,7 @@ class TestGetFile:
             "filename": "report.pdf",
             "file_path": str(test_file),
             "file_type": "pdf",
+            "scope": "company",   # company scope — any authenticated user can read
         }
         with patch("app.api.files.get_artifact", new_callable=AsyncMock, return_value=artifact):
             response = await client.get(

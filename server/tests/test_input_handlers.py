@@ -420,7 +420,7 @@ class TestManagementAgentBug004:
     """
 
     async def test_general_response_uses_extracted_text_when_present(self):
-        """_general_response sends extracted_text to LLM, not just message."""
+        """_general_response passes extracted_text in the task to execute_with_tools."""
         from app.agents.management_agent import ManagementAgent
 
         agent = ManagementAgent(config={})
@@ -431,21 +431,21 @@ class TestManagementAgentBug004:
             "department": "management",
         }
 
-        captured_messages = []
+        captured_tasks = []
 
-        async def fake_chat(messages, task_context=None):
-            captured_messages.extend(messages)
-            return {"content": "Here is your Q1 summary."}
+        async def fake_execute_with_tools(t, **kwargs):
+            captured_tasks.append(t)
+            return {"content": "Here is your Q1 summary.", "tools_called": [], "artifacts": []}
 
         mock_llm = AsyncMock()
-        mock_llm.chat = fake_chat
+        mock_llm.execute_with_tools = fake_execute_with_tools
 
         with patch("app.llm.llm_manager.get", return_value=mock_llm):
             result = await agent._general_response(task)
 
-        assert len(captured_messages) == 1
-        assert captured_messages[0]["content"] == image_description, (
-            "BUG-004 regression: agent used task['message'] instead of task['extracted_text']"
+        assert len(captured_tasks) == 1
+        assert captured_tasks[0].get("extracted_text") == image_description, (
+            "BUG-004 regression: agent did not pass extracted_text to execute_with_tools"
         )
 
     async def test_general_response_falls_back_to_message_when_no_extracted_text(self):
@@ -458,16 +458,17 @@ class TestManagementAgentBug004:
             "department": "management",
         }
 
-        captured_messages = []
+        captured_tasks = []
 
-        async def fake_chat(messages, task_context=None):
-            captured_messages.extend(messages)
-            return {"content": "Overview here."}
+        async def fake_execute_with_tools(t, **kwargs):
+            captured_tasks.append(t)
+            return {"content": "Overview here.", "tools_called": [], "artifacts": []}
 
         mock_llm = AsyncMock()
-        mock_llm.chat = fake_chat
+        mock_llm.execute_with_tools = fake_execute_with_tools
 
         with patch("app.llm.llm_manager.get", return_value=mock_llm):
             await agent._general_response(task)
 
-        assert captured_messages[0]["content"] == "Give me a department overview"
+        assert len(captured_tasks) == 1
+        assert captured_tasks[0].get("message") == "Give me a department overview"
