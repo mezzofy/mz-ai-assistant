@@ -219,6 +219,31 @@ See `docs/RN-mz-ai-assistant-v1.0.md` for release notes.
 
 ---
 
+## Post-Deployment (2026-03-10)
+
+- **BUG-005 FIXED:** ManagementAgent ran KPI dashboard workflow for file uploads (PDF) even when the message contained a KPI keyword like "summary"
+  - **File:** `server/app/agents/management_agent.py`
+  - **Root cause:** `execute()` checked KPI keywords before checking whether a file was attached; a "summarise this PDF" message matched `_KPI_KEYWORDS` ("summary") → KPI workflow ran, ignoring the uploaded document entirely
+  - **Fix:** Added early-exit check — if `anthropic_file_id` is set OR `input_type == "file"`, route directly to `_general_response()` before any keyword check
+  - **Tests:** `TestManagementAgentBug004` (4 tests including BUG-005 regression) in `server/tests/test_input_handlers.py`
+
+- **BUG-005 (LLM side) FIXED:** When a PDF was uploaded via Anthropic Files API, Claude still called `search_user_files` + `read_pdf` unnecessarily
+  - **File:** `server/app/llm/llm_manager.py`
+  - **Root cause:** System prompt's FILE SEARCH RULE ("MUST call search_user_files FIRST") applied unconditionally — even when the file was already in the conversation as a native document block
+  - **Fix:** `_build_system_prompt()` now appends `_ATTACHED_FILE_DIRECTIVE` when `task["anthropic_file_id"]` is set — explicitly telling Claude the document is already in context and tool calls are not needed for it. PDFs are also passed as native `{"type": "document", ...}` content blocks (not extracted text).
+  - **Tests:** `TestSystemPromptFileAttachment` (3 tests) in `server/tests/test_llm_routing.py`
+
+- **BUG-004 FIXED:** `image_handler.py` was passing `image_path` (a temp file path) to `ImageOps.execute()` instead of `image_bytes` (base64). Temp file was written then cleaned up, but the path was already invalid by the time the tool used it.
+  - **Fix:** `handle_image()` now encodes bytes as base64 and passes `image_bytes=` directly to `ocr_image` and `analyze_image`
+  - **Tests:** `TestImageHandlerBug003` (4 tests) in `server/tests/test_input_handlers.py`
+
+- **Architecture review:** Full end-to-end chat flow documented — `docs/TD-chat-flow-v1.0.md` updated to v1.1
+  - Added: PDF → Files API native doc block path (Layer 3), `_ATTACHED_FILE_DIRECTIVE` system prompt addition (Layer 7), ManagementAgent file routing (Layer 6)
+
+- **Test suite:** ~299 tests passing (was 288 after v1.1 HRAgent; +11 new regression tests)
+
+---
+
 ## Post-Deployment (2026-03-09)
 
 - ✅ **Chat Flow Map documented** — `docs/TD-chat-flow-v1.0.md` created

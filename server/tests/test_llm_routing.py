@@ -324,3 +324,62 @@ class TestChineseLanguageDetection:
         katakana_text = "レポートを生成する"
         # This contains 生成する which ARE in CJK range
         assert self._detect(katakana_text) is True
+
+
+# ── System prompt: attached file directive ────────────────────────────────────
+
+class TestSystemPromptFileAttachment:
+    """
+    Tests that _build_system_prompt() appends the ATTACHED_FILE_DIRECTIVE
+    when a document is already provided via Anthropic Files API.
+    """
+
+    def _make_manager(self):
+        from app.llm.llm_manager import LLMManager
+        with patch("app.llm.llm_manager.AnthropicClient"), \
+             patch("app.llm.llm_manager.KimiClient"), \
+             patch("app.llm.llm_manager.ToolExecutor"):
+            return LLMManager(TEST_CONFIG)
+
+    def test_system_prompt_includes_attached_file_directive_when_file_id_set(self):
+        """When task has anthropic_file_id, system prompt tells Claude not to call read_pdf."""
+        manager = self._make_manager()
+        task = {
+            "department": "management",
+            "role": "manager",
+            "source": "mobile",
+            "anthropic_file_id": "file_abc123",
+        }
+        prompt = manager._build_system_prompt(task)
+        assert "ATTACHED DOCUMENT" in prompt, (
+            "System prompt must include ATTACHED DOCUMENT directive when file is attached"
+        )
+        assert "read_pdf" in prompt, (
+            "Directive must mention read_pdf so Claude knows not to call it for this file"
+        )
+
+    def test_system_prompt_excludes_attached_file_directive_when_no_file_id(self):
+        """Without anthropic_file_id, system prompt contains only the FILE SEARCH RULE."""
+        manager = self._make_manager()
+        task = {
+            "department": "management",
+            "role": "manager",
+            "source": "mobile",
+        }
+        prompt = manager._build_system_prompt(task)
+        assert "ATTACHED DOCUMENT" not in prompt, (
+            "ATTACHED DOCUMENT directive must NOT appear when no file is attached"
+        )
+
+    def test_system_prompt_excludes_attached_file_directive_for_text_only_task(self):
+        """Pure text task (no file) must not have the file directive."""
+        manager = self._make_manager()
+        task = {
+            "department": "sales",
+            "role": "sales_rep",
+            "source": "mobile",
+            "input_type": "text",
+            "message": "What are this month's KPIs?",
+        }
+        prompt = manager._build_system_prompt(task)
+        assert "ATTACHED DOCUMENT" not in prompt

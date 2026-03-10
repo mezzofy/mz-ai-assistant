@@ -95,6 +95,16 @@ file_path(s) to extract the content, then answer based on what you find. Do not 
 the user to provide a file path — discover it yourself. If no files are found, respond:
 "I couldn't find any documents matching '<topic>' in your accessible folders." """
 
+# Appended to system prompt when a document is already in the conversation context
+_ATTACHED_FILE_DIRECTIVE = """
+
+ATTACHED DOCUMENT:
+The user has provided a document as a native file attachment (Anthropic Files API).
+It is already present in this conversation as a document block — Claude can read it
+directly. Do NOT call read_pdf, read_txt, search_user_files, or any extraction tool
+for the attached document. The FILE SEARCH RULE above applies only when the user
+references documents that are NOT already in this conversation."""
+
 
 class LLMManager:
     """
@@ -434,12 +444,18 @@ class LLMManager:
                 f"Do not skip this question."
             )
 
-        return _SYSTEM_PROMPT_TEMPLATE.format(
+        prompt = _SYSTEM_PROMPT_TEMPLATE.format(
             department=dept,
             role=role,
             source=source,
             save_options=save_options,
         )
+
+        # If a file was attached via Files API, tell Claude not to call read_pdf
+        if (task or {}).get("anthropic_file_id"):
+            prompt += _ATTACHED_FILE_DIRECTIVE
+
+        return prompt
 
     def _contains_chinese(self, text: str) -> bool:
         """

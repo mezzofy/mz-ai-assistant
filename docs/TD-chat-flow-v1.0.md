@@ -1,6 +1,6 @@
 # TD — Chat Flow Map — mz-ai-assistant Server
-**Version:** v1.0
-**Date:** 2026-03-09
+**Version:** v1.1
+**Date:** 2026-03-10
 **Agent:** Lead
 **Purpose:** Document every path from user input to response
 
@@ -60,11 +60,15 @@ process_input(task)  — app/input/input_router.py
   ├─ input_type = "image"  → vision analysis (OCR/classification)
   ├─ input_type = "video"  → frame extraction + analysis
   ├─ input_type = "audio"  → speech-to-text (Whisper)
-  ├─ input_type = "file"   → PDF text extraction
+  ├─ input_type = "file"   → file_handler.py:
+  │     PDF → _upload_pdf_to_files_api_sync()
+  │         → anthropic.beta.files.upload(bytes)
+  │         → task["anthropic_file_id"] = file_id   ← native doc block for Claude
+  │     Non-PDF (docx/pptx/csv) → pypdf / python-docx extraction
   ├─ input_type = "url"    → web scraping + content extraction
   └─ unknown               → log warning, treat as text
 
-  Output: task dict + { extracted_text, media_content, input_summary }
+  Output: task dict + { extracted_text, media_content, input_summary, anthropic_file_id? }
 ```
 
 ---
@@ -141,6 +145,8 @@ can_handle(): dept="management" AND message has KPI keyword
 execute():
   ├─ scheduler + "kpi_report" → _weekly_kpi_workflow()
   │     Query metrics → LLM → PDF → Teams (#management) + email CEO/COO
+  ├─ anthropic_file_id OR input_type="file" → _general_response()
+  │     ← document analysis takes priority; KPI keywords ignored (BUG-005 fix)
   ├─ message has KPI keyword  → _kpi_dashboard_workflow()
   │     Query 3 dept metrics + LLM usage → LLM → PDF
   └─ ELSE                     → _general_response()  ← LLM + full tool access
@@ -224,6 +230,16 @@ execute_with_tools(task)
   │
   ├─ select_model() → Claude or Kimi
   ├─ _build_system_prompt(dept, role, source)
+  │     └─ anthropic_file_id in task?
+  │         YES → append _ATTACHED_FILE_DIRECTIVE:
+  │               "File already in context as document block.
+  │                Do NOT call read_pdf / search_user_files for it."
+  │               ← prevents Claude calling extraction tools for attached PDFs (BUG-005 fix)
+  ├─ Build message history:
+  │     anthropic_file_id set?
+  │         YES → [{"type": "document", "source": {"type": "file", "file_id": ...}},
+  │                {"type": "text", "text": message}]   ← native Files API block
+  │         NO  → [{"role": "user", "content": message}]
   ├─ Get all tool definitions (28+ tools)
   │
   └─ FOR i in 0..4 (MAX_TOOL_ITERATIONS = 5):
@@ -387,4 +403,5 @@ Timeout:      9 min soft → mark failed, no retry
 
 | Version | Date | Change |
 |---------|------|--------|
+| v1.1 | 2026-03-10 | BUG-005 fix: PDF Files API native doc block path; `_ATTACHED_FILE_DIRECTIVE` in system prompt; ManagementAgent file attachment routing |
 | v1.0 | 2026-03-09 | Initial chat flow map (post-deployment analysis) |

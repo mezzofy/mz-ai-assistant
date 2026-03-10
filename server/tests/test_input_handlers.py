@@ -473,6 +473,69 @@ class TestManagementAgentBug004:
         assert len(captured_tasks) == 1
         assert captured_tasks[0].get("message") == "Give me a department overview"
 
+    async def test_file_task_bypasses_kpi_workflow_even_with_summary_keyword(self):
+        """BUG-005: ManagementAgent must NOT trigger KPI dashboard when a file is attached,
+        even if the message contains a KPI keyword like 'summary'."""
+        from app.agents.management_agent import ManagementAgent
+
+        agent = ManagementAgent(config={})
+        task = {
+            "message": "Summary it",
+            "department": "management",
+            "input_type": "file",
+            "anthropic_file_id": "file_abc123",
+            "extracted_text": "Summary it",
+        }
+        kpi_called = []
+
+        async def fake_general_response(t):
+            return {"content": "PDF summary", "tools_called": [], "artifacts": []}
+
+        async def fake_kpi_workflow(t):
+            kpi_called.append(True)
+            return {"content": "KPI dashboard", "tools_called": [], "artifacts": []}
+
+        agent._general_response = fake_general_response
+        agent._kpi_dashboard_workflow = fake_kpi_workflow
+
+        result = await agent.execute(task)
+
+        assert len(kpi_called) == 0, (
+            "BUG-005 regression: ManagementAgent ran KPI dashboard for a file task"
+        )
+        assert result["content"] == "PDF summary"
+
+    async def test_file_task_input_type_only_also_bypasses_kpi_workflow(self):
+        """BUG-005: input_type='file' alone (no anthropic_file_id) also bypasses KPI workflow
+        — covers the pypdf fallback path where Files API upload failed."""
+        from app.agents.management_agent import ManagementAgent
+
+        agent = ManagementAgent(config={})
+        task = {
+            "message": "Summary it",
+            "department": "management",
+            "input_type": "file",
+            "extracted_text": "Whitepaper extracted text...",
+        }
+        kpi_called = []
+
+        async def fake_general_response(t):
+            return {"content": "PDF summary via pypdf", "tools_called": [], "artifacts": []}
+
+        async def fake_kpi_workflow(t):
+            kpi_called.append(True)
+            return {"content": "KPI dashboard", "tools_called": [], "artifacts": []}
+
+        agent._general_response = fake_general_response
+        agent._kpi_dashboard_workflow = fake_kpi_workflow
+
+        result = await agent.execute(task)
+
+        assert len(kpi_called) == 0, (
+            "BUG-005 regression: ManagementAgent ran KPI dashboard for pypdf fallback file task"
+        )
+        assert result["content"] == "PDF summary via pypdf"
+
 
 # ── file_handler PDF tests (BUG-A + BUG-B fix) ───────────────────────────────
 
