@@ -1,6 +1,24 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-11
 **Project:** mz-ai-assistant
+**Session:** 17 (FEAT-013/BUG-013 — Contacts + diagnostic + write logging)
+**Context:** ~30% at checkpoint
+
+## Completed This Session (Session 17)
+
+- ✅ `config.py` → Added `Contacts.Read` + `Contacts.ReadWrite` to `MS365_DELEGATED_SCOPES`
+- ✅ `personal_ms_ops.py` → 4 new contact tools (get/search/detail/create), `personal_check_token_scopes` diagnostic, ERROR logging on all write handler failures
+- ✅ `llm_manager.py` → "Contacts" added to personal MS capabilities in system prompt
+- Commit: `36bf87f`
+
+## Notes
+- Tool count: 18 → 24 (5 new tools)
+- User must disconnect + reconnect MS account to get Contacts scopes
+- Use `personal_check_token_scopes` in Chat to diagnose write scope issues
+
+---
+
+<!-- Previous session below -->
 **Session:** 16 (BUG-010 — MS OAuth scope fix)
 **Context:** ~10% at checkpoint
 **Reason:** Task complete
