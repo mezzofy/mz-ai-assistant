@@ -1,8 +1,31 @@
 # Context Checkpoint: Mobile Agent
-**Date:** 2026-03-11
-**Session:** v1.17.1 — Patch: 503 UX fix + version bump
-**Context:** ~15% at checkpoint
-**Reason:** v1.17.1 complete and built
+**Date:** 2026-03-12
+**Session:** v1.18.0 — Fix: SettingsScreen version label (was stuck at v1.17.1)
+**Context:** ~10% at checkpoint
+**Reason:** v1.18.0 APK complete and verified
+
+---
+
+## v1.18.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~60 MB |
+| versionCode | 30 |
+| versionName | 1.18.0 |
+| Build time | 1m 2s |
+| Branch | eric-design |
+| Commits | `6f2bc2c` — fix(mobile): update SettingsScreen version label to v1.18.0 |
+
+**Changes in v1.18.0:**
+- `APP/android/app/build.gradle`: versionCode 30, versionName 1.18.0 (was stuck at 29/1.17.1)
+- `APP/src/screens/SettingsScreen.tsx`: version label → v1.18.0 (hardcoded string was v1.17.1)
+- `APP/package.json`: version 1.18.0 (already bumped before this session)
+
+**Root cause documented:** React Native does NOT auto-sync versionName from package.json.
+Three places must always be updated together: `build.gradle`, `package.json`, `SettingsScreen.tsx`.
 
 ---
 
@@ -294,6 +317,7 @@
 | **1.16.0** | **27** | **Speech populates input (not auto-send); My Files before URL in input grid** |
 | **1.17.0** | **28** | **Connected Accounts — MS OAuth mobile UI (Settings → Connect Microsoft Account)** |
 | **1.17.1** | **29** | **Patch: 503 UX — friendly error when MS OAuth unconfigured on server** |
+| **1.18.0** | **30** | **MS Contacts backend (FEAT-013); fix: SettingsScreen version label sync** |
 
 ---
 
