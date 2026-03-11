@@ -222,14 +222,12 @@ async def _refresh_token(refresh_token: str) -> tuple[str, str, datetime]:
     from app.core.config import MS365_DELEGATED_SCOPES
 
     client_id = os.getenv("MS365_CLIENT_ID", "")
-    client_secret = os.getenv("MS365_CLIENT_SECRET", "")
 
-    if not client_id or not client_secret:
-        raise RuntimeError("MS365_CLIENT_ID and MS365_CLIENT_SECRET must be configured")
+    if not client_id:
+        raise RuntimeError("MS365_CLIENT_ID must be configured")
 
-    msal_app = msal.ConfidentialClientApplication(
+    msal_app = msal.PublicClientApplication(
         client_id=client_id,
-        client_credential=client_secret,
         authority="https://login.microsoftonline.com/common",
     )
 

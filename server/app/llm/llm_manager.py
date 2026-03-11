@@ -69,10 +69,14 @@ You have access to tools for:
 - Managing the CRM / sales lead database
 - Querying financial, support ticket, and operational databases
 - Processing and analyzing images, audio, and video files
+- Accessing YOUR personal Microsoft account (email, calendar, OneNote, Teams chats)
+  if you have connected it in Settings → Connected Accounts
 
 Department context: {department}
 User role: {role}
 Task source: {source}
+Current user ID: {user_id}
+(Use this exact value for the user_id parameter in all personal_* tool calls)
 
 Be professional, concise, and action-oriented. When generating customer-facing content, use Mezzofy brand voice (confident, friendly, professional). When sending emails via Outlook, always confirm with the user before sending unless they explicitly said "auto send" or this is a scheduled/webhook task (auto-send is allowed for automated workflows).
 
@@ -438,6 +442,7 @@ class LLMManager:
         dept = (task or {}).get("department", "General")
         role = (task or {}).get("role", "user")
         source = (task or {}).get("source", "mobile")
+        user_id = (task or {}).get("user_id", "")
 
         if dept.lower() == "management" or role.lower() in ("admin", "superadmin"):
             save_options = (
@@ -465,6 +470,7 @@ class LLMManager:
             role=role,
             source=source,
             save_options=save_options,
+            user_id=user_id,
         )
 
         # If a file/image was attached via Files API, tell Claude not to call extraction tools
