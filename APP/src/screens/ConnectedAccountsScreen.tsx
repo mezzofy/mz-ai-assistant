@@ -116,7 +116,7 @@ export const ConnectedAccountsScreen: React.FC<{navigation: any}> = ({navigation
   const handleDisconnect = () => {
     Alert.alert(
       'Disconnect Microsoft Account',
-      `Remove ${msEmail ?? 'your Microsoft account'}? The AI will no longer be able to access your personal email, calendar, notes, or Teams.`,
+      `Remove ${msEmail ?? 'your Microsoft account'}? The AI will no longer be able to access your personal email, calendar, notes, Teams, or contacts.`,
       [
         {text: 'Cancel', style: 'cancel'},
         {
@@ -175,7 +175,7 @@ export const ConnectedAccountsScreen: React.FC<{navigation: any}> = ({navigation
           {/* Scope pills */}
           {connected && scopes.length > 0 && (
             <View style={styles.scopeRow}>
-              {['Mail', 'Calendar', 'Notes', 'Teams'].map(label => (
+              {['Mail', 'Calendar', 'Notes', 'Teams', 'Contacts'].map(label => (
                 <View key={label} style={[styles.scopePill, {backgroundColor: colors.accentSoft}]}>
                   <Text style={[styles.scopeText, {color: colors.accent}]}>{label}</Text>
                 </View>
@@ -214,7 +214,7 @@ export const ConnectedAccountsScreen: React.FC<{navigation: any}> = ({navigation
           <Icon name="information-circle-outline" size={16} color={colors.textMuted} />
           <Text style={[styles.infoText, {color: colors.textMuted}]}>
             Connecting your Microsoft account lets the AI read and send your personal emails, manage
-            calendar events, access OneNote, and chat in Teams on your behalf.
+            calendar events, access OneNote, chat in Teams, and manage your contacts on your behalf.
           </Text>
         </View>
       </View>
