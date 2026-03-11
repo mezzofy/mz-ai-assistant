@@ -44,7 +44,8 @@
       "Bash(./gradlew assembleRelease:*)",
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(npm run:*)",
-      "Bash(scp:*)"
+      "Bash(scp:*)",
+      "Bash(aapt dump:*)"
     ]
   }
 }
