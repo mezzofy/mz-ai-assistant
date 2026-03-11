@@ -1,5 +1,58 @@
 # Mobile Agent Issues
 
+## OPEN (2026-03-11): BUG-011 — AADSTS700025 on MS OAuth Callback (Backend Fix Required)
+
+**Filed by:** Mobile Agent
+**Date:** 2026-03-11
+**Priority:** P1 — MS OAuth connect flow completely broken at token exchange step
+
+### Symptom
+After successful Microsoft sign-in, the app receives the deep link callback
+(`msalauth://callback?code=...`) and sends it to `POST /ms/auth/callback`.
+The backend returns:
+```
+Token exchange failed: AADSTS700025: Client is public so neither
+'client_assertion' nor 'client_secret' should be presented.
+```
+
+### Root Cause
+`msalauth://` is a custom URI scheme. In Azure AD, redirect URIs with custom
+schemes are automatically treated as **public client** (mobile/desktop) flows.
+The backend's `_get_msal_app()` in `ms_oauth.py` uses
+`msal.ConfidentialClientApplication(client_id, client_credential=client_secret)`.
+When it calls `acquire_token_by_authorization_code()`, MSAL sends the
+`client_secret` — Azure AD rejects it because the app is a public client.
+
+### Fix Required (Backend Agent)
+**File:** `server/app/api/ms_oauth.py` — `_get_msal_app()`
+
+Change `msal.ConfidentialClientApplication` → `msal.PublicClientApplication`.
+Public clients do NOT send `client_secret` during code exchange.
+
+```python
+# BEFORE:
+return msal.ConfidentialClientApplication(
+    client_id,
+    authority=f"https://login.microsoftonline.com/{tenant_id}",
+    client_credential=client_secret,
+)
+
+# AFTER:
+return msal.PublicClientApplication(
+    client_id,
+    authority=f"https://login.microsoftonline.com/{tenant_id}",
+)
+```
+
+Note: `client_secret` may still be needed elsewhere for app-level (non-delegated)
+MS Graph calls. This change only affects the OAuth delegated flow in `ms_oauth.py`.
+
+### No Mobile Code Change Needed
+Deep link handling, state verification, and API calls are all correct.
+`POST /ms/auth/callback` is called with the right `code` and `state`.
+
+---
+
 ## RESOLVED (2026-03-05): Need /llm/usage-stats endpoint for AI Usage Stats screen
 **Plan:** `.claude/coordination/plans/llm-usage-stats-plan.md`
 
