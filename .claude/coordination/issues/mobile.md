@@ -1,6 +1,11 @@
 # Mobile Agent Issues
 
-## OPEN (2026-03-11): BUG-011 — AADSTS700025 on MS OAuth Callback (Backend Fix Required)
+## RESOLVED (2026-03-11): BUG-011 — AADSTS700025 on MS OAuth Callback (Backend Fix Required)
+**Resolved:** Commit `5d16da1` — switched `ConfidentialClientApplication` → `PublicClientApplication` in `ms_oauth.py`
+
+---
+
+## ARCHIVED
 
 **Filed by:** Mobile Agent
 **Date:** 2026-03-11
