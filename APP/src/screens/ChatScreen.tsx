@@ -245,11 +245,8 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
     setRecording(false);
     const transcript = liveTranscript || useChatStore.getState().mediaPreview?.name || '';
     if (transcript) {
-      handleSend(
-        transcript,
-        'speech',
-        {type: 'speech', name: 'Voice message', size: formatSecs(recordTime), emoji: '🎤'},
-      );
+      setInput(transcript);
+      setInputMode('text');
     }
   };
 
@@ -455,7 +452,7 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
           ) : (
             <ActivityIndicator size="small" color="#fff" />
           )}
-          <View style={{flex: 1, overflow: 'hidden'}}>
+          <View style={{flex: 1, overflow: 'hidden', justifyContent: 'center'}}>
             <Text style={styles.taskBarText} numberOfLines={1}>
               {'TASK #'}{activeTask.id.slice(0, 8).toUpperCase()}{'  '}{activeTask.status.toUpperCase()}
               {activeTask.progress != null && activeTask.progress > 0
@@ -519,7 +516,7 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
             onPress={handleStopRecording}
             style={[styles.recordStop, {backgroundColor: colors.danger}]}>
             <Icon name="stop" size={16} color="#fff" />
-            <Text style={styles.recordStopText}>Stop & Send</Text>
+            <Text style={styles.recordStopText}>Stop & Edit</Text>
           </TouchableOpacity>
         </View>
       )}

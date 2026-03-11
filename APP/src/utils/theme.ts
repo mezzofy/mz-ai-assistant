@@ -60,8 +60,8 @@ export const INPUT_MODES = [
   {id: 'camera',  icon: 'camera-outline',     label: 'Camera',   color: '#FF6B8A'},
   {id: 'speech',  icon: 'mic-outline',        label: 'Speech',   color: '#f97316'},
   {id: 'file',    icon: 'document-outline',   label: 'File',     color: '#4DA6FF'},
-  {id: 'url',     icon: 'globe-outline',      label: 'URL',      color: '#FF6B8A'},
   {id: 'myfiles', icon: 'folder-open-outline', label: 'My Files', color: '#00D4AA'},
+  {id: 'url',     icon: 'globe-outline',      label: 'URL',      color: '#FF6B8A'},
 ];
 
 export const FILE_TYPE_STYLES: Record<string, {bg: string; color: string; label: string}> = {
