@@ -1,23 +1,33 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-11
-**Session:** v1.17.0 — Connected Accounts (MS OAuth mobile UI)
-**Context:** ~30% at checkpoint
-**Reason:** v1.17.0 implementation complete; awaiting APK build
+**Session:** v1.17.0 — Connected Accounts (MS OAuth mobile UI) + APK BUILD SUCCESSFUL
+**Context:** ~20% at checkpoint
+**Reason:** v1.17.0 complete and built
 
 ---
 
-## v1.17.0 Changes
+## v1.17.0 Build Result
 
-| # | File | Change |
-|---|------|--------|
-| 1 | `APP/src/api/msOAuth.ts` | NEW — 4 API functions: getMsAuthUrlApi, postMsAuthCallbackApi, getMsAuthStatusApi, deleteMsAuthDisconnectApi |
-| 2 | `APP/src/stores/msStore.ts` | NEW — Zustand store: connected, msEmail, scopes, loadStatus(), disconnect(), setConnected() |
-| 3 | `APP/src/screens/ConnectedAccountsScreen.tsx` | NEW — Connected Accounts screen with connect/disconnect flow, deep link handling, status display |
-| 4 | `APP/src/screens/SettingsScreen.tsx` | Added "Connected Accounts" row (Group 2); imports msStore; loads MS status on mount; version v1.16.0→v1.17.0 |
-| 5 | `APP/App.tsx` | Import ConnectedAccountsScreen; register `ConnectedAccounts` stack screen |
-| 6 | `APP/android/app/src/main/AndroidManifest.xml` | Added msalauth://callback intent-filter for MS OAuth deep link |
-| 7 | `APP/android/app/build.gradle` | versionCode 27→28, versionName "1.16.0"→"1.17.0" |
-| 8 | `APP/package.json` | version "1.16.0"→"1.17.0" |
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | 61 MB |
+| versionCode | 28 |
+| versionName | 1.17.0 |
+| Build time | 51s |
+| Branch | eric-design |
+| Commit | `7f3f430` — feat(mobile): add Connected Accounts screen for MS OAuth (v1.17.0) |
+
+**Changes in v1.17.0:**
+- `APP/src/api/msOAuth.ts` (NEW): 4 API functions for MS OAuth endpoints
+- `APP/src/stores/msStore.ts` (NEW): Zustand store for MS connection state
+- `APP/src/screens/ConnectedAccountsScreen.tsx` (NEW): Connect/disconnect UI with deep link handler
+- `APP/src/screens/SettingsScreen.tsx`: Added "Connected Accounts" row; version → v1.17.0
+- `APP/App.tsx`: Registered ConnectedAccounts stack screen
+- `APP/android/app/src/main/AndroidManifest.xml`: msalauth://callback intent-filter
+- `APP/android/app/build.gradle`: versionCode 28, versionName 1.17.0
+- `APP/package.json`: version 1.17.0
 
 ---
 
