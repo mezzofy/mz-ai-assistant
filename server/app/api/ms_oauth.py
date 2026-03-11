@@ -49,18 +49,21 @@ class CallbackRequest(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_msal_app():
-    """Build a MSAL ConfidentialClientApplication for delegated auth."""
+    """Build a MSAL PublicClientApplication for delegated auth.
+
+    Uses PublicClientApplication because the redirect URI (msalauth://) is a
+    custom URI scheme, which Azure AD treats as a public client registration.
+    Sending client_secret in token exchange is rejected by Azure (AADSTS700025).
+    """
     import msal
     client_id = os.getenv("MS365_CLIENT_ID", "")
-    client_secret = os.getenv("MS365_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
+    if not client_id:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="MS365 OAuth is not configured on this server",
         )
-    return msal.ConfidentialClientApplication(
+    return msal.PublicClientApplication(
         client_id=client_id,
-        client_credential=client_secret,
         # Use "common" to allow personal Microsoft accounts AND work/school accounts
         authority="https://login.microsoftonline.com/common",
     )
