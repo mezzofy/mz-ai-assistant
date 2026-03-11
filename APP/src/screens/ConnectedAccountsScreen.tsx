@@ -12,6 +12,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../hooks/useTheme';
 import {useMsStore} from '../stores/msStore';
 import {getMsAuthUrlApi, postMsAuthCallbackApi} from '../api/msOAuth';
+import {ApiError} from '../api/api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,14 @@ export const ConnectedAccountsScreen: React.FC<{navigation: any}> = ({navigation
       await Linking.openURL(auth_url);
     } catch (e: unknown) {
       setOauthLoading(false);
-      const msg = e instanceof Error ? e.message : 'Failed to start sign-in. Please try again.';
+      let msg: string;
+      if (e instanceof ApiError && e.status === 503) {
+        msg = 'Microsoft account integration is not available on this server. Please contact your administrator.';
+      } else if (e instanceof Error) {
+        msg = e.message;
+      } else {
+        msg = 'Failed to start sign-in. Please try again.';
+      }
       Alert.alert('Error', msg);
     }
   };
