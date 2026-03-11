@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../hooks/useTheme';
 import {useAuthStore} from '../stores/authStore';
 import {useSettingsStore} from '../stores/settingsStore';
+import {useMsStore} from '../stores/msStore';
 import {DeptBadge} from '../components/shared/DeptBadge';
 
 type RowProps = {
@@ -40,11 +41,13 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
     notifications, speechLanguage, appearance, storageDisplay,
     toggleNotifications, setSpeechLanguage, setAppearance, loadSettings, loadStorageInfo,
   } = useSettingsStore();
+  const {connected: msConnected, msEmail, loadStatus: loadMsStatus} = useMsStore();
   const colors = useTheme();
 
   useEffect(() => {
     loadSettings();
     loadStorageInfo();
+    loadMsStatus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -173,13 +176,21 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
             colors={colors}
           />
           <SettingsRow icon="time-outline" label="AI Usage Stats" accent colors={colors} onPress={() => navigation.navigate('AIUsageStats')} />
+          <SettingsRow
+            icon="logo-windows"
+            label="Connected Accounts"
+            value={msConnected && msEmail ? msEmail : undefined}
+            accent
+            colors={colors}
+            onPress={() => navigation.navigate('ConnectedAccounts')}
+          />
         </View>
 
         <View style={[styles.group, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
           <SettingsRow icon="log-out-outline" label="Sign Out" danger colors={colors} onPress={() => { logout(); }} />
         </View>
 
-        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.16.0</Text>
+        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.17.0</Text>
       </ScrollView>
     </View>
   );

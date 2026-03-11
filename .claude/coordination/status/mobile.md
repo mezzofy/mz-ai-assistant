@@ -1,8 +1,23 @@
 # Context Checkpoint: Mobile Agent
-**Date:** 2026-03-10 22:05
-**Session:** v1.15.0 — Image processing + remove audio/video input modes
-**Context:** ~20% at checkpoint
-**Reason:** v1.15.0 release preparation complete; APK built successfully
+**Date:** 2026-03-11
+**Session:** v1.17.0 — Connected Accounts (MS OAuth mobile UI)
+**Context:** ~30% at checkpoint
+**Reason:** v1.17.0 implementation complete; awaiting APK build
+
+---
+
+## v1.17.0 Changes
+
+| # | File | Change |
+|---|------|--------|
+| 1 | `APP/src/api/msOAuth.ts` | NEW — 4 API functions: getMsAuthUrlApi, postMsAuthCallbackApi, getMsAuthStatusApi, deleteMsAuthDisconnectApi |
+| 2 | `APP/src/stores/msStore.ts` | NEW — Zustand store: connected, msEmail, scopes, loadStatus(), disconnect(), setConnected() |
+| 3 | `APP/src/screens/ConnectedAccountsScreen.tsx` | NEW — Connected Accounts screen with connect/disconnect flow, deep link handling, status display |
+| 4 | `APP/src/screens/SettingsScreen.tsx` | Added "Connected Accounts" row (Group 2); imports msStore; loads MS status on mount; version v1.16.0→v1.17.0 |
+| 5 | `APP/App.tsx` | Import ConnectedAccountsScreen; register `ConnectedAccounts` stack screen |
+| 6 | `APP/android/app/src/main/AndroidManifest.xml` | Added msalauth://callback intent-filter for MS OAuth deep link |
+| 7 | `APP/android/app/build.gradle` | versionCode 27→28, versionName "1.16.0"→"1.17.0" |
+| 8 | `APP/package.json` | version "1.16.0"→"1.17.0" |
 
 ---
 
@@ -245,6 +260,7 @@
 | 1.14.7 | 25 | BUG-007: progress visibility in banner; new-chat race fix; empty bubble guard; session-scoped banner |
 | **1.15.0** | **26** | **Image OCR+vision analysis on upload; remove video/audio input modes** |
 | **1.16.0** | **27** | **Speech populates input (not auto-send); My Files before URL in input grid** |
+| **1.17.0** | **28** | **Connected Accounts — MS OAuth mobile UI (Settings → Connect Microsoft Account)** |
 
 ---
 

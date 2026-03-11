@@ -20,6 +20,7 @@ import {ProfileScreen} from './src/screens/ProfileScreen';
 import {AIUsageStatsScreen} from './src/screens/AIUsageStatsScreen';
 import {FileViewerScreen} from './src/screens/FileViewerScreen';
 import {FolderContentsScreen} from './src/screens/FolderContentsScreen';
+import {ConnectedAccountsScreen} from './src/screens/ConnectedAccountsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -132,6 +133,11 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="FolderContents"
                 component={FolderContentsScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="ConnectedAccounts"
+                component={ConnectedAccountsScreen}
                 options={{animation: 'slide_from_right'}}
               />
             </>
