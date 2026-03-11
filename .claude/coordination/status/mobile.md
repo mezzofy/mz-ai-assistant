@@ -6,6 +6,25 @@
 
 ---
 
+## v1.16.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | 61 MB |
+| versionCode | 27 |
+| versionName | 1.16.0 |
+| Build time | 18s |
+| Branch | eric-design |
+| Commit | `bbbc8d5` — chore(mobile): bump version to v1.16.0 (versionCode 27) |
+
+**Changes in v1.16.0:**
+- `APP/src/screens/ChatScreen.tsx`: `handleStopRecording()` → `setInput(transcript)` + `setInputMode('text')`; button label "Stop & Send" → "Stop & Edit"
+- `APP/src/utils/theme.ts`: `INPUT_MODES` — `myfiles` moved to index 5 (before `url` at index 6)
+
+---
+
 ## v1.15.0 Build Result
 
 | Field | Value |
@@ -225,6 +244,7 @@
 | 1.14.6 | 24 | BUG-006: stale task recovery; user msg pre-save; SoftTimeLimitExceeded handler; activeTask in loadHistory |
 | 1.14.7 | 25 | BUG-007: progress visibility in banner; new-chat race fix; empty bubble guard; session-scoped banner |
 | **1.15.0** | **26** | **Image OCR+vision analysis on upload; remove video/audio input modes** |
+| **1.16.0** | **27** | **Speech populates input (not auto-send); My Files before URL in input grid** |
 
 ---
 

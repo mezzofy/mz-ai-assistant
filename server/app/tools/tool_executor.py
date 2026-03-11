@@ -78,6 +78,9 @@ class ToolExecutor:
         self._register_ops("files_ops", "FilesOps")
         # Note: speech_ops (SpeechOps) is NOT registered here — WebSocket-only
 
+        # ── Personal MS Graph (delegated OAuth) ──────────────────────────────
+        self._register_ops("communication.personal_ms_ops", "PersonalMSOps")
+
         self._loaded = True
         logger.info(f"ToolExecutor loaded {len(self._definitions)} tools")
 

@@ -100,6 +100,10 @@ ms365:
   rate_limit_emails_per_hour: 30
   calendar_default_timezone: "Asia/Singapore"
   calendar_reminder_minutes: 15
+  # Delegated (per-user) OAuth — for personal account integration
+  delegated_redirect_uri: "${MS365_DELEGATED_REDIRECT_URI}"
+  # MS_TOKEN_FERNET_KEY must be set in environment — no default
+  # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
 # Microsoft Teams
 teams:

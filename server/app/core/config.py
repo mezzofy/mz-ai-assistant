@@ -1,6 +1,8 @@
 """
 App Config Loader — loads config.yaml and caches it for the process lifetime.
 
+Also exposes module-level constants for MS365 delegated OAuth and Fernet encryption.
+
 Config is loaded once at startup (main.py lifespan) via load_config().
 All other modules call get_config() to obtain the cached dict.
 
@@ -13,7 +15,7 @@ Config hierarchy:
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 logger = logging.getLogger("mezzofy.core.config")
 
@@ -67,6 +69,29 @@ def get_config() -> dict:
     if _config is None:
         return load_config()
     return _config
+
+
+# ── MS365 Delegated OAuth constants ───────────────────────────────────────────
+
+MS365_DELEGATED_REDIRECT_URI: str = os.getenv(
+    "MS365_DELEGATED_REDIRECT_URI", "msalauth://callback"
+)
+
+MS365_DELEGATED_SCOPES: List[str] = [
+    "offline_access",
+    "User.Read",
+    "Mail.Read",
+    "Mail.ReadWrite",
+    "Mail.Send",
+    "Calendars.ReadWrite",
+    "Notes.Read",
+    "Notes.ReadWrite",
+    "Chat.ReadWrite",
+]
+
+# Fernet key for encrypting OAuth tokens at rest.
+# Generate with: from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())
+MS_TOKEN_FERNET_KEY: str = os.getenv("MS_TOKEN_FERNET_KEY", "")
 
 
 def _resolve_env_vars(obj):

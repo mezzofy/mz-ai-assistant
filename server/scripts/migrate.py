@@ -169,6 +169,24 @@ def run_migrations(conn):
     """)
     print("  ✅ email_log")
 
+    # ── 11. ms_oauth_tokens ──────────────────────────────────
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ms_oauth_tokens (
+            id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            ms_user_id       VARCHAR(255),
+            ms_email         VARCHAR(255),
+            access_token     TEXT NOT NULL,
+            refresh_token    TEXT NOT NULL,
+            token_expires_at TIMESTAMPTZ NOT NULL,
+            scopes           TEXT,
+            connected_at     TIMESTAMPTZ DEFAULT NOW(),
+            updated_at       TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(user_id)
+        )
+    """)
+    print("  ✅ ms_oauth_tokens")
+
     # ── 10. scheduled_jobs ───────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS scheduled_jobs (
@@ -310,6 +328,8 @@ def run_migrations(conn):
          "CREATE INDEX IF NOT EXISTS idx_agent_tasks_session ON agent_tasks(session_id)"),
         ("idx_conversations_archived",
          "CREATE INDEX IF NOT EXISTS idx_conversations_archived ON conversations(user_id, is_archived, created_at DESC)"),
+        ("idx_ms_oauth_tokens_user_id",
+         "CREATE INDEX IF NOT EXISTS idx_ms_oauth_tokens_user_id ON ms_oauth_tokens(user_id)"),
     ]
 
     for name, sql in indexes:
