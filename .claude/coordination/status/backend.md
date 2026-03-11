@@ -1,8 +1,8 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-07
+**Date:** 2026-03-11
 **Project:** mz-ai-assistant
-**Session:** 15 (HRAgent companion config)
-**Context:** ~30% at checkpoint
+**Session:** 16 (BUG-010 — MS OAuth scope fix)
+**Context:** ~10% at checkpoint
 **Reason:** Task complete
 
 ## Completed This Session
