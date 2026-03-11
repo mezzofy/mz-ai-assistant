@@ -447,6 +447,96 @@ class PersonalMSOps(BaseTool):
                 },
                 "handler": self._get_channel_messages,
             },
+            # ── Contacts tools ─────────────────────────────────────────────
+            {
+                "name": "personal_get_contacts",
+                "description": (
+                    "List contacts from the user's personal Microsoft account. "
+                    "Returns displayName, email addresses, phone, job title, and company."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "string", "description": "The current user's ID"},
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max contacts to return (1-50). Default: 20",
+                            "default": 20,
+                        },
+                    },
+                    "required": ["user_id"],
+                },
+                "handler": self._get_contacts,
+            },
+            {
+                "name": "personal_search_contacts",
+                "description": (
+                    "Search the user's Microsoft contacts by name or email address."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "string", "description": "The current user's ID"},
+                        "query": {"type": "string", "description": "Name or email to search for"},
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results to return (1-50). Default: 10",
+                            "default": 10,
+                        },
+                    },
+                    "required": ["user_id", "query"],
+                },
+                "handler": self._search_contacts,
+            },
+            {
+                "name": "personal_get_contact_detail",
+                "description": "Get full details of a specific contact by their Graph contact ID.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "string", "description": "The current user's ID"},
+                        "contact_id": {"type": "string", "description": "Graph API contact ID"},
+                    },
+                    "required": ["user_id", "contact_id"],
+                },
+                "handler": self._get_contact_detail,
+            },
+            {
+                "name": "personal_create_contact",
+                "description": (
+                    "Create a new contact in the user's personal Microsoft account."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "string", "description": "The current user's ID"},
+                        "display_name": {"type": "string", "description": "Contact's full name"},
+                        "email": {"type": "string", "description": "Primary email address. Optional."},
+                        "phone": {"type": "string", "description": "Mobile phone number. Optional."},
+                        "company": {"type": "string", "description": "Company name. Optional."},
+                        "job_title": {"type": "string", "description": "Job title. Optional."},
+                    },
+                    "required": ["user_id", "display_name"],
+                },
+                "handler": self._create_contact,
+            },
+            # ── Diagnostic tool ────────────────────────────────────────────
+            {
+                "name": "personal_check_token_scopes",
+                "description": (
+                    "Check what Microsoft Graph permissions are currently granted in the "
+                    "user's connected account token. Use this to diagnose why MS tools "
+                    "might be failing (e.g., missing write permissions)."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "string", "description": "The current user's ID"},
+                    },
+                    "required": ["user_id"],
+                },
+                "handler": self._check_token_scopes,
+            },
         ]
 
     # ── Email handlers ───────────────────────────────────────────────────────
@@ -533,6 +623,10 @@ class PersonalMSOps(BaseTool):
             resp = await client.post(url, headers=headers, json=payload)
 
         if resp.status_code not in (200, 202):
+            logger.error(
+                f"personal_ms WRITE FAILED | tool=personal_send_email user_id={user_id} "
+                f"status={resp.status_code} body={resp.text[:500]}"
+            )
             return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
 
         await self._audit(user_id, "personal_ms_send_email", "mail", {"to": to, "subject": subject})
@@ -621,6 +715,10 @@ class PersonalMSOps(BaseTool):
             resp = await client.post(url, headers=headers, json=payload)
 
         if resp.status_code not in (200, 201):
+            logger.error(
+                f"personal_ms WRITE FAILED | tool=personal_create_event user_id={user_id} "
+                f"status={resp.status_code} body={resp.text[:500]}"
+            )
             return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
 
         event = resp.json()
@@ -658,6 +756,10 @@ class PersonalMSOps(BaseTool):
             resp = await client.patch(url, headers=headers, json=payload)
 
         if resp.status_code not in (200, 204):
+            logger.error(
+                f"personal_ms WRITE FAILED | tool=personal_update_event user_id={user_id} "
+                f"status={resp.status_code} body={resp.text[:500]}"
+            )
             return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
 
         await self._audit(user_id, "personal_ms_update_event", "calendar", {"event_id": event_id})
@@ -676,6 +778,10 @@ class PersonalMSOps(BaseTool):
             resp = await client.delete(url, headers=headers)
 
         if resp.status_code not in (204, 200):
+            logger.error(
+                f"personal_ms WRITE FAILED | tool=personal_delete_event user_id={user_id} "
+                f"status={resp.status_code} body={resp.text[:500]}"
+            )
             return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
 
         await self._audit(user_id, "personal_ms_delete_event", "calendar", {"event_id": event_id})
@@ -848,6 +954,10 @@ class PersonalMSOps(BaseTool):
             resp = await client.post(url, headers=html_headers, content=html_body.encode())
 
         if resp.status_code not in (200, 201):
+            logger.error(
+                f"personal_ms WRITE FAILED | tool=personal_create_note user_id={user_id} "
+                f"status={resp.status_code} body={resp.text[:500]}"
+            )
             return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
 
         page = resp.json()
@@ -920,6 +1030,10 @@ class PersonalMSOps(BaseTool):
             resp = await client.post(url, headers=headers, json=payload)
 
         if resp.status_code not in (200, 201):
+            logger.error(
+                f"personal_ms WRITE FAILED | tool=personal_send_chat_message user_id={user_id} "
+                f"status={resp.status_code} body={resp.text[:500]}"
+            )
             return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
 
         result = resp.json()
@@ -981,3 +1095,179 @@ class PersonalMSOps(BaseTool):
             "count": len(messages),
             "messages": messages,
         })
+
+    # ── Contacts handlers ─────────────────────────────────────────────────────
+
+    async def _get_contacts(self, user_id: str, limit: int = 20) -> dict:
+        from app.services.ms_token_service import MSNotConnectedException
+        import httpx
+        try:
+            headers = await self._get_headers(user_id)
+        except MSNotConnectedException:
+            return self._not_connected()
+
+        limit = min(max(1, limit), 50)
+        url = f"{_GRAPH_BASE}/me/contacts"
+        params = {
+            "$top": limit,
+            "$select": "id,displayName,emailAddresses,mobilePhone,jobTitle,companyName",
+            "$orderby": "displayName",
+        }
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+
+        if resp.status_code != 200:
+            return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
+
+        contacts = resp.json().get("value", [])
+        await self._audit(user_id, "personal_ms_get_contacts", "contacts", {"limit": limit})
+        return self._ok({"count": len(contacts), "contacts": contacts})
+
+    async def _search_contacts(self, user_id: str, query: str, limit: int = 10) -> dict:
+        from app.services.ms_token_service import MSNotConnectedException
+        import httpx
+        try:
+            headers = await self._get_headers(user_id)
+        except MSNotConnectedException:
+            return self._not_connected()
+
+        limit = min(max(1, limit), 50)
+        url = f"{_GRAPH_BASE}/me/contacts"
+        params = {
+            "$search": f'"{query}"',
+            "$top": limit,
+            "$select": "id,displayName,emailAddresses,mobilePhone,jobTitle,companyName",
+        }
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+
+        if resp.status_code != 200:
+            return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
+
+        contacts = resp.json().get("value", [])
+        await self._audit(user_id, "personal_ms_search_contacts", "contacts", {"query": query})
+        return self._ok({"query": query, "count": len(contacts), "contacts": contacts})
+
+    async def _get_contact_detail(self, user_id: str, contact_id: str) -> dict:
+        from app.services.ms_token_service import MSNotConnectedException
+        import httpx
+        try:
+            headers = await self._get_headers(user_id)
+        except MSNotConnectedException:
+            return self._not_connected()
+
+        url = f"{_GRAPH_BASE}/me/contacts/{contact_id}"
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url, headers=headers)
+
+        if resp.status_code != 200:
+            return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
+
+        await self._audit(user_id, "personal_ms_get_contact_detail", "contacts", {"contact_id": contact_id})
+        return self._ok(resp.json())
+
+    async def _create_contact(
+        self, user_id: str, display_name: str,
+        email: str = None, phone: str = None,
+        company: str = None, job_title: str = None,
+    ) -> dict:
+        from app.services.ms_token_service import MSNotConnectedException
+        import httpx
+        try:
+            headers = await self._get_headers(user_id)
+        except MSNotConnectedException:
+            return self._not_connected()
+
+        payload: dict = {"displayName": display_name}
+        if email:
+            payload["emailAddresses"] = [{"address": email, "name": display_name}]
+        if phone:
+            payload["mobilePhone"] = phone
+        if company:
+            payload["companyName"] = company
+        if job_title:
+            payload["jobTitle"] = job_title
+
+        url = f"{_GRAPH_BASE}/me/contacts"
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+
+        if resp.status_code not in (200, 201):
+            logger.error(
+                f"personal_ms WRITE FAILED | tool=personal_create_contact user_id={user_id} "
+                f"status={resp.status_code} body={resp.text[:500]}"
+            )
+            return self._err(f"Graph API error {resp.status_code}: {resp.text[:200]}")
+
+        contact = resp.json()
+        await self._audit(user_id, "personal_ms_create_contact", "contacts", {"display_name": display_name})
+        return self._ok({"created": True, "contact_id": contact.get("id"), "display_name": display_name})
+
+    # ── Diagnostic handler ────────────────────────────────────────────────────
+
+    async def _check_token_scopes(self, user_id: str) -> dict:
+        """
+        Decode the stored access token (without signature verification) and return
+        the granted scopes (scp claim) + the Microsoft account UPN.
+
+        Useful for diagnosing whether write permissions are present in the token.
+        """
+        import base64
+        from app.services.ms_token_service import MSNotConnectedException
+        try:
+            token = await self._get_raw_token(user_id)
+        except MSNotConnectedException:
+            return self._not_connected()
+        except Exception as e:
+            return self._err(f"Could not retrieve token: {e}")
+
+        try:
+            # JWT = header.payload.signature — decode the payload segment
+            parts = token.split(".")
+            if len(parts) != 3:
+                return self._err("Stored token is not a valid JWT")
+
+            # Base64url decode with padding fix
+            payload_b64 = parts[1]
+            payload_b64 += "=" * (4 - len(payload_b64) % 4)
+            payload_bytes = base64.urlsafe_b64decode(payload_b64)
+            claims = json.loads(payload_bytes.decode("utf-8"))
+
+            scp_raw: str = claims.get("scp", "")
+            scopes = scp_raw.split() if scp_raw else []
+
+            ms_account = (
+                claims.get("upn")
+                or claims.get("unique_name")
+                or claims.get("preferred_username")
+                or claims.get("email")
+                or "unknown"
+            )
+
+            # Identify important missing write scopes
+            write_scopes = {"Mail.Send", "Calendars.ReadWrite", "Notes.ReadWrite", "Chat.ReadWrite"}
+            missing = sorted(write_scopes - set(scopes))
+
+            return self._ok({
+                "token_present": True,
+                "ms_account": ms_account,
+                "granted_scopes": sorted(scopes),
+                "missing_write_scopes": missing,
+                "diagnosis": (
+                    "All write scopes present — write operations should work."
+                    if not missing
+                    else f"MISSING write scopes: {', '.join(missing)}. "
+                         "Disconnect and reconnect your Microsoft account in Settings → Connected Accounts "
+                         "after ensuring these permissions are registered in your Azure AD app."
+                ),
+            })
+        except Exception as e:
+            return self._err(f"Failed to decode token: {e}")
+
+    async def _get_raw_token(self, user_id: str) -> str:
+        """Return the raw access token string for the given user."""
+        from app.services.ms_token_service import get_valid_token
+        return await get_valid_token(user_id)

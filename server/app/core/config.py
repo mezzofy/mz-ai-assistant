@@ -86,6 +86,8 @@ MS365_DELEGATED_SCOPES: List[str] = [
     "Notes.Read",
     "Notes.ReadWrite",
     "Chat.ReadWrite",
+    "Contacts.Read",
+    "Contacts.ReadWrite",
 ]
 
 # Fernet key for encrypting OAuth tokens at rest.
