@@ -1,8 +1,30 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-11
-**Session:** v1.17.0 — Connected Accounts (MS OAuth mobile UI) + APK BUILD SUCCESSFUL
-**Context:** ~20% at checkpoint
-**Reason:** v1.17.0 complete and built
+**Session:** v1.17.1 — Patch: 503 UX fix + version bump
+**Context:** ~15% at checkpoint
+**Reason:** v1.17.1 complete and built
+
+---
+
+## v1.17.1 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/debug/app-debug.apk` |
+| APK size | ~61 MB |
+| versionCode | 29 |
+| versionName | 1.17.1 |
+| Build time | 22s |
+| Branch | eric-design |
+| Commit | `fa0b851` — chore(mobile): bump version to v1.17.1 (versionCode 29) |
+
+**Changes in v1.17.1:**
+- `APP/src/screens/ConnectedAccountsScreen.tsx`: `ApiError` import + 503-specific friendly message in `handleConnect` catch block (commit b54c487)
+- `APP/android/app/build.gradle`: versionCode 29, versionName 1.17.1
+- `APP/package.json`: version 1.17.1
+- `APP/src/screens/SettingsScreen.tsx`: version label → v1.17.1
+- EC2 `.env`: MS365_CLIENT_ID + MS365_CLIENT_SECRET added (user action)
 
 ---
 
@@ -271,6 +293,7 @@
 | **1.15.0** | **26** | **Image OCR+vision analysis on upload; remove video/audio input modes** |
 | **1.16.0** | **27** | **Speech populates input (not auto-send); My Files before URL in input grid** |
 | **1.17.0** | **28** | **Connected Accounts — MS OAuth mobile UI (Settings → Connect Microsoft Account)** |
+| **1.17.1** | **29** | **Patch: 503 UX — friendly error when MS OAuth unconfigured on server** |
 
 ---
 
