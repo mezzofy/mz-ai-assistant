@@ -78,7 +78,6 @@ MS365_DELEGATED_REDIRECT_URI: str = os.getenv(
 )
 
 MS365_DELEGATED_SCOPES: List[str] = [
-    "offline_access",
     "User.Read",
     "Mail.Read",
     "Mail.ReadWrite",
