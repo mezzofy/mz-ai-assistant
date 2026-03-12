@@ -100,6 +100,9 @@ ms365:
   client_id: "${MS365_CLIENT_ID}"
   client_secret: "${MS365_CLIENT_SECRET}"
   sender_email: "${MS365_SENDER_EMAIL}"
+  shared_mailboxes:
+    - hello@mezzofy.com
+    - sales@mezzofy.com
   rate_limit_emails_per_hour: 30
   calendar_default_timezone: "Asia/Singapore"
   calendar_reminder_minutes: 15

@@ -220,7 +220,13 @@ class OutlookOps(BaseTool):
             },
             {
                 "name": "check_ms365_config",
-                "description": "Diagnose Microsoft 365 app-only credentials and shared mailbox access. Run this if Outlook tools are failing.",
+                "description": (
+                    "Test the app-only Azure AD service account (MS365_CLIENT_ID/SECRET/TENANT_ID) "
+                    "and verify access to all configured shared mailboxes (hello@mezzofy.com, "
+                    "sales@mezzofy.com). Use this when outlook_read_emails fails for shared mailboxes. "
+                    "This is NOT for personal Microsoft account issues — use personal_check_token_scopes "
+                    "for those."
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -425,19 +431,30 @@ class OutlookOps(BaseTool):
                 ),
             })
 
-        # Step 3: Test mailbox access if a mailbox was provided
-        mailbox_to_test = test_mailbox or sender_email
-        if mailbox_to_test:
+        # Step 3: Test mailbox access for all configured shared mailboxes
+        shared_mailboxes = self.config.get("ms365", {}).get("shared_mailboxes", [])
+        # If caller explicitly passed test_mailbox, use that instead
+        if test_mailbox:
+            shared_mailboxes = [test_mailbox]
+        elif not shared_mailboxes and sender_email:
+            shared_mailboxes = [sender_email]  # fallback to sender if nothing configured
+
+        mailbox_results = {}
+        for mailbox in shared_mailboxes:
             try:
-                await client.users.by_user_id(mailbox_to_test).mail_folders.get()
-                result["mailbox_access"] = f"OK — can access mailbox {mailbox_to_test}"
+                await client.users.by_user_id(mailbox).mail_folders.get()
+                mailbox_results[mailbox] = "OK"
             except Exception as e:
                 err_type = type(e).__name__
-                result["mailbox_access"] = f"FAILED [{err_type}] for {mailbox_to_test}: {e}"
-                result["recommendation"] = (
-                    "If 403: ensure Mail.Read Application permission has admin consent granted. "
-                    "If 404: the mailbox address may be wrong or not in this tenant."
-                )
+                mailbox_results[mailbox] = f"FAILED [{err_type}]: {e}"
+
+        result["mailbox_access"] = mailbox_results
+        if any("FAILED" in v for v in mailbox_results.values()):
+            result["recommendation"] = (
+                "If 403: Mail.Read Application permission requires admin consent in Azure Portal. "
+                "If 404: mailbox may not exist as a shared mailbox in this tenant — check Exchange "
+                "Admin Center. Shared mailboxes must be the primary SMTP address, not an alias."
+            )
 
         return self._ok(result)
 
