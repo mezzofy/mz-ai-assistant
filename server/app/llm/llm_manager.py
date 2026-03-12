@@ -20,7 +20,7 @@ import asyncio
 import logging
 import re
 import unicodedata
-from datetime import date
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 
 from app.llm.anthropic_client import AnthropicClient
@@ -52,6 +52,9 @@ def get() -> "LLMManager":
 # Maximum tool-calling loop iterations
 MAX_TOOL_ITERATIONS = 5
 
+# Singapore timezone (UTC+8) — used for current_time injection in system prompt
+_SGT = timezone(timedelta(hours=8))
+
 
 def _map_scope(s: str) -> str:
     """Map tool storage_scope values to DB scope values."""
@@ -77,6 +80,7 @@ Department context: {department}
 User role: {role}
 Task source: {source}
 Current date: {current_date}
+Current time: {current_time}
 Current user ID: {user_id}
 (Use this exact value for the user_id parameter in all personal_* tool calls)
 
@@ -474,6 +478,7 @@ class LLMManager:
             save_options=save_options,
             user_id=user_id,
             current_date=date.today().strftime("%B %d, %Y"),
+            current_time=datetime.now(_SGT).strftime("%I:%M %p SGT"),
         )
 
         # If a file/image was attached via Files API, tell Claude not to call extraction tools
