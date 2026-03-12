@@ -19,6 +19,7 @@ Library: SQLAlchemy async (already a core dependency)
 
 import logging
 import re
+import uuid
 from typing import Any, Optional
 
 from app.tools.base_tool import BaseTool
@@ -189,7 +190,16 @@ class DatabaseOps(BaseTool):
             rows = result.mappings().all()
             # Cap result set
             rows = list(rows)[:_MAX_ROWS]
-            return {"rows": [dict(r) for r in rows], "count": len(rows)}
+            rows_out = []
+            for row in rows:
+                row_dict = dict(row)
+                for k, v in row_dict.items():
+                    if hasattr(v, "isoformat"):
+                        row_dict[k] = v.isoformat()
+                    elif isinstance(v, uuid.UUID):
+                        row_dict[k] = str(v)
+                rows_out.append(row_dict)
+            return {"rows": rows_out, "count": len(rows_out)}
 
     # ── Handlers ──────────────────────────────────────────────────────────────
 

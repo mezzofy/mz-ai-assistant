@@ -21,6 +21,7 @@ Library: SQLAlchemy async (existing dependency), pandas (for CSV export)
 """
 
 import logging
+import uuid
 from typing import Any, Optional
 
 from app.tools.base_tool import BaseTool
@@ -475,11 +476,13 @@ class CRMOps(BaseTool):
                 result = await session.execute(text(sql), params)
                 rows = [dict(r) for r in result.mappings().all()]
 
-            # Serialize datetime fields
+            # Serialize datetime and UUID fields
             for row in rows:
                 for k, v in row.items():
                     if hasattr(v, "isoformat"):
                         row[k] = v.isoformat()
+                    elif isinstance(v, uuid.UUID):
+                        row[k] = str(v)
 
             logger.info(f"search_leads: {len(rows)} results (filters: company={company}, status={status})")
             return self._ok({"leads": rows, "count": len(rows)})
@@ -510,6 +513,8 @@ class CRMOps(BaseTool):
             for k, v in lead.items():
                 if hasattr(v, "isoformat"):
                     lead[k] = v.isoformat()
+                elif isinstance(v, uuid.UUID):
+                    lead[k] = str(v)
 
             return self._ok({"lead": lead})
         except Exception as e:
@@ -618,6 +623,8 @@ class CRMOps(BaseTool):
                 for k, v in row.items():
                     if hasattr(v, "isoformat"):
                         row[k] = v.isoformat()
+                    elif isinstance(v, uuid.UUID):
+                        row[k] = str(v)
 
             logger.info(f"get_stale_leads: {len(rows)} overdue leads")
             return self._ok({"leads": rows, "count": len(rows)})
@@ -711,6 +718,8 @@ class CRMOps(BaseTool):
                 for k, v in row.items():
                     if hasattr(v, "isoformat"):
                         row[k] = v.isoformat()
+                    elif isinstance(v, uuid.UUID):
+                        row[k] = str(v)
 
             return rows
         except Exception as e:
@@ -789,6 +798,8 @@ class CRMOps(BaseTool):
             for k, v in lead.items():
                 if hasattr(v, "isoformat"):
                     lead[k] = v.isoformat()
+                elif isinstance(v, uuid.UUID):
+                    lead[k] = str(v)
 
             await self._log_audit(
                 user_id=updated_by,
