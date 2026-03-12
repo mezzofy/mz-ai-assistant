@@ -218,6 +218,18 @@ class OutlookOps(BaseTool):
                 },
                 "handler": self._find_free_slots,
             },
+            {
+                "name": "check_ms365_config",
+                "description": "Diagnose Microsoft 365 app-only credentials and shared mailbox access. Run this if Outlook tools are failing.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "test_mailbox": {"type": "string", "description": "Optional shared mailbox to test access (e.g. hello@mezzofy.com)"},
+                    },
+                    "required": [],
+                },
+                "handler": self._check_ms365_config,
+            },
         ]
 
     # ── Email Handlers ────────────────────────────────────────────────────────
@@ -356,8 +368,78 @@ class OutlookOps(BaseTool):
 
             return self._ok({"emails": emails, "count": len(emails)})
         except Exception as e:
-            logger.error(f"outlook_read_emails failed: {e}")
-            return self._err(f"Failed to read emails: {e}")
+            err_type = type(e).__name__
+            logger.error(f"outlook_read_emails failed [{err_type}]: {e}", exc_info=True)
+            return self._err(f"Failed to read emails [{err_type}]: {e}")
+
+    async def _check_ms365_config(self, test_mailbox: Optional[str] = None) -> dict:
+        """Diagnose MS365 app-only credentials and shared mailbox access."""
+        result: dict = {"env_vars": {}, "auth": None, "mailbox_access": None}
+
+        # Step 1: Check env vars
+        tenant_id = self.config.get("ms365", {}).get("tenant_id") or os.getenv("MS365_TENANT_ID", "")
+        client_id = self.config.get("ms365", {}).get("client_id") or os.getenv("MS365_CLIENT_ID", "")
+        client_secret = self.config.get("ms365", {}).get("client_secret") or os.getenv("MS365_CLIENT_SECRET", "")
+        sender_email = self.config.get("ms365", {}).get("sender_email") or os.getenv("MS365_SENDER_EMAIL", "")
+
+        result["env_vars"] = {
+            "MS365_TENANT_ID": "set" if tenant_id else "MISSING",
+            "MS365_CLIENT_ID": "set" if client_id else "MISSING",
+            "MS365_CLIENT_SECRET": "set" if client_secret else "MISSING",
+            "MS365_SENDER_EMAIL": sender_email or "MISSING",
+        }
+
+        if not (tenant_id and client_id and client_secret):
+            return self._ok({
+                **result,
+                "auth": "FAILED — one or more credentials are missing (see env_vars above)",
+                "recommendation": "Set MS365_TENANT_ID, MS365_CLIENT_ID, MS365_CLIENT_SECRET in your .env file",
+            })
+
+        # Step 2: Test authentication with a lightweight Graph call
+        try:
+            from azure.identity.aio import ClientSecretCredential
+            from msgraph import GraphServiceClient
+
+            credential = ClientSecretCredential(
+                tenant_id=tenant_id,
+                client_id=client_id,
+                client_secret=client_secret,
+            )
+            client = GraphServiceClient(
+                credentials=credential,
+                scopes=["https://graph.microsoft.com/.default"],
+            )
+            await client.users.get()
+            result["auth"] = "OK — credentials valid, Graph API reachable"
+        except Exception as e:
+            err_type = type(e).__name__
+            logger.error(f"check_ms365_config auth test failed [{err_type}]: {e}", exc_info=True)
+            return self._ok({
+                **result,
+                "auth": f"FAILED [{err_type}]: {e}",
+                "recommendation": (
+                    "Check Azure Portal → App Registrations → API Permissions. "
+                    "Ensure Mail.Read is added as Application (not Delegated) permission "
+                    "and admin consent has been granted."
+                ),
+            })
+
+        # Step 3: Test mailbox access if a mailbox was provided
+        mailbox_to_test = test_mailbox or sender_email
+        if mailbox_to_test:
+            try:
+                await client.users.by_user_id(mailbox_to_test).mail_folders.get()
+                result["mailbox_access"] = f"OK — can access mailbox {mailbox_to_test}"
+            except Exception as e:
+                err_type = type(e).__name__
+                result["mailbox_access"] = f"FAILED [{err_type}] for {mailbox_to_test}: {e}"
+                result["recommendation"] = (
+                    "If 403: ensure Mail.Read Application permission has admin consent granted. "
+                    "If 404: the mailbox address may be wrong or not in this tenant."
+                )
+
+        return self._ok(result)
 
     async def _batch_send(
         self,

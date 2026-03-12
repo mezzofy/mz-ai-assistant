@@ -86,7 +86,7 @@ async def test_email_lead_ingestion_inserts_new_lead():
          patch("app.tools.database.crm_ops.CRMOps.check_duplicate_lead", crm_check_dup_mock), \
          patch("app.tools.database.crm_ops.CRMOps.create_lead_safe", crm_create_safe_mock), \
          patch("app.tools.communication.outlook_ops.OutlookOps._read_emails",
-               AsyncMock(return_value=[email])), \
+               AsyncMock(return_value={"success": True, "output": {"emails": [email], "count": 1}})), \
          patch("app.tasks.sales_lead_tasks._llm_extract",
                AsyncMock(return_value=_GOOD_LLM_LEAD_JSON)), \
          patch("app.tasks.sales_lead_tasks._post_teams", AsyncMock()), \
@@ -123,7 +123,7 @@ async def test_email_lead_ingestion_skips_duplicate():
          patch("app.tools.database.crm_ops.CRMOps.check_duplicate_lead", crm_check_dup_mock), \
          patch("app.tools.database.crm_ops.CRMOps.create_lead_safe", crm_create_safe_mock), \
          patch("app.tools.communication.outlook_ops.OutlookOps._read_emails",
-               AsyncMock(return_value=[email])), \
+               AsyncMock(return_value={"success": True, "output": {"emails": [email], "count": 1}})), \
          patch("app.tasks.sales_lead_tasks._llm_extract", AsyncMock()), \
          patch("app.tasks.sales_lead_tasks._post_teams", AsyncMock()), \
          patch("app.tasks.sales_lead_tasks._audit", AsyncMock()):
@@ -153,7 +153,7 @@ async def test_email_lead_ingestion_skips_internal():
          patch("app.tools.database.crm_ops.CRMOps.check_duplicate_lead", AsyncMock(return_value=False)), \
          patch("app.tools.database.crm_ops.CRMOps.create_lead_safe", crm_create_safe_mock), \
          patch("app.tools.communication.outlook_ops.OutlookOps._read_emails",
-               AsyncMock(return_value=[email])), \
+               AsyncMock(return_value={"success": True, "output": {"emails": [email], "count": 1}})), \
          patch("app.tasks.sales_lead_tasks._llm_extract", llm_mock), \
          patch("app.tasks.sales_lead_tasks._post_teams", AsyncMock()), \
          patch("app.tasks.sales_lead_tasks._audit", AsyncMock()):

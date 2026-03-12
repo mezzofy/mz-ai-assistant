@@ -90,13 +90,16 @@ security:
     - "text/csv"
     - "text/plain"
 
-# Microsoft 365 (Outlook Email + Calendar)
+# Microsoft 365 / Azure AD App Registration (for Outlook, Teams tools)
+# Create an App Registration in Azure Portal with these Application permissions
+# (NOT Delegated): Mail.Read, Mail.ReadWrite, Mail.Send, Calendar.ReadWrite
+# Then click "Grant admin consent for <tenant>" in Azure Portal.
 ms365:
   enabled: true
   tenant_id: "${MS365_TENANT_ID}"
   client_id: "${MS365_CLIENT_ID}"
   client_secret: "${MS365_CLIENT_SECRET}"
-  sender_email: "ai-assistant@mezzofy.com"
+  sender_email: "${MS365_SENDER_EMAIL}"
   rate_limit_emails_per_hour: 30
   calendar_default_timezone: "Asia/Singapore"
   calendar_reminder_minutes: 15
