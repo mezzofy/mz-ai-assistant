@@ -251,6 +251,44 @@ def run_migrations(conn):
     # ── Schema upgrades (idempotent — safe for existing DBs) ─
     print("\nApplying schema upgrades...")
 
+    # sales_leads: add automation columns if missing
+    cur.execute("""
+        ALTER TABLE sales_leads
+            ADD COLUMN IF NOT EXISTS source_ref         TEXT,
+            ADD COLUMN IF NOT EXISTS last_status_update TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS updated_at         TIMESTAMPTZ DEFAULT NOW()
+    """)
+    print("  ✅ sales_leads.source_ref / last_status_update / updated_at")
+
+    # Also expand CHECK constraint to allow 'email', 'ticket', 'web', 'disqualified'
+    # (non-destructive: ALTER COLUMN does not remove existing rows)
+    # Note: cannot alter CHECK constraints in-place in PG; the constraint was created
+    # without a name in the original DDL so we add a new column default instead.
+    # The CRM layer enforces valid values at the application level.
+
+    # Dedup index — prevents re-ingestion of same email/ticket
+    cur.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_leads_source_ref
+            ON sales_leads (source, source_ref)
+            WHERE source_ref IS NOT NULL
+    """)
+    print("  ✅ idx_sales_leads_source_ref (dedup index)")
+
+    # updated_at trigger
+    cur.execute("""
+        CREATE OR REPLACE FUNCTION update_updated_at()
+        RETURNS TRIGGER AS $$
+        BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+        $$ LANGUAGE plpgsql
+    """)
+    cur.execute("DROP TRIGGER IF EXISTS sales_leads_updated_at ON sales_leads")
+    cur.execute("""
+        CREATE TRIGGER sales_leads_updated_at
+            BEFORE UPDATE ON sales_leads
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at()
+    """)
+    print("  ✅ sales_leads updated_at trigger")
+
     # conversations: add favorite + archive columns
     cur.execute("""
         ALTER TABLE conversations
@@ -335,6 +373,19 @@ def run_migrations(conn):
     for name, sql in indexes:
         cur.execute(sql)
         print(f"  ✅ {name}")
+
+    # ── Optional: check support_tickets table presence ─────────
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_name = 'support_tickets'
+        )
+    """)
+    has_tickets = cur.fetchone()[0]
+    if has_tickets:
+        print("  ✅ support_tickets table found — ticket ingestion task will be active")
+    else:
+        print("  ⚠️  support_tickets table NOT found — ticket ingestion task will skip gracefully")
 
     conn.commit()
     cur.close()

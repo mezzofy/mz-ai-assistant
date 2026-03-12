@@ -29,11 +29,23 @@ logger = logging.getLogger("mezzofy.tools.crm")
 
 # Allowed lead status values
 _VALID_STATUSES = {
-    "new", "contacted", "qualified", "proposal", "closed_won", "closed_lost"
+    "new", "contacted", "qualified", "proposal",
+    "closed_won", "closed_lost", "disqualified",
 }
 
-# Allowed lead sources
-_VALID_SOURCES = {"linkedin", "website", "referral", "event", "manual"}
+# Allowed lead sources (expanded for automation)
+_VALID_SOURCES = {
+    "linkedin", "website", "referral", "event", "manual",
+    "email", "ticket", "web",
+}
+
+# Valid status transitions
+_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    "new":       {"contacted", "disqualified"},
+    "contacted": {"qualified", "closed_lost", "disqualified"},
+    "qualified": {"proposal", "closed_lost", "disqualified"},
+    "proposal":  {"closed_won", "closed_lost"},
+}
 
 
 class CRMOps(BaseTool):
@@ -302,6 +314,7 @@ class CRMOps(BaseTool):
         contact_phone: Optional[str] = None,
         location: Optional[str] = None,
         notes: Optional[str] = None,
+        source_ref: Optional[str] = None,
     ) -> dict:
         # Validate source
         if source not in _VALID_SOURCES:
@@ -315,10 +328,10 @@ class CRMOps(BaseTool):
             sql = """
                 INSERT INTO sales_leads
                     (company_name, contact_name, contact_email, contact_phone,
-                     industry, location, source, status, assigned_to, notes)
+                     industry, location, source, source_ref, status, assigned_to, notes)
                 VALUES
                     (:company_name, :contact_name, :contact_email, :contact_phone,
-                     :industry, :location, :source, 'new', :assigned_to, :notes)
+                     :industry, :location, :source, :source_ref, 'new', :assigned_to, :notes)
                 RETURNING id
             """
             params: dict[str, Any] = {
@@ -329,6 +342,7 @@ class CRMOps(BaseTool):
                 "industry": industry,
                 "location": location,
                 "source": source,
+                "source_ref": source_ref,
                 "assigned_to": assigned_to,
                 "notes": notes,
             }
@@ -610,3 +624,231 @@ class CRMOps(BaseTool):
         except Exception as e:
             logger.error(f"get_stale_leads failed: {e}")
             return self._err(f"Stale leads query failed: {e}")
+
+    # ── Automation helpers (called by scheduled tasks) ─────────────────────────
+
+    async def check_duplicate_lead(self, source: str, source_ref: str) -> bool:
+        """Return True if a lead with (source, source_ref) already exists."""
+        try:
+            from sqlalchemy import text
+
+            sql = "SELECT id FROM sales_leads WHERE source = :source AND source_ref = :source_ref LIMIT 1"
+            async with await self._get_session() as session:
+                result = await session.execute(text(sql), {"source": source, "source_ref": source_ref})
+                return result.scalar_one_or_none() is not None
+        except Exception as e:
+            logger.error(f"check_duplicate_lead failed: {e}")
+            return False
+
+    async def create_lead_safe(self, lead_data: dict) -> dict:
+        """
+        Insert a lead only if (source, source_ref) is not already present.
+
+        Returns:
+            {"success": True, "skipped": True, "reason": "duplicate"} — if dupe
+            {"success": True, "skipped": False, "lead_id": ...}        — if inserted
+        """
+        source = lead_data.get("source", "")
+        source_ref = lead_data.get("source_ref")
+
+        if source_ref and await self.check_duplicate_lead(source, source_ref):
+            logger.debug(f"create_lead_safe: duplicate skipped (source={source}, ref={source_ref})")
+            return self._ok({"skipped": True, "reason": "duplicate"})
+
+        result = await self._create_lead(
+            company_name=lead_data.get("company_name", "Unknown"),
+            contact_email=lead_data.get("contact_email", ""),
+            contact_name=lead_data.get("contact_name", ""),
+            industry=lead_data.get("industry", ""),
+            source=source,
+            assigned_to=lead_data.get("assigned_to", "system"),
+            contact_phone=lead_data.get("contact_phone"),
+            location=lead_data.get("location"),
+            notes=lead_data.get("notes"),
+            source_ref=source_ref,
+        )
+        if result.get("success"):
+            return self._ok({"skipped": False, "lead_id": result["output"]["lead_id"]})
+        return result
+
+    async def get_new_leads_summary(
+        self,
+        since: Any,
+        assigned_to: Optional[str] = None,
+    ) -> list[dict]:
+        """
+        Return leads created or status-updated since `since`.
+        Optionally filter by assigned_to (PIC UUID).
+        """
+        try:
+            from sqlalchemy import text
+
+            conditions = [
+                "(sl.created_at >= :since OR sl.last_status_update >= :since)"
+            ]
+            params: dict[str, Any] = {"since": since}
+            if assigned_to:
+                conditions.append("sl.assigned_to = :assigned_to")
+                params["assigned_to"] = assigned_to
+
+            where = "WHERE " + " AND ".join(conditions)
+            sql = f"""
+                SELECT sl.id, sl.company_name, sl.contact_name, sl.contact_email,
+                       sl.industry, sl.source, sl.status, sl.assigned_to,
+                       sl.notes, sl.created_at, sl.last_status_update,
+                       sl.follow_up_date, sl.last_contacted, sl.source_ref,
+                       u.name AS pic_name, u.email AS pic_email
+                FROM sales_leads sl
+                LEFT JOIN users u ON sl.assigned_to = u.id
+                {where}
+                ORDER BY sl.created_at DESC
+            """
+            async with await self._get_session() as session:
+                result = await session.execute(text(sql), params)
+                rows = [dict(r) for r in result.mappings().all()]
+
+            for row in rows:
+                for k, v in row.items():
+                    if hasattr(v, "isoformat"):
+                        row[k] = v.isoformat()
+
+            return rows
+        except Exception as e:
+            logger.error(f"get_new_leads_summary failed: {e}")
+            return []
+
+    async def update_lead_status(
+        self,
+        lead_id: str,
+        new_status: str,
+        remarks: Optional[str],
+        updated_by: str,
+    ) -> dict:
+        """
+        Transition lead status with allowlist validation.
+        Appends timestamped remark to notes; sets last_status_update = NOW().
+        """
+        try:
+            from datetime import datetime, timezone
+            from sqlalchemy import text
+
+            # Fetch current status
+            async with await self._get_session() as session:
+                row = await session.execute(
+                    text("SELECT status, notes FROM sales_leads WHERE id = :id"),
+                    {"id": lead_id},
+                )
+                current = row.mappings().one_or_none()
+
+            if current is None:
+                return self._err(f"Lead '{lead_id}' not found")
+
+            current_status = current["status"]
+            allowed = _STATUS_TRANSITIONS.get(current_status, set())
+            if new_status not in allowed:
+                return self._err(
+                    f"Invalid status transition: {current_status} → {new_status}. "
+                    f"Allowed: {', '.join(sorted(allowed)) or 'none'}"
+                )
+
+            # Build updated notes
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            note_line = f"[{ts}] Status → {new_status}"
+            if remarks:
+                note_line += f": {remarks}"
+            old_notes = current["notes"] or ""
+            new_notes = f"{old_notes}\n{note_line}".strip()
+
+            set_clauses = [
+                "status = :new_status",
+                "notes = :notes",
+                "last_status_update = NOW()",
+            ]
+            params: dict[str, Any] = {
+                "new_status": new_status,
+                "notes": new_notes,
+                "id": lead_id,
+            }
+            if new_status in ("contacted", "qualified", "proposal"):
+                set_clauses.append("last_contacted = NOW()")
+
+            sql = (
+                f"UPDATE sales_leads SET {', '.join(set_clauses)} "
+                f"WHERE id = :id RETURNING id, status, notes, last_status_update"
+            )
+
+            async with await self._get_session() as session:
+                result = await session.execute(text(sql), params)
+                await session.commit()
+                updated_row = result.mappings().one_or_none()
+
+            if not updated_row:
+                return self._err(f"Lead '{lead_id}' update failed")
+
+            lead = dict(updated_row)
+            for k, v in lead.items():
+                if hasattr(v, "isoformat"):
+                    lead[k] = v.isoformat()
+
+            await self._log_audit(
+                user_id=updated_by,
+                action="lead_status_updated",
+                resource="crm",
+                details={
+                    "lead_id": lead_id,
+                    "old_status": current_status,
+                    "new_status": new_status,
+                    "remarks": remarks,
+                },
+            )
+            logger.info(f"update_lead_status: {lead_id} → {new_status}")
+            return self._ok({"lead": lead, "previous_status": current_status})
+
+        except Exception as e:
+            logger.error(f"update_lead_status failed: {e}")
+            return self._err(f"Status update failed: {e}")
+
+    async def bulk_assign_leads(
+        self,
+        lead_ids: list[str],
+        assign_to: str,
+        assigned_by: str,
+    ) -> dict:
+        """
+        Bulk-update assigned_to on a list of leads.
+        Logs each assignment to audit_log.
+        """
+        try:
+            from sqlalchemy import text
+
+            updated = 0
+            failed = []
+            for lead_id in lead_ids:
+                try:
+                    async with await self._get_session() as session:
+                        result = await session.execute(
+                            text(
+                                "UPDATE sales_leads SET assigned_to = :assign_to "
+                                "WHERE id = :id RETURNING id"
+                            ),
+                            {"assign_to": assign_to, "id": lead_id},
+                        )
+                        await session.commit()
+                        if result.scalar_one_or_none():
+                            updated += 1
+                            await self._log_audit(
+                                user_id=assigned_by,
+                                action="lead_assigned",
+                                resource="crm",
+                                details={"lead_id": lead_id, "assigned_to": assign_to},
+                            )
+                except Exception as e:
+                    logger.error(f"bulk_assign_leads: failed for {lead_id}: {e}")
+                    failed.append(lead_id)
+
+            logger.info(f"bulk_assign_leads: {updated} updated, {len(failed)} failed")
+            return self._ok({"updated": updated, "failed": failed, "assign_to": assign_to})
+
+        except Exception as e:
+            logger.error(f"bulk_assign_leads outer failed: {e}")
+            return self._err(f"Bulk assign failed: {e}")

@@ -102,17 +102,19 @@ class OutlookOps(BaseTool):
             },
             {
                 "name": "outlook_read_emails",
-                "description": "Read emails from a user's Outlook inbox. Can filter by sender, subject, date range, or folder. Returns up to 20 most recent matching emails.",
+                "description": "Read emails from a user's Outlook inbox. Can filter by sender, subject, date range, or folder. Returns up to 100 most recent matching emails.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "user_email": {"type": "string", "description": "The mailbox to read from"},
+                        "mailbox": {"type": "string", "description": "The mailbox to read from"},
                         "folder": {"type": "string", "description": "Folder name (default: Inbox)", "default": "Inbox"},
                         "from_sender": {"type": "string", "description": "Filter by sender email (optional)"},
                         "subject_contains": {"type": "string", "description": "Filter by subject keyword (optional)"},
-                        "limit": {"type": "integer", "description": "Max emails to return (default: 10, max: 20)", "default": 10},
+                        "limit": {"type": "integer", "description": "Max emails to return (default: 10, max: 100)", "default": 10},
+                        "received_after": {"type": "string", "description": "Filter to emails received after this ISO datetime (optional)"},
+                        "received_before": {"type": "string", "description": "Filter to emails received before this ISO datetime (optional)"},
                     },
-                    "required": ["user_email"],
+                    "required": ["mailbox"],
                 },
                 "handler": self._read_emails,
             },
@@ -290,15 +292,17 @@ class OutlookOps(BaseTool):
 
     async def _read_emails(
         self,
-        user_email: str,
+        mailbox: str,
         folder: str = "Inbox",
         from_sender: Optional[str] = None,
         subject_contains: Optional[str] = None,
         limit: int = 10,
+        received_after: Optional[str] = None,
+        received_before: Optional[str] = None,
     ) -> dict:
         try:
             client = _get_graph_client(self.config)
-            limit = min(limit, 20)
+            limit = min(limit, 100)
 
             # Build OData filter
             filters = []
@@ -306,6 +310,10 @@ class OutlookOps(BaseTool):
                 filters.append(f"from/emailAddress/address eq '{from_sender}'")
             if subject_contains:
                 filters.append(f"contains(subject, '{subject_contains}')")
+            if received_after:
+                filters.append(f"receivedDateTime ge {received_after}")
+            if received_before:
+                filters.append(f"receivedDateTime le {received_before}")
             filter_str = " and ".join(filters) if filters else None
 
             from msgraph.generated.users.item.mail_folders.item.messages.messages_request_builder import MessagesRequestBuilderGetQueryParameters
@@ -313,14 +321,14 @@ class OutlookOps(BaseTool):
 
             query_params = MessagesRequestBuilderGetQueryParameters(
                 top=limit,
-                select=["id", "subject", "from", "receivedDateTime", "bodyPreview", "isRead"],
+                select=["id", "subject", "from", "receivedDateTime", "body", "bodyPreview", "isRead"],
                 filter=filter_str,
                 order_by=["receivedDateTime DESC"],
             )
             config = RequestConfiguration(query_parameters=query_params)
 
             result = await (
-                client.users.by_user_id(user_email)
+                client.users.by_user_id(mailbox)
                 .mail_folders.by_mail_folder_id(folder)
                 .messages
                 .get(request_configuration=config)
@@ -329,13 +337,21 @@ class OutlookOps(BaseTool):
             emails = []
             if result and result.value:
                 for msg in result.value:
+                    from_email = msg.from_.email_address.address if msg.from_ and msg.from_.email_address else ""
+                    from_name = msg.from_.email_address.name if msg.from_ and msg.from_.email_address else ""
+                    body_content = msg.body.content if msg.body else (msg.body_preview or "")
                     emails.append({
                         "id": msg.id,
-                        "subject": msg.subject,
-                        "from": msg.from_.email_address.address if msg.from_ else None,
+                        "subject": msg.subject or "",
+                        "from_email": from_email,
+                        "from_name": from_name,
+                        "body": body_content,
+                        "body_text": body_content,
                         "received": msg.received_date_time.isoformat() if msg.received_date_time else None,
-                        "preview": msg.body_preview,
                         "is_read": msg.is_read,
+                        # Legacy fields for backward compatibility
+                        "from": from_email or None,
+                        "preview": msg.body_preview,
                     })
 
             return self._ok({"emails": emails, "count": len(emails)})

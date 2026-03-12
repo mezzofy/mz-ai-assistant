@@ -197,6 +197,48 @@ tools:
       - "ms"
     vision_provider: "anthropic"
 
+# Sales Lead Automation
+sales:
+  lead_ingestion:
+    email_mailboxes:
+      - "hello@mezzofy.com"
+      - "sales@mezzofy.com"
+    internal_domain: "mezzofy.com"
+    spam_subject_patterns:
+      - "(?i)out of office"
+      - "(?i)auto.?reply"
+      - "(?i)delivery (failed|failure|status)"
+      - "(?i)unsubscribe"
+    ticket_lead_types:
+      - "contact_form"
+      - "new_lead"
+      - "sales_inquiry"
+
+  lead_research:
+    enabled: true
+    targets:
+      - query: "loyalty program F&B Singapore"
+        source: "linkedin"
+        industry: "F&B"
+        location: "Singapore"
+        max_results: 15
+      - query: "retail loyalty program Hong Kong"
+        source: "linkedin"
+        industry: "Retail"
+        location: "Hong Kong"
+        max_results: 15
+      - query: "restaurant group loyalty Asia Pacific"
+        source: "web"
+        industry: "F&B"
+        location: "Asia"
+        max_results: 10
+    min_quality_score: 3        # LLM quality score threshold (1-5)
+
+  digest:
+    teams_channel: "sales"
+    send_pic_emails: true
+    send_push_notifications: true
+
 # Agents
 agents:
   enabled: true

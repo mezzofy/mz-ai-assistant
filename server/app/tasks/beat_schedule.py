@@ -141,6 +141,36 @@ STATIC_BEAT_SCHEDULE = {
             },
         }],
     },
+
+    # ── Sales Lead Automation ─────────────────────────────────────────────────
+
+    # Email lead ingestion — daily 09:00 HKT (01:00 UTC)
+    "sales-email-lead-ingestion": {
+        "task": "sales.ingest_leads_from_email",
+        "schedule": crontab(hour=1, minute=0),          # 09:00 HKT daily
+        "options": {"queue": "sales"},
+    },
+
+    # Ticket lead ingestion — daily 09:10 HKT (01:10 UTC, after email task)
+    "sales-ticket-lead-ingestion": {
+        "task": "sales.ingest_leads_from_tickets",
+        "schedule": crontab(hour=1, minute=10),         # 09:10 HKT daily
+        "options": {"queue": "sales"},
+    },
+
+    # Weekly lead research — Monday 09:00 HKT (01:00 UTC)
+    "sales-weekly-lead-research": {
+        "task": "sales.research_new_leads",
+        "schedule": crontab(hour=1, minute=0, day_of_week=1),  # Monday 09:00 HKT
+        "options": {"queue": "sales"},
+    },
+
+    # Daily CRM digest — daily 09:30 HKT (01:30 UTC, after ingestion completes)
+    "sales-daily-crm-digest": {
+        "task": "sales.daily_crm_digest",
+        "schedule": crontab(hour=1, minute=30),         # 09:30 HKT daily
+        "options": {"queue": "sales"},
+    },
 }
 
 

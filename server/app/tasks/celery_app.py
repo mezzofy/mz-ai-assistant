@@ -25,6 +25,7 @@ celery_app = Celery(
     include=[
         "app.tasks.tasks",
         "app.tasks.webhook_tasks",
+        "app.tasks.sales_lead_tasks",
     ],
 )
 
@@ -67,8 +68,12 @@ celery_app.conf.update(
 #   celery -A app.tasks.celery_app worker -Q slow --concurrency=1 -n slow@%h
 # Then: sudo systemctl daemon-reload && sudo systemctl restart mezzofy-celery
 celery_app.conf.task_routes = {
-    "app.tasks.tasks.process_agent_task": {"queue": "default"},
-    "app.tasks.tasks.health_check":       {"queue": "default"},
+    "app.tasks.tasks.process_agent_task":          {"queue": "default"},
+    "app.tasks.tasks.health_check":                {"queue": "default"},
+    "sales.ingest_leads_from_email":               {"queue": "sales"},
+    "sales.ingest_leads_from_tickets":             {"queue": "sales"},
+    "sales.research_new_leads":                    {"queue": "sales"},
+    "sales.daily_crm_digest":                      {"queue": "sales"},
 }
 
 
