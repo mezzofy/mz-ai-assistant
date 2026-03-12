@@ -1,8 +1,26 @@
 # Context Checkpoint: Mobile Agent
-**Date:** 2026-03-12
-**Session:** v1.18.0 — Fix: SettingsScreen version label (was stuck at v1.17.1)
-**Context:** ~10% at checkpoint
-**Reason:** v1.18.0 APK complete and verified
+**Date:** 2026-03-13
+**Session:** v1.19.0 — Fix: taskBarText vertical alignment (removed flex:1 from Text)
+**Context:** ~15% at checkpoint
+**Reason:** v1.19.0 release APK complete and verified
+
+---
+
+## v1.19.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 31 |
+| versionName | 1.19.0 |
+| Build time | 2m 13s |
+| Branch | eric-design |
+| Commits | `70c3b22` — Fixes (ChatScreen.tsx taskBarText), `61a342a` — version bump v1.19.0 |
+
+**Changes in v1.19.0:**
+- `APP/src/screens/ChatScreen.tsx`: removed `flex: 1` from `taskBarText` style — task banner text now vertically centers correctly in the orange bar
 
 ---
 
@@ -318,6 +336,7 @@ Three places must always be updated together: `build.gradle`, `package.json`, `S
 | **1.17.0** | **28** | **Connected Accounts — MS OAuth mobile UI (Settings → Connect Microsoft Account)** |
 | **1.17.1** | **29** | **Patch: 503 UX — friendly error when MS OAuth unconfigured on server** |
 | **1.18.0** | **30** | **MS Contacts backend (FEAT-013); fix: SettingsScreen version label sync** |
+| **1.19.0** | **31** | **Fix: taskBarText vertical alignment — removed flex:1 from banner Text** |
 
 ---
 
