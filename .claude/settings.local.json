@@ -45,7 +45,9 @@
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(npm run:*)",
       "Bash(scp:*)",
-      "Bash(aapt dump:*)"
+      "Bash(aapt dump:*)",
+      "WebFetch(domain:status.anthropic.com)",
+      "WebFetch(domain:status.claude.com)"
     ]
   }
 }
