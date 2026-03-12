@@ -4,7 +4,7 @@
 
 **Priority:** P1 — Chat is completely broken for all users
 **Raised by:** Lead Agent (investigation)
-**Status:** OPEN — awaiting user action
+**Status:** OPEN — awaiting user action (key replacement or limit increase needed)
 
 ### Root Cause
 
