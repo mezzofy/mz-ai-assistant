@@ -38,7 +38,7 @@ Option C — Wait until 2026-04-01 00:00 UTC (limit resets automatically)
 
 **Priority:** P3 — Non-fatal logging failure (secondary bug)
 **Raised by:** Lead Agent (investigation)
-**Status:** OPEN
+**Status:** ✅ RESOLVED — commit `2f777cd`
 
 ### Root Cause
 
