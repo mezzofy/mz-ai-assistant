@@ -20,6 +20,7 @@ import asyncio
 import logging
 import re
 import unicodedata
+from datetime import date
 from typing import Optional
 
 from app.llm.anthropic_client import AnthropicClient
@@ -75,6 +76,7 @@ You have access to tools for:
 Department context: {department}
 User role: {role}
 Task source: {source}
+Current date: {current_date}
 Current user ID: {user_id}
 (Use this exact value for the user_id parameter in all personal_* tool calls)
 
@@ -471,6 +473,7 @@ class LLMManager:
             source=source,
             save_options=save_options,
             user_id=user_id,
+            current_date=date.today().strftime("%B %d, %Y"),
         )
 
         # If a file/image was attached via Files API, tell Claude not to call extraction tools
