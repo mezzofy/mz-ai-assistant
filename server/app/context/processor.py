@@ -133,7 +133,7 @@ async def process_result(
                     "result = CAST(:result AS jsonb), current_step = NULL "
                     "WHERE id = :id"
                 ),
-                {"result": _result_payload, "id": agent_task_id},
+                {"result": _result_payload, "id": str(agent_task_id) if agent_task_id is not None else None},
             )
             task_id = agent_task_id
         else:
@@ -150,7 +150,7 @@ async def process_result(
                     "id": str(raw_id),
                     "task_ref": task_ref,
                     "uid": user_id,
-                    "sid": session_id,
+                    "sid": str(session_id) if session_id is not None else None,
                     "dept": department,
                     "title": user_message[:80],
                 },
