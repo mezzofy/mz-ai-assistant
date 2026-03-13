@@ -12,7 +12,7 @@ from typing import Optional
 logger = logging.getLogger("mezzofy.skills.linkedin_prospecting")
 
 
-class LinkedInProspectingSkill:
+class LinkedinProspectingSkill:
     """
     High-level LinkedIn prospecting skill for the Sales Agent.
 
