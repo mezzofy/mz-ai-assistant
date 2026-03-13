@@ -21,16 +21,46 @@ API Contract Verification (from Phase 9 plan):
 """
 
 import io
+import json
 import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import redis.asyncio as aioredis
 
 from tests.conftest import (
     USERS,
     db_override,
 )
+
+
+async def _login(client, email: str, password: str) -> dict:
+    """
+    Complete the 2-step OTP login flow used by all E2E tests.
+
+    Step 1: POST /auth/login  → validates credentials, stores OTP in Redis, returns otp_token.
+    Step 2: Read OTP code directly from Redis test DB (db=15) — bypasses email delivery.
+    Step 3: POST /auth/verify-otp → returns full LoginResponse (access_token, refresh_token, user_info).
+    """
+    # Step 1: credentials check → otp_token
+    step1 = await client.post("/auth/login", json={"email": email, "password": password})
+    assert step1.status_code == 200, f"login step1 failed: {step1.text}"
+    otp_token = step1.json()["otp_token"]
+
+    # Step 2: read OTP code from Redis test DB (REDIS_URL=redis://localhost:6379/15)
+    async with aioredis.from_url("redis://localhost:6379/15", decode_responses=True) as r:
+        raw = await r.get(f"login_otp:{otp_token}")
+    assert raw is not None, f"OTP not found in Redis for token {otp_token}"
+    code = json.loads(raw)["code"]
+
+    # Step 3: verify OTP → JWT tokens
+    step3 = await client.post(
+        "/auth/verify-otp",
+        json={"otp_token": otp_token, "code": code},
+    )
+    assert step3.status_code == 200, f"verify-otp failed: {step3.text}"
+    return step3.json()
 
 pytestmark = pytest.mark.unit
 
@@ -42,8 +72,8 @@ class TestMobileAuthFlow:
     """
     Full auth lifecycle — matches authStore.ts + LoginScreen.tsx behavior.
 
-    Flow: POST /auth/login → extract tokens → use access_token for protected
-    endpoints → POST /auth/refresh → POST /auth/logout.
+    Flow: POST /auth/login → OTP → POST /auth/verify-otp → extract tokens →
+    use access_token for protected endpoints → POST /auth/refresh → POST /auth/logout.
     """
 
     async def test_login_and_get_me(
@@ -59,16 +89,11 @@ class TestMobileAuthFlow:
         Step 2: GET /auth/me with access_token → full user fields
         Verifies: user_info.id (not user_id), all required user fields present.
         """
-        # Step 1: login
-        login_resp = await client.post(
-            "/auth/login",
-            json={"email": "sales@test.com", "password": "password123"},
-        )
-        assert login_resp.status_code == 200
-        tokens = login_resp.json()
+        # Step 1: login (2-step OTP flow)
+        tokens = await _login(client, "sales@test.com", "password123")
         access_token = tokens["access_token"]
 
-        # API contract: login response shape (matches LoginResponse in mobile files.ts)
+        # API contract: verify-otp response shape (matches LoginResponse in mobile files.ts)
         assert "access_token" in tokens
         assert "refresh_token" in tokens
         assert "token_type" in tokens
@@ -112,13 +137,9 @@ class TestMobileAuthFlow:
         Step 3: GET /auth/me with new access_token → 200 (token is valid)
         Verifies: refresh flow works; new token authenticates successfully.
         """
-        # Step 1: login
-        login_resp = await client.post(
-            "/auth/login",
-            json={"email": "sales@test.com", "password": "password123"},
-        )
-        assert login_resp.status_code == 200
-        refresh_token = login_resp.json()["refresh_token"]
+        # Step 1: login (2-step OTP flow)
+        tokens = await _login(client, "sales@test.com", "password123")
+        refresh_token = tokens["refresh_token"]
 
         # Step 2: refresh → new access_token
         refresh_resp = await client.post(
@@ -152,15 +173,10 @@ class TestMobileAuthFlow:
         Step 2: POST /auth/logout with Bearer token + refresh_token body → 200/204
         Verifies: logout endpoint accepts Bearer header and refresh_token body.
         """
-        # Step 1: login
-        login_resp = await client.post(
-            "/auth/login",
-            json={"email": "sales@test.com", "password": "password123"},
-        )
-        assert login_resp.status_code == 200
-        data = login_resp.json()
-        access_token = data["access_token"]
-        refresh_token = data["refresh_token"]
+        # Step 1: login (2-step OTP flow)
+        tokens = await _login(client, "sales@test.com", "password123")
+        access_token = tokens["access_token"]
+        refresh_token = tokens["refresh_token"]
 
         # Step 2: logout — requires Bearer (auth) + refresh_token body (to blacklist)
         logout_resp = await client.post(
@@ -213,14 +229,9 @@ class TestMobileChatFlow:
         Step 4: GET /chat/history/{session_id} → messages list
         Verifies: all contract fields present in each response.
         """
-        # Step 1: login to get real JWT (not shortcut via auth_headers helper)
-        login_resp = await client.post(
-            "/auth/login",
-            json={"email": "sales@test.com", "password": "password123"},
-        )
-        assert login_resp.status_code == 200
-        access_token = login_resp.json()["access_token"]
-        bearer = {"Authorization": f"Bearer {access_token}"}
+        # Step 1: login to get real JWT (2-step OTP flow)
+        tokens = await _login(client, "sales@test.com", "password123")
+        bearer = {"Authorization": f"Bearer {tokens['access_token']}"}
 
         # Step 2: POST /chat/send → verify response shape
         send_resp = await client.post(
@@ -231,7 +242,7 @@ class TestMobileChatFlow:
         assert send_resp.status_code == 200
         send_data = send_resp.json()
         assert "session_id" in send_data          # Contract: session_id field
-        assert "message" in send_data             # AI reply text
+        assert "response" in send_data            # AI reply text (key is "response")
         assert "artifacts" in send_data           # Contract: artifacts list
         assert isinstance(send_data["artifacts"], list)
         session_id = send_data["session_id"]
@@ -274,13 +285,9 @@ class TestMobileChatFlow:
         Verifies: authenticated URL send is accepted (external URLs not SSRF-blocked).
         Requires full chat pipeline mocks — handle_url succeeds, then routes through agent.
         """
-        # Step 1: login
-        login_resp = await client.post(
-            "/auth/login",
-            json={"email": "sales@test.com", "password": "password123"},
-        )
-        access_token = login_resp.json()["access_token"]
-        bearer = {"Authorization": f"Bearer {access_token}"}
+        # Step 1: login (2-step OTP flow)
+        tokens = await _login(client, "sales@test.com", "password123")
+        bearer = {"Authorization": f"Bearer {tokens['access_token']}"}
 
         # Step 2: send-url — mock process_input (which calls handle_url internally)
         # to return a properly enriched task dict, avoiding real HTTP + SSRF checks.
@@ -336,20 +343,13 @@ class TestMobileFilesFlow:
         Step 2: GET /files/ → {artifacts: [], count: 0} for user with no uploads
         Verifies: empty-state response shape (matches FilesResponse in files.ts).
         """
-        # Step 1: login
-        login_resp = await client.post(
-            "/auth/login",
-            json={"email": "sales@test.com", "password": "password123"},
-        )
-        access_token = login_resp.json()["access_token"]
-        bearer = {"Authorization": f"Bearer {access_token}"}
+        # Step 1: login (2-step OTP flow)
+        tokens = await _login(client, "sales@test.com", "password123")
+        bearer = {"Authorization": f"Bearer {tokens['access_token']}"}
 
         # Step 2: list files (no uploads yet)
-        with patch(
-            "app.api.files.list_user_artifacts",
-            new_callable=AsyncMock,
-            return_value=[],
-        ):
+        with patch("app.api.files.sync_user_artifacts", new_callable=AsyncMock), \
+             patch("app.api.files.list_artifacts", new_callable=AsyncMock, return_value=[]):
             files_resp = await client.get("/files/", headers=bearer)
 
         assert files_resp.status_code == 200
@@ -372,13 +372,9 @@ class TestMobileFilesFlow:
         Step 3: GET /files/ → artifact appears with required fields
         Verifies: upload response shape + artifact fields (matches ArtifactItem in files.ts).
         """
-        # Step 1: login
-        login_resp = await client.post(
-            "/auth/login",
-            json={"email": "sales@test.com", "password": "password123"},
-        )
-        access_token = login_resp.json()["access_token"]
-        bearer = {"Authorization": f"Bearer {access_token}"}
+        # Step 1: login (2-step OTP flow)
+        tokens = await _login(client, "sales@test.com", "password123")
+        bearer = {"Authorization": f"Bearer {tokens['access_token']}"}
 
         artifact_id = str(uuid.uuid4())
         fake_artifact = {
@@ -416,11 +412,8 @@ class TestMobileFilesFlow:
         assert "filename" in upload_data
 
         # Step 3: list files → artifact now appears
-        with patch(
-            "app.api.files.list_user_artifacts",
-            new_callable=AsyncMock,
-            return_value=[fake_artifact],
-        ):
+        with patch("app.api.files.sync_user_artifacts", new_callable=AsyncMock), \
+             patch("app.api.files.list_artifacts", new_callable=AsyncMock, return_value=[fake_artifact]):
             list_resp = await client.get("/files/", headers=bearer)
 
         assert list_resp.status_code == 200
@@ -449,13 +442,9 @@ class TestMobileFilesFlow:
         Step 4: GET /files/ → artifact no longer in list (count: 0)
         Verifies: delete response shape + artifact actually removed.
         """
-        # Step 1: login
-        login_resp = await client.post(
-            "/auth/login",
-            json={"email": "sales@test.com", "password": "password123"},
-        )
-        access_token = login_resp.json()["access_token"]
-        bearer = {"Authorization": f"Bearer {access_token}"}
+        # Step 1: login (2-step OTP flow)
+        tokens = await _login(client, "sales@test.com", "password123")
+        bearer = {"Authorization": f"Bearer {tokens['access_token']}"}
 
         artifact_id = str(uuid.uuid4())
         fake_artifact = {
@@ -507,11 +496,8 @@ class TestMobileFilesFlow:
         assert delete_data["deleted"] is True     # Contract: deleted: true
 
         # Step 4: GET /files/ → artifact gone
-        with patch(
-            "app.api.files.list_user_artifacts",
-            new_callable=AsyncMock,
-            return_value=[],
-        ):
+        with patch("app.api.files.sync_user_artifacts", new_callable=AsyncMock), \
+             patch("app.api.files.list_artifacts", new_callable=AsyncMock, return_value=[]):
             list_resp = await client.get("/files/", headers=bearer)
 
         assert list_resp.status_code == 200

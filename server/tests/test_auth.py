@@ -30,7 +30,7 @@ pytestmark = pytest.mark.unit
 
 class TestLogin:
     async def test_login_valid_credentials(
-        self, client, mock_db_get_user, mock_get_db, mock_rate_limiter
+        self, client, mock_db_get_user, mock_get_db, mock_rate_limiter, mock_otp_store, mock_email_sender
     ):
         response = await client.post(
             "/auth/login",
@@ -38,13 +38,9 @@ class TestLogin:
         )
         assert response.status_code == 200
         data = response.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        assert data["token_type"] == "bearer"
-        assert "user_info" in data
-        assert data["user_info"]["email"] == "sales@test.com"
-        assert data["user_info"]["role"] == "sales_rep"
-        assert "email_send" in data["user_info"]["permissions"]
+        assert data["status"] == "otp_required"
+        assert "otp_token" in data
+        assert "message" in data
 
     async def test_login_wrong_password(
         self, client, mock_db_get_user, mock_get_db, mock_rate_limiter
@@ -95,36 +91,32 @@ class TestLogin:
         assert response.status_code == 422
 
     async def test_login_returns_permissions_in_user_info(
-        self, client, mock_db_get_user, mock_get_db, mock_rate_limiter
+        self, client, mock_db_get_user, mock_get_db, mock_rate_limiter, mock_otp_store, mock_email_sender
     ):
+        # Login step 1 returns otp_required; permissions are returned after OTP verification
         response = await client.post(
             "/auth/login",
             json={"email": "finance@test.com", "password": "password123"},
         )
         assert response.status_code == 200
-        permissions = response.json()["user_info"]["permissions"]
-        assert "finance_read" in permissions
-        assert "finance_write" in permissions
-        assert "email_send" in permissions
-        assert "scheduler_manage" in permissions
+        data = response.json()
+        assert data["status"] == "otp_required"
+        assert "otp_token" in data
 
     async def test_login_access_token_is_valid_jwt(
-        self, client, mock_db_get_user, mock_get_db, mock_rate_limiter
+        self, client, mock_db_get_user, mock_get_db, mock_rate_limiter, mock_otp_store, mock_email_sender
     ):
+        # Login step 1 issues an otp_token, not a JWT — JWT is issued at /auth/verify-otp
         response = await client.post(
             "/auth/login",
             json={"email": "sales@test.com", "password": "password123"},
         )
         assert response.status_code == 200
-        access_token = response.json()["access_token"]
-        payload = jwt.decode(
-            access_token,
-            "test-secret-do-not-use-in-production",
-            algorithms=["HS256"],
-        )
-        assert payload["token_type"] == "access"
-        assert payload["email"] == "sales@test.com"
-        assert payload["role"] == "sales_rep"
+        data = response.json()
+        assert data["status"] == "otp_required"
+        assert "otp_token" in data
+        # otp_token is a UUID string, not a JWT
+        assert "." not in data["otp_token"]
 
 
 # ── Protected endpoint without token ─────────────────────────────────────────
