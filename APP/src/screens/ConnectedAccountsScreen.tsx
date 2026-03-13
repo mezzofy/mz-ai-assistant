@@ -11,6 +11,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../hooks/useTheme';
 import {useMsStore} from '../stores/msStore';
+import {useLinkedInStore} from '../stores/linkedinStore';
 import {getMsAuthUrlApi, postMsAuthCallbackApi} from '../api/msOAuth';
 import {ApiError} from '../api/api';
 
@@ -41,12 +42,20 @@ export const ConnectedAccountsScreen: React.FC<{navigation: any}> = ({navigation
   const colors = useTheme();
   const {connected, msEmail, scopes, loading, error, loadStatus, disconnect, setConnected, clearError} =
     useMsStore();
+  const {
+    configured: liConfigured,
+    sessionPreview: liSessionPreview,
+    rateLimit: liRateLimit,
+    sessionUses: liSessionUses,
+    loadStatus: loadLinkedInStatus,
+  } = useLinkedInStore();
   const [oauthLoading, setOauthLoading] = useState(false);
   const [savedState, setSavedState] = useState<string | null>(null);
 
   // Load status on mount
   useEffect(() => {
     loadStatus();
+    loadLinkedInStatus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -209,6 +218,44 @@ export const ConnectedAccountsScreen: React.FC<{navigation: any}> = ({navigation
           ) : null}
         </View>
 
+        {/* LinkedIn Session Card */}
+        <View style={[styles.card, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.msIcon, {backgroundColor: '#0A66C2' + '18'}]}>
+              <Icon name="logo-linkedin" size={24} color="#0A66C2" />
+            </View>
+            <View style={styles.cardMeta}>
+              <Text style={[styles.cardTitle, {color: colors.text}]}>LinkedIn Session</Text>
+              <Text style={[styles.cardSubtitle, {color: liConfigured ? colors.textMuted : colors.textDim}]}>
+                {liConfigured ? 'Session active' : 'Not configured'}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.statusDot,
+                {backgroundColor: liConfigured ? colors.success : colors.textDim},
+              ]}
+            />
+          </View>
+
+          {liConfigured && (
+            <View style={styles.scopeRow}>
+              <View style={[styles.scopePill, {backgroundColor: colors.accentSoft}]}>
+                <Text style={[styles.scopeText, {color: colors.accent}]}>{liSessionPreview}</Text>
+              </View>
+              <View style={[styles.scopePill, {backgroundColor: colors.accentSoft}]}>
+                <Text style={[styles.scopeText, {color: colors.accent}]}>
+                  {liSessionUses} / {liRateLimit} uses
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <Text style={[styles.adminNote, {color: colors.textDim}]}>
+            Managed by server administrator
+          </Text>
+        </View>
+
         {/* Info note */}
         <View style={[styles.infoBox, {backgroundColor: colors.surface, borderColor: colors.border}]}>
           <Icon name="information-circle-outline" size={16} color={colors.textMuted} />
@@ -269,6 +316,7 @@ const styles = StyleSheet.create({
   btnText: {fontSize: 14, fontWeight: '700'},
   spinner: {marginVertical: 12},
   errorText: {fontSize: 12, marginTop: 10, textAlign: 'center'},
+  adminNote: {fontSize: 12, marginTop: 4},
   infoBox: {
     flexDirection: 'row',
     gap: 10,
