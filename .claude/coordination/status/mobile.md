@@ -1,8 +1,33 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-13
-**Session:** v1.20.0 — AI Model Check button (pulse icon + inline result row)
+**Session:** v1.21.0 — LinkedIn Session status card in Connected Accounts
 **Context:** ~10% at checkpoint
-**Reason:** v1.20.0 release APK complete and verified
+**Reason:** v1.21.0 release APK complete and verified
+
+---
+
+## v1.21.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 33 |
+| versionName | 1.21.0 |
+| Build time | 48s |
+| Branch | eric-design |
+| Commit | `4cd7c1f` — Add LinkedIn status API and UI; bump app version |
+
+**Changes in v1.21.0:**
+- `server/app/api/linkedin.py` (NEW): `GET /linkedin/status` endpoint — reads `LINKEDIN_COOKIE` env, masks last 4 chars, reads `_session_counter` from `linkedin_ops.py`, returns rate limit from config
+- `server/app/main.py`: Import + register `linkedin_api` router at `/linkedin` prefix
+- `APP/src/api/linkedinApi.ts` (NEW): `getLinkedInStatusApi()` → `GET /linkedin/status`
+- `APP/src/stores/linkedinStore.ts` (NEW): Zustand store (`configured`, `sessionPreview`, `rateLimit`, `sessionUses`, `loading`, `error`, `loadStatus()`)
+- `APP/src/screens/ConnectedAccountsScreen.tsx`: Added LinkedIn Session card below MS card — green/gray dot, session preview pill, "X / Y uses" pill, "Managed by server administrator" note
+- `APP/package.json`: version 1.21.0
+- `APP/android/app/build.gradle`: versionCode 33, versionName 1.21.0
+- `APP/src/screens/SettingsScreen.tsx`: footer → v1.21.0
 
 ---
 
@@ -360,6 +385,8 @@ Three places must always be updated together: `build.gradle`, `package.json`, `S
 | **1.17.1** | **29** | **Patch: 503 UX — friendly error when MS OAuth unconfigured on server** |
 | **1.18.0** | **30** | **MS Contacts backend (FEAT-013); fix: SettingsScreen version label sync** |
 | **1.19.0** | **31** | **Fix: taskBarText vertical alignment — removed flex:1 from banner Text** |
+| **1.20.0** | **32** | **AI Model Check button — pulse icon + inline result per model row** |
+| **1.21.0** | **33** | **LinkedIn Session status card in Connected Accounts (read-only, server-managed)** |
 
 ---
 
