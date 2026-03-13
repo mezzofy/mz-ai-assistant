@@ -52,10 +52,8 @@ class LinkedinProspectingSkill:
             result = await self._ops.execute(
                 "linkedin_search",
                 query=query,
-                search_type=search_type,
-                location=location,
-                industry=industry,
-                max_results=max_results,
+                type=search_type,
+                limit=max_results,
             )
             logger.info(
                 f"LinkedInProspectingSkill.search_linkedin: query='{query}' "
