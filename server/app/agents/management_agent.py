@@ -21,6 +21,7 @@ _TRIGGER_KEYWORDS = {
     "kpi", "dashboard", "report", "overview", "performance", "cross-department",
     "audit", "cost", "usage", "management", "executive", "ceo", "summary",
     "all departments", "company-wide", "metrics", "revenue", "team",
+    "linkedin", "prospect", "lead", "find",
 }
 
 # Subset of keywords that indicate an explicit KPI/dashboard request in execute()
@@ -65,6 +66,10 @@ class ManagementAgent(BaseAgent):
         # Mobile/Teams: only run KPI workflow if message is clearly about KPIs
         if any(kw in message for kw in _KPI_KEYWORDS):
             return await self._kpi_dashboard_workflow(task)
+
+        # LinkedIn prospecting workflow
+        if any(w in message for w in ("linkedin", "prospect", "lead", "find")):
+            return await self._prospecting_workflow(task)
 
         # General question — respond directly via LLM without KPI workflow
         return await self._general_response(task)
@@ -217,6 +222,81 @@ class ManagementAgent(BaseAgent):
                 )
 
         return self._ok(content=summary, artifacts=artifacts, tools_called=tools_called)
+
+    async def _prospecting_workflow(self, task: dict) -> dict:
+        """LinkedIn search → CRM save → compose + send intro emails."""
+        try:
+            li_skill = self._load_skill("linkedin_prospecting")
+            email_skill = self._load_skill("email_outreach")
+        except ValueError as e:
+            return self._err(str(e))
+
+        message = task.get("message", "")
+        tools_called = []
+
+        # Step 1: LinkedIn search
+        li_result = await li_skill.search_linkedin(
+            query=message,
+            search_type="company",
+            max_results=10,
+        )
+        tools_called.append("linkedin_search")
+        if not li_result.get("success"):
+            return self._err(f"LinkedIn search failed: {li_result.get('error')}")
+
+        leads = li_result.get("output", [])
+        if not isinstance(leads, list):
+            leads = [leads]
+
+        # Step 2: Save to CRM
+        from app.tools.database.crm_ops import CRMOps
+        crm = CRMOps(self.config)
+        saved_count = 0
+        for lead in leads[:10]:
+            crm_result = await crm.execute(
+                "create_lead",
+                name=str(lead.get("name", "Unknown")),
+                company=str(lead.get("company", "")),
+                email=str(lead.get("email", "")),
+                source="linkedin",
+                status="new",
+                notes=str(lead.get("description", ""))[:500],
+            )
+            if crm_result.get("success"):
+                saved_count += 1
+        tools_called.append("create_lead")
+
+        # Step 3: Compose and send intro emails
+        self._require_permission(task, "email_send")
+        sent_count = 0
+        for lead in leads[:5]:  # Limit initial outreach
+            email_result = lead.get("email", "")
+            if not email_result:
+                continue
+            compose_result = await email_skill.compose_email(
+                template="intro",
+                recipient_name=str(lead.get("name", "there")),
+                recipient_email=str(email_result),
+                company_name=str(lead.get("company", "")),
+            )
+            if compose_result.get("success"):
+                composed = compose_result["output"]
+                send_result = await email_skill.send_email(
+                    to=str(email_result),
+                    subject=composed["subject"],
+                    body_html=composed["body_html"],
+                )
+                if send_result.get("success"):
+                    sent_count += 1
+        tools_called.extend(["compose_email", "send_email"])
+
+        summary = (
+            f"LinkedIn prospecting complete:\n"
+            f"- Found {len(leads)} leads\n"
+            f"- Saved {saved_count} to CRM\n"
+            f"- Sent {sent_count} intro emails"
+        )
+        return self._ok(content=summary, tools_called=tools_called)
 
     def _extract_date_range(self, message: str) -> str:
         msg = message.lower()
