@@ -20,3 +20,22 @@ export async function getSystemHealth(): Promise<SystemHealth | null> {
     return null;
   }
 }
+
+export interface ModelCheckResult {
+  model: string;
+  model_id: string;
+  status: 'ok' | 'error';
+  message: string;
+  latency_ms: number;
+}
+
+export async function checkModelStatus(model: 'claude' | 'kimi'): Promise<ModelCheckResult | null> {
+  try {
+    return await apiFetch<ModelCheckResult>('/admin/model-check', {
+      method: 'POST',
+      body: JSON.stringify({model}),
+    });
+  } catch {
+    return null;
+  }
+}

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../hooks/useTheme';
-import {getSystemHealth, SystemHealth} from '../api/admin';
+import {getSystemHealth, SystemHealth, checkModelStatus, ModelCheckResult} from '../api/admin';
 import {getLlmUsageStats, LlmUsageStats} from '../api/llm';
 
 type StatusPillProps = {label: string; ok: boolean; colors: ReturnType<typeof useTheme>};
@@ -29,21 +29,47 @@ type ModelRowProps = {
   role: string;
   online: boolean;
   colors: ReturnType<typeof useTheme>;
+  onCheck?: () => void;
+  checking?: boolean;
+  checkResult?: ModelCheckResult | null;
 };
 
-const ModelRow: React.FC<ModelRowProps> = ({name, detail, role, online, colors}) => (
-  <View style={[styles.modelRow, {borderBottomColor: colors.border + '40'}]}>
-    <View style={[styles.modelIcon, {backgroundColor: colors.accentSoft}]}>
-      <Icon name="hardware-chip-outline" size={18} color={colors.accent} />
+const ModelRow: React.FC<ModelRowProps> = ({name, detail, role, online, colors, onCheck, checking, checkResult}) => (
+  <View>
+    <View style={[styles.modelRow, {borderBottomColor: colors.border + '40'}]}>
+      <View style={[styles.modelIcon, {backgroundColor: colors.accentSoft}]}>
+        <Icon name="hardware-chip-outline" size={18} color={colors.accent} />
+      </View>
+      <View style={styles.modelInfo}>
+        <Text style={[styles.modelName, {color: colors.text}]}>{name}</Text>
+        <Text style={[styles.modelDetail, {color: colors.textMuted}]}>{detail}</Text>
+      </View>
+      <View style={styles.modelRight}>
+        <Text style={[styles.modelRole, {color: colors.textDim}]}>{role}</Text>
+        <View style={styles.modelRightBottom}>
+          <View style={[styles.statusDot, {backgroundColor: online ? colors.success : colors.danger}]} />
+          {onCheck && (
+            <TouchableOpacity onPress={onCheck} disabled={checking} style={styles.checkBtn}>
+              {checking
+                ? <ActivityIndicator size={14} color={colors.accent} />
+                : <Icon name="pulse-outline" size={16} color={colors.accent} />}
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
     </View>
-    <View style={styles.modelInfo}>
-      <Text style={[styles.modelName, {color: colors.text}]}>{name}</Text>
-      <Text style={[styles.modelDetail, {color: colors.textMuted}]}>{detail}</Text>
-    </View>
-    <View style={styles.modelRight}>
-      <Text style={[styles.modelRole, {color: colors.textDim}]}>{role}</Text>
-      <View style={[styles.statusDot, {backgroundColor: online ? colors.success : colors.danger}]} />
-    </View>
+    {checkResult && (
+      <View style={[styles.checkResultRow, {borderBottomColor: colors.border + '40'}]}>
+        <Text style={[
+          styles.checkResultText,
+          {color: checkResult.status === 'ok' ? colors.success : colors.danger},
+        ]}>
+          {checkResult.status === 'ok'
+            ? `✓ Responded in ${checkResult.latency_ms}ms: ${checkResult.message}`
+            : `✗ ${checkResult.message}`}
+        </Text>
+      </View>
+    )}
   </View>
 );
 
@@ -52,9 +78,15 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
   const [health, setHealth] = useState<SystemHealth | null | undefined>(undefined);
   const [stats, setStats] = useState<LlmUsageStats | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [claudeCheck, setClaudeCheck] = useState<ModelCheckResult | null>(null);
+  const [claudeChecking, setClaudeChecking] = useState(false);
+  const [kimiCheck, setKimiCheck] = useState<ModelCheckResult | null>(null);
+  const [kimiChecking, setKimiChecking] = useState(false);
 
   const fetchHealth = useCallback(async () => {
     setLoading(true);
+    setClaudeCheck(null);
+    setKimiCheck(null);
     const [healthResult, statsResult] = await Promise.all([
       getSystemHealth(), // catches 403 internally — always resolves
       getLlmUsageStats().catch(() => null as LlmUsageStats | null),
@@ -62,6 +94,20 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
     setHealth(healthResult);
     setStats(statsResult);
     setLoading(false);
+  }, []);
+
+  const handleCheckClaude = useCallback(async () => {
+    setClaudeChecking(true);
+    const result = await checkModelStatus('claude');
+    setClaudeCheck(result);
+    setClaudeChecking(false);
+  }, []);
+
+  const handleCheckKimi = useCallback(async () => {
+    setKimiChecking(true);
+    const result = await checkModelStatus('kimi');
+    setKimiCheck(result);
+    setKimiChecking(false);
   }, []);
 
   useEffect(() => {
@@ -98,6 +144,9 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
             role="Primary"
             online={health !== undefined && llmOk}
             colors={colors}
+            onCheck={handleCheckClaude}
+            checking={claudeChecking}
+            checkResult={claudeCheck}
           />
           <ModelRow
             name="Kimi"
@@ -105,6 +154,9 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
             role="Fallback"
             online={false}
             colors={colors}
+            onCheck={handleCheckKimi}
+            checking={kimiChecking}
+            checkResult={kimiCheck}
           />
         </View>
 
@@ -242,9 +294,13 @@ const styles = StyleSheet.create({
   modelInfo: {flex: 1},
   modelName: {fontSize: 14, fontWeight: '600'},
   modelDetail: {fontSize: 12, marginTop: 2},
-  modelRight: {alignItems: 'flex-end', gap: 6},
+  modelRight: {alignItems: 'flex-end', gap: 4},
   modelRole: {fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5},
+  modelRightBottom: {flexDirection: 'row', alignItems: 'center', gap: 8},
   statusDot: {width: 8, height: 8, borderRadius: 4},
+  checkBtn: {padding: 2},
+  checkResultRow: {paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth},
+  checkResultText: {fontSize: 12, fontWeight: '500'},
   // Status rows
   statusRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12},
   statusLabel: {fontSize: 14, fontWeight: '500'},

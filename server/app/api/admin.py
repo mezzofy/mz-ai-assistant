@@ -7,14 +7,17 @@ Endpoints:
     PUT    /admin/users/{id}      — Update user role/permissions (admin only)
     GET    /admin/audit           — View audit log (admin/executive)
     GET    /admin/health          — System health dashboard (admin only)
+    POST   /admin/model-check     — Live test call to an AI model (admin only)
 
 Access: All endpoints require role=admin or role=executive (via require_role).
 """
 
+import asyncio
 import logging
 import os
+import time
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
@@ -48,6 +51,10 @@ class UpdateUserRequest(BaseModel):
     role: Optional[str] = None
     permissions: Optional[list[str]] = None
     is_active: Optional[bool] = None
+
+
+class ModelCheckRequest(BaseModel):
+    model: Literal["claude", "kimi"]
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -309,3 +316,63 @@ async def system_health(
             "websocket_active": ws_connections,
         },
     }
+
+
+@router.post("/model-check")
+async def model_check(
+    body: ModelCheckRequest,
+    current_user: dict = AdminOnly,
+):
+    """
+    Make a live test call to the specified AI model.
+    Returns the response text and latency, or an error message.
+    """
+    from app.llm import llm_manager as llm_mod
+
+    mgr = llm_mod.get()
+    if mgr is None:
+        return {
+            "model": body.model,
+            "model_id": "unknown",
+            "status": "error",
+            "message": "LLM manager not initialized",
+            "latency_ms": 0,
+        }
+
+    client = mgr.claude if body.model == "claude" else mgr.kimi
+    model_id = client.model_name
+
+    test_messages = [{"role": "user", "content": "Respond with only the word OK"}]
+
+    start = time.monotonic()
+    try:
+        result = await asyncio.wait_for(
+            client.chat(test_messages, max_tokens=10),
+            timeout=15.0,
+        )
+        latency_ms = int((time.monotonic() - start) * 1000)
+        return {
+            "model": body.model,
+            "model_id": model_id,
+            "status": "ok",
+            "message": result.get("content", "").strip(),
+            "latency_ms": latency_ms,
+        }
+    except asyncio.TimeoutError:
+        latency_ms = int((time.monotonic() - start) * 1000)
+        return {
+            "model": body.model,
+            "model_id": model_id,
+            "status": "error",
+            "message": "Timeout after 15s",
+            "latency_ms": latency_ms,
+        }
+    except Exception as e:
+        latency_ms = int((time.monotonic() - start) * 1000)
+        return {
+            "model": body.model,
+            "model_id": model_id,
+            "status": "error",
+            "message": f"{type(e).__name__}: {e}",
+            "latency_ms": latency_ms,
+        }
