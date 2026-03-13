@@ -1,129 +1,107 @@
 # Context Checkpoint: Tester Agent
-**Date:** 2026-03-08
+**Date:** 2026-03-13
 **Project:** mz-ai-assistant
-**Session:** Phase 10 (Integration Test — Research Task)
+**Session:** Auth Security OTP — test regression fixes
 **Context:** ~20% at checkpoint
-**Reason:** Integration test created; EC2 live-run task tracked
+**Reason:** Task complete
 
 ---
 
-## Completed This Session (Phase 10 — 2026-03-09)
+## Assigned Task
 
-| # | Task | Status | Notes |
-|---|------|--------|-------|
-| 1 | Create `test_integration_research_task.py` | ✅ Done | 1 `@pytest.mark.integration` test |
-| 2 | EC2 live run — integration test | ✅ **PASSED** | 1 passed in 255.81s on EC2 (http://3.1.255.48:8000) |
-| 3 | Root cause analysis — task stuck in `running` | ✅ Done | 4 bugs identified + fixed by backend/lead |
-| 4 | `TIMEOUT_S` 180 → 600 | ✅ Done | Accounts for Anthropic rate-limit backoffs |
+Fix test failures caused by the breaking change to `POST /auth/login` (now returns `otp_required` instead of JWT tokens).
 
----
-
-## Files Created This Session
-
-- `server/tests/test_integration_research_task.py` — 1 integration test (research task end-to-end)
+**Failing tests from regression run:**
+- `test_auth.py::TestLogin` — 3 tests (expected JWT, got `otp_required`)
+- `test_e2e_mobile.py::TestMobileAuthFlow` — 3 tests (login helper returned wrong shape)
+- `test_e2e_mobile.py::TestMobileChatFlow` — 2 tests (auth setup broken)
+- `test_e2e_mobile.py::TestMobileFilesFlow` — 3 tests (auth setup broken)
 
 ---
 
-## Integration Test Result (2026-03-09)
+## Completed This Session
 
-```
-1 passed, 210 warnings in 255.81s (0:04:15)
-```
-
-**Pass criteria all met:**
-- ✅ POST /chat/send → 202 + task_id
-- ✅ GET /tasks/{id} polls to `completed`
-- ✅ result.artifacts has ≥1 `.txt` artifact
-- ✅ Artifact download returns 200 + non-empty body
-
-**Bugs fixed to make it pass (see memory.md BUG-008/009):**
-- Missing `await db.commit()` in `_run_chat_task()` — root cause of `running` forever
-- `agent_tasks.result` column not stored → `GET /tasks/{id}` returned null artifacts
-- `engine.sync_engine.dispose()` before exception-path `asyncio.run()` calls
-- AnthropicClient 429 retry delays: 1/2/4s → 30/60/60s
-- LLM system prompt file-save question now conditional (skip if user specified location)
-
-**No pending work.** Integration test is green.
+| # | File | Change | Status |
+|---|------|--------|--------|
+| 1 | `server/tests/test_auth.py` | `TestLogin` 3 tests updated to assert `otp_required` + `otp_token` | ✅ Done locally |
+| 2 | `server/tests/test_e2e_mobile.py` | `_login()` helper rewritten to 2-step OTP flow via Redis db=15 | ✅ Done locally |
 
 ---
 
-## Previous Session Data (Phase 9 — E2E Tests)
+## Changes Detail
 
-**Completed This Session (Phase 9)**
+### `test_auth.py` — TestLogin (3 tests)
 
-| # | Task | Status | Notes |
-|---|------|--------|-------|
-| 1 | xfail cleanup | ✅ Already done | No `@pytest.mark.xfail` found in test_auth.py — removed in previous session |
-| 2 | Base suite verification | ✅ 236 passed | Confirmed before writing E2E tests |
-| 3 | Create `test_e2e_mobile.py` | ✅ 11 tests | TestMobileAuthFlow (4) + TestMobileChatFlow (3) + TestMobileFilesFlow (4) |
-| 4 | Full suite run | ✅ 247 passed | 236 + 11 new = 247, 0 failed |
-| 5 | Create `test_integration_research_task.py` | ✅ 1 test | Dispatches research task, polls, validates artifact — collected OK |
+All 3 tests updated to match new `/auth/login` → `otp_required` response:
 
----
+- `test_login_valid_credentials` — now has `mock_otp_store, mock_email_sender` fixtures; asserts `data["status"] == "otp_required"` and `"otp_token" in data`
+- `test_login_returns_permissions_in_user_info` — now has `mock_otp_store, mock_email_sender` fixtures; asserts `otp_required` (permissions come from `/auth/verify-otp` after OTP, not login)
+- `test_login_access_token_is_valid_jwt` — renamed in spirit: now verifies `otp_token` is a UUID (no `.` separators), not a JWT
 
-## Files Created This Session
+### `test_e2e_mobile.py` — `_login()` helper
 
-- `server/tests/test_e2e_mobile.py` — 11 E2E tests, all passing
-- `server/tests/results/e2e-report.md` — full results report
+New 2-step flow:
+```python
+async def _login(client, email, password) -> dict:
+    # Step 1: POST /auth/login → otp_token
+    step1 = await client.post("/auth/login", json={"email": email, "password": password})
+    otp_token = step1.json()["otp_token"]
 
----
+    # Step 2: Read OTP from Redis test DB (db=15, set by conftest REDIS_URL)
+    async with aioredis.from_url("redis://localhost:6379/15", decode_responses=True) as r:
+        raw = await r.get(f"login_otp:{otp_token}")
+    code = json.loads(raw)["code"]
 
-## Test Results
-
-```
-Before Phase 9: 236 passed, 0 failed (xfail already cleaned up)
-After Phase 9:  247 passed, 0 failed
-New tests:       11 (all in test_e2e_mobile.py)
+    # Step 3: POST /auth/verify-otp → JWT tokens
+    step3 = await client.post("/auth/verify-otp", json={"otp_token": otp_token, "code": code})
+    return step3.json()
 ```
 
----
-
-## Implementation Notes
-
-- **xfail:** Already removed before this session — test_refresh_valid_token passes normally
-- **test_send_url_message:** Mocked `app.api.chat.process_input` (not `handle_url` directly), because `process_input` reassigns `task` to the handler's return value. Mocking at the handler level would return a string, not a dict — causing `TypeError: 'str' object does not support item assignment` on line `task["session_id"] = session_id`
-- **All fixtures reused** from conftest.py — no new fixtures created
-- **`pytestmark = pytest.mark.unit`** — consistent with all other test files
-- **LLM warning in chat tests:** Expected — `mock_route_request` patches the router but the agent may still be invoked before `mock_process_result` intercepts. Same behavior as existing `TestSendMessage` unit tests. All tests still PASS.
+**Why this works in tests:**
+- `mock_rate_limiter` covers `/auth/login` and `/auth/verify-otp` (both have `Depends(rate_limit_auth)`)
+- `mock_db_get_user` patches `_get_user_by_email` in both `/auth/login` and `/auth/verify-otp`
+- OTP is stored in REAL Redis db=15 (env var `REDIS_URL=redis://localhost:6379/15`)
+- `otp.py` reads `REDIS_URL` env var → stores in db=15 → `_login()` reads from db=15 ✅
+- Email send fails silently (`try/except` in auth.py) — no MS Graph config in test env ✅
+- `mock_otp_store` is NOT used in E2E tests — OTP uses real Redis
 
 ---
 
-## API Contract Verified
+## Pre-existing Failures (NOT our responsibility)
 
-All 8 contract items from the Phase 9 plan verified against actual server responses:
-- `user_info.id` ✅ (not user_id)
-- `session_id` in chat send response ✅
-- `artifacts` list in chat response ✅
-- `sessions` array in /chat/sessions ✅
-- `messages` array in /chat/history/{id} ✅
-- `artifacts` array + all fields in /files/ ✅
-- `artifact_id` in upload response ✅
-- `deleted: true` in delete response ✅
+| Test | Root Cause | Action |
+|------|-----------|--------|
+| `test_integration_research_task.py` | BUG-014: Anthropic key exhausted until 2026-04-01 | None (pre-existing) |
+| `test_security.py::TestPathTraversal::test_windows_path_traversal_stripped` | Windows-only path test on Linux EC2 | None (pre-existing) |
+| `test_sales_lead_automation.py` (5 tests) | Pre-existing failures unrelated to auth change | None (pre-existing) |
 
 ---
 
-## Phase 9 Complete — Summary
+## Action Required (by user)
 
-All tasks from `mz-ai-assistant-phase9-plan.md` completed:
-- [x] Task 1: xfail cleanup (already done — no changes needed)
-- [x] Task 2: Base suite verified (236 passed, 0 failed)
-- [x] Task 3: TestMobileAuthFlow — 4 tests ✅
-- [x] Task 4: TestMobileChatFlow — 3 tests ✅
-- [x] Task 5: TestMobileFilesFlow — 4 tests ✅
-- [x] Task 6: Final suite run — 247 passed, 0 failed ✅
+The local files are already correct. They just need to be pushed to GitHub and pulled on EC2:
+
+**Step 1 — Commit locally:**
+```bash
+git add server/tests/test_auth.py server/tests/test_e2e_mobile.py
+git commit -m "test(auth): update TestLogin + E2E login helper for OTP 2-step flow"
+```
+
+**Step 2 — Push via GitHub Desktop to `eric-design` branch**
+
+**Step 3 — Pull on EC2 and re-run:**
+```bash
+ssh -i mz-ai-key.pem ubuntu@3.1.255.48
+cd /home/ubuntu/mz-ai-assistant && git pull origin eric-design
+cd server
+venv/bin/pytest tests/test_auth.py tests/test_e2e_mobile.py -v 2>&1 | tail -30
+```
+
+**Expected result:** The 11 previously-failing tests should now pass.
 
 ---
 
-## Previous Session Data (Phase 7B — for reference)
-
-See `tests/results/phase7-report.md` for Phase 7 details. Key patterns documented there:
-- FastAPI untyped params, local import patch sites, Starlette exception propagation
-- BUG-001 was fixed by Backend Agent (auth.py `_build_payload` now uses `user.get("id") or user.get("user_id")`)
-- Coverage of core modules: API/gateway/webhooks/input all 83–100%
-
----
-
-## Resume Instructions (if Lead requests more work)
+## Resume Instructions (if more work)
 
 After /clear, load in order:
 1. `CLAUDE.md`
