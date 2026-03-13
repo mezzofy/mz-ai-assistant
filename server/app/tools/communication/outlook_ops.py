@@ -334,16 +334,15 @@ class OutlookOps(BaseTool):
                 filters.append(f"receivedDateTime le {received_before}")
             filter_str = " and ".join(filters) if filters else None
 
-            from msgraph.generated.users.item.mail_folders.item.messages.messages_request_builder import MessagesRequestBuilderGetQueryParameters
-            from kiota_abstractions.base_request_configuration import RequestConfiguration
+            from msgraph.generated.users.item.mail_folders.item.messages.messages_request_builder import MessagesRequestBuilder as MailFolderMessagesRequestBuilder
 
-            query_params = MessagesRequestBuilderGetQueryParameters(
+            query_params = MailFolderMessagesRequestBuilder.MessagesRequestBuilderGetQueryParameters(
                 top=limit,
                 select=["id", "subject", "from", "receivedDateTime", "body", "bodyPreview", "isRead"],
                 filter=filter_str,
                 order_by=["receivedDateTime DESC"],
             )
-            config = RequestConfiguration(query_parameters=query_params)
+            config = MailFolderMessagesRequestBuilder.MessagesRequestBuilderGetRequestConfiguration(query_parameters=query_params)
 
             result = await (
                 client.users.by_user_id(mailbox)
@@ -539,15 +538,14 @@ class OutlookOps(BaseTool):
             client = _get_graph_client(self.config)
             limit = min(limit, 20)
 
-            from msgraph.generated.users.item.messages.messages_request_builder import MessagesRequestBuilderGetQueryParameters
-            from kiota_abstractions.base_request_configuration import RequestConfiguration
+            from msgraph.generated.users.item.messages.messages_request_builder import MessagesRequestBuilder as UserMessagesRequestBuilder
 
-            query_params = MessagesRequestBuilderGetQueryParameters(
+            query_params = UserMessagesRequestBuilder.MessagesRequestBuilderGetQueryParameters(
                 top=limit,
                 search=f'"{query}"',
                 select=["id", "subject", "from", "receivedDateTime", "bodyPreview"],
             )
-            config = RequestConfiguration(query_parameters=query_params)
+            config = UserMessagesRequestBuilder.MessagesRequestBuilderGetRequestConfiguration(query_parameters=query_params)
             result = await client.users.by_user_id(user_email).messages.get(request_configuration=config)
 
             emails = []
@@ -627,18 +625,17 @@ class OutlookOps(BaseTool):
 
     async def _get_events(self, user_email: str, start_date: str, end_date: str) -> dict:
         try:
-            from msgraph.generated.users.item.calendar_view.calendar_view_request_builder import CalendarViewRequestBuilderGetQueryParameters
-            from kiota_abstractions.base_request_configuration import RequestConfiguration
+            from msgraph.generated.users.item.calendar_view.calendar_view_request_builder import CalendarViewRequestBuilder
 
             client = _get_graph_client(self.config)
 
-            query_params = CalendarViewRequestBuilderGetQueryParameters(
+            query_params = CalendarViewRequestBuilder.CalendarViewRequestBuilderGetQueryParameters(
                 start_date_time=f"{start_date}T00:00:00",
                 end_date_time=f"{end_date}T23:59:59",
                 select=["id", "subject", "start", "end", "attendees", "isOnlineMeeting"],
                 top=50,
             )
-            config = RequestConfiguration(query_parameters=query_params)
+            config = CalendarViewRequestBuilder.CalendarViewRequestBuilderGetRequestConfiguration(query_parameters=query_params)
             result = await client.users.by_user_id(user_email).calendar_view.get(request_configuration=config)
 
             events = []
