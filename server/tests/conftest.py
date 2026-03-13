@@ -359,7 +359,8 @@ def mock_db_get_user():
         return _test_users.get(email)
 
     with patch("app.api.auth._get_user_by_email", side_effect=_get_user), \
-         patch("app.api.auth._update_last_login", new_callable=AsyncMock):
+         patch("app.api.auth._update_last_login", new_callable=AsyncMock), \
+         patch("app.api.auth._update_password", new_callable=AsyncMock):
         yield _test_users
 
 
@@ -382,6 +383,89 @@ def mock_get_db():
     app.dependency_overrides[_get_db_dep] = _get_db_override
     yield mock_session
     app.dependency_overrides.pop(_get_db_dep, None)
+
+
+@pytest.fixture
+def mock_otp_store():
+    """Patch all OTP Redis functions in app.core.otp with AsyncMocks (no real Redis)."""
+    with patch("app.core.otp.store_login_otp", new_callable=AsyncMock) as mock_store_login, \
+         patch("app.core.otp.get_login_otp", new_callable=AsyncMock) as mock_get_login, \
+         patch("app.core.otp.delete_login_otp", new_callable=AsyncMock) as mock_del_login, \
+         patch("app.core.otp.increment_otp_attempts", new_callable=AsyncMock, return_value=1) as mock_incr, \
+         patch("app.core.otp.is_account_locked", new_callable=AsyncMock, return_value=False) as mock_locked, \
+         patch("app.core.otp.lock_account", new_callable=AsyncMock) as mock_lock, \
+         patch("app.core.otp.reset_otp_attempts", new_callable=AsyncMock) as mock_reset_attempts, \
+         patch("app.core.otp.can_resend_otp", new_callable=AsyncMock, return_value=True) as mock_can_resend, \
+         patch("app.core.otp.set_resend_cooldown", new_callable=AsyncMock) as mock_cooldown, \
+         patch("app.core.otp.store_reset_otp", new_callable=AsyncMock) as mock_store_reset, \
+         patch("app.core.otp.get_reset_otp", new_callable=AsyncMock) as mock_get_reset, \
+         patch("app.core.otp.delete_reset_otp", new_callable=AsyncMock) as mock_del_reset, \
+         patch("app.core.otp.store_reset_token", new_callable=AsyncMock) as mock_store_token, \
+         patch("app.core.otp.get_reset_token_email", new_callable=AsyncMock) as mock_get_token, \
+         patch("app.core.otp.delete_reset_token", new_callable=AsyncMock) as mock_del_token, \
+         patch("app.api.auth.generate_otp_code", return_value="123456") as mock_gen, \
+         patch("app.api.auth.store_login_otp", new_callable=AsyncMock) as mock_api_store_login, \
+         patch("app.api.auth.get_login_otp", new_callable=AsyncMock) as mock_api_get_login, \
+         patch("app.api.auth.delete_login_otp", new_callable=AsyncMock) as mock_api_del_login, \
+         patch("app.api.auth.increment_otp_attempts", new_callable=AsyncMock, return_value=1) as mock_api_incr, \
+         patch("app.api.auth.is_account_locked", new_callable=AsyncMock, return_value=False) as mock_api_locked, \
+         patch("app.api.auth.lock_account", new_callable=AsyncMock) as mock_api_lock, \
+         patch("app.api.auth.reset_otp_attempts", new_callable=AsyncMock) as mock_api_reset, \
+         patch("app.api.auth.can_resend_otp", new_callable=AsyncMock, return_value=True) as mock_api_can_resend, \
+         patch("app.api.auth.set_resend_cooldown", new_callable=AsyncMock) as mock_api_cooldown, \
+         patch("app.api.auth.store_reset_otp", new_callable=AsyncMock) as mock_api_store_reset, \
+         patch("app.api.auth.get_reset_otp", new_callable=AsyncMock) as mock_api_get_reset, \
+         patch("app.api.auth.delete_reset_otp", new_callable=AsyncMock) as mock_api_del_reset, \
+         patch("app.api.auth.store_reset_token", new_callable=AsyncMock) as mock_api_store_token, \
+         patch("app.api.auth.get_reset_token_email", new_callable=AsyncMock) as mock_api_get_token, \
+         patch("app.api.auth.delete_reset_token", new_callable=AsyncMock) as mock_api_del_token:
+        yield {
+            # Core module mocks
+            "store_login_otp": mock_store_login,
+            "get_login_otp": mock_get_login,
+            "delete_login_otp": mock_del_login,
+            "increment_otp_attempts": mock_incr,
+            "is_account_locked": mock_locked,
+            "lock_account": mock_lock,
+            "reset_otp_attempts": mock_reset_attempts,
+            "can_resend_otp": mock_can_resend,
+            "set_resend_cooldown": mock_cooldown,
+            "store_reset_otp": mock_store_reset,
+            "get_reset_otp": mock_get_reset,
+            "delete_reset_otp": mock_del_reset,
+            "store_reset_token": mock_store_token,
+            "get_reset_token_email": mock_get_token,
+            "delete_reset_token": mock_del_token,
+            # API-level mocks (what auth.py actually calls after its imports)
+            "generate_otp_code": mock_gen,
+            "api_store_login_otp": mock_api_store_login,
+            "api_get_login_otp": mock_api_get_login,
+            "api_delete_login_otp": mock_api_del_login,
+            "api_increment_otp_attempts": mock_api_incr,
+            "api_is_account_locked": mock_api_locked,
+            "api_lock_account": mock_api_lock,
+            "api_reset_otp_attempts": mock_api_reset,
+            "api_can_resend_otp": mock_api_can_resend,
+            "api_set_resend_cooldown": mock_api_cooldown,
+            "api_store_reset_otp": mock_api_store_reset,
+            "api_get_reset_otp": mock_api_get_reset,
+            "api_delete_reset_otp": mock_api_del_reset,
+            "api_store_reset_token": mock_api_store_token,
+            "api_get_reset_token_email": mock_api_get_token,
+            "api_delete_reset_token": mock_api_del_token,
+        }
+
+
+@pytest.fixture
+def mock_email_sender():
+    """Patch send_transactional_email to avoid real MS Graph calls in tests."""
+    with patch(
+        "app.core.email_sender.send_transactional_email", new_callable=AsyncMock
+    ) as mock_core, \
+         patch(
+        "app.api.auth.send_transactional_email", new_callable=AsyncMock
+    ) as mock_api:
+        yield {"core": mock_core, "api": mock_api}
 
 
 @contextmanager

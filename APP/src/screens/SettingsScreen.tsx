@@ -168,7 +168,7 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
         </View>
 
         <View style={[styles.group, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
-          <SettingsRow icon="shield-outline" label="Privacy & Security" accent colors={colors} />
+          <SettingsRow icon="shield-outline" label="Privacy & Security" accent colors={colors} onPress={() => navigation.navigate('PrivacySecurity')} />
           <SettingsRow
             icon="document-outline"
             label="Storage & Data"

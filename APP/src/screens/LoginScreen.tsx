@@ -7,7 +7,11 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {useAuthStore} from '../stores/authStore';
 import {useTheme} from '../hooks/useTheme';
 
-export const LoginScreen: React.FC = () => {
+type Props = {
+  navigation: any;
+};
+
+export const LoginScreen: React.FC<Props> = ({navigation}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const loginWithCredentials = useAuthStore(s => s.loginWithCredentials);
@@ -22,8 +26,13 @@ export const LoginScreen: React.FC = () => {
     }
     clearError();
     try {
-      await loginWithCredentials(email.trim(), password);
-      // Navigation automatic: App.tsx watches isLoggedIn; switches to MainTabs on true
+      const {otp_token, email: sentEmail} = await loginWithCredentials(email.trim(), password);
+      // Credentials accepted — navigate to OTP verification screen
+      navigation.navigate('OTPVerification', {
+        otp_token,
+        email: sentEmail,
+        mode: 'login',
+      });
     } catch {
       // Error displayed via authStore.error
     }
@@ -92,9 +101,15 @@ export const LoginScreen: React.FC = () => {
           )}
         </TouchableOpacity>
 
-        <Text style={[styles.forgot, {color: colors.textDim}]}>
-          Forgot password? <Text style={{color: colors.accent}}>Reset here</Text>
-        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('ForgotPassword')}
+          activeOpacity={0.7}
+          style={styles.forgotWrap}>
+          <Text style={[styles.forgot, {color: colors.textDim}]}>
+            {'Forgot password? '}
+            <Text style={{color: colors.accent}}>Reset here</Text>
+          </Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -134,5 +149,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4, shadowRadius: 20, elevation: 8,
   },
   loginBtnText: {color: '#fff', fontSize: 16, fontWeight: '700'},
-  forgot: {textAlign: 'center', fontSize: 13, marginTop: 20},
+  forgotWrap: {marginTop: 20, alignItems: 'center'},
+  forgot: {textAlign: 'center', fontSize: 13},
 });

@@ -1,6 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {create} from 'zustand';
-import {loginApi, logoutApi, getMeApi, UserInfo} from '../api/auth';
+import {
+  loginApi,
+  logoutApi,
+  getMeApi,
+  verifyLoginOtpApi,
+  resendLoginOtpApi,
+  UserInfo,
+  LoginResponse,
+} from '../api/auth';
 import {saveTokens, getAccessToken, getRefreshToken, clearTokens} from '../storage/tokenStorage';
 import {registerUnauthorizedHandler} from '../api/api';
 import {useChatStore} from './chatStore';
@@ -12,7 +20,15 @@ type AuthState = {
   refreshToken: string | null;
   loading: boolean;
   error: string | null;
-  loginWithCredentials: (email: string, password: string) => Promise<void>;
+  // Two-phase login — holds OTP state between login and verify steps
+  pendingOtpToken: string | null;
+  pendingEmail: string | null;
+  loginWithCredentials: (
+    email: string,
+    password: string,
+  ) => Promise<{otp_token: string; email: string}>;
+  verifyLoginOtp: (otp_token: string, code: string) => Promise<void>;
+  resendLoginOtp: (otp_token: string) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredUser: () => Promise<void>;
   clearError: () => void;
@@ -29,6 +45,8 @@ export const useAuthStore = create<AuthState>(set => {
       user: null,
       accessToken: null,
       refreshToken: null,
+      pendingOtpToken: null,
+      pendingEmail: null,
       error: 'Your session has expired. Please log in again.',
     });
   });
@@ -40,26 +58,56 @@ export const useAuthStore = create<AuthState>(set => {
     refreshToken: null,
     loading: false,
     error: null,
+    pendingOtpToken: null,
+    pendingEmail: null,
 
     loginWithCredentials: async (email, password) => {
       set({loading: true, error: null});
       try {
         const response = await loginApi(email.trim(), password);
+        // Backend now returns otp_required — store pending state, do NOT set isLoggedIn
+        set({
+          pendingOtpToken: response.otp_token,
+          pendingEmail: email.trim().toLowerCase(),
+          loading: false,
+          error: null,
+        });
+        return {otp_token: response.otp_token, email: email.trim()};
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Login failed. Please try again.';
+        set({loading: false, error: message});
+        throw e;
+      }
+    },
+
+    verifyLoginOtp: async (otp_token, code) => {
+      set({loading: true, error: null});
+      try {
+        const response: LoginResponse = await verifyLoginOtpApi(otp_token, code);
         await saveTokens(response.access_token, response.refresh_token);
-        // user_info from login already has id, name, department, role, permissions
-        // No extra /auth/me call needed — avoids an extra round trip
         set({
           isLoggedIn: true,
           user: response.user_info,
           accessToken: response.access_token,
           refreshToken: response.refresh_token,
+          pendingOtpToken: null,
+          pendingEmail: null,
           loading: false,
           error: null,
         });
       } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : 'Login failed. Please try again.';
+        const message = e instanceof Error ? e.message : 'Verification failed. Please try again.';
         set({loading: false, error: message});
         throw e;
+      }
+    },
+
+    resendLoginOtp: async (otp_token) => {
+      // Fire-and-forget — screen owns the countdown timer
+      try {
+        await resendLoginOtpApi(otp_token);
+      } catch {
+        // Swallowed — screen shows its own error if needed
       }
     },
 
@@ -77,7 +125,15 @@ export const useAuthStore = create<AuthState>(set => {
       useChatStore.getState().resetChat();
       // Clear persisted chat titles so this user's history is not visible to the next login
       await AsyncStorage.removeItem('@mz_chat_titles');
-      set({isLoggedIn: false, user: null, accessToken: null, refreshToken: null, error: null});
+      set({
+        isLoggedIn: false,
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        pendingOtpToken: null,
+        pendingEmail: null,
+        error: null,
+      });
     },
 
     loadStoredUser: async () => {

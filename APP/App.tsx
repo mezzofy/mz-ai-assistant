@@ -21,6 +21,11 @@ import {AIUsageStatsScreen} from './src/screens/AIUsageStatsScreen';
 import {FileViewerScreen} from './src/screens/FileViewerScreen';
 import {FolderContentsScreen} from './src/screens/FolderContentsScreen';
 import {ConnectedAccountsScreen} from './src/screens/ConnectedAccountsScreen';
+import {OTPVerificationScreen} from './src/screens/OTPVerificationScreen';
+import {ForgotPasswordScreen} from './src/screens/ForgotPasswordScreen';
+import {NewPasswordScreen} from './src/screens/NewPasswordScreen';
+import {PrivacySecurityScreen} from './src/screens/PrivacySecurityScreen';
+import {ChangePasswordScreen} from './src/screens/ChangePasswordScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -106,7 +111,24 @@ function App(): React.JSX.Element {
         }}>
         <Stack.Navigator screenOptions={{headerShown: false}}>
           {!isLoggedIn ? (
-            <Stack.Screen name="Login" component={LoginScreen} />
+            <>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen
+                name="OTPVerification"
+                component={OTPVerificationScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="ForgotPassword"
+                component={ForgotPasswordScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="NewPassword"
+                component={NewPasswordScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+            </>
           ) : (
             <>
               <Stack.Screen name="Main" component={MainTabs} />
@@ -138,6 +160,16 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="ConnectedAccounts"
                 component={ConnectedAccountsScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="PrivacySecurity"
+                component={PrivacySecurityScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="ChangePassword"
+                component={ChangePasswordScreen}
                 options={{animation: 'slide_from_right'}}
               />
             </>
