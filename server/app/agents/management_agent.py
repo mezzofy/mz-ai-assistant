@@ -244,51 +244,58 @@ class ManagementAgent(BaseAgent):
         if not li_result.get("success"):
             return self._err(f"LinkedIn search failed: {li_result.get('error')}")
 
-        leads = li_result.get("output", [])
+        # LinkedIn tool returns {"results": [...], "count": N, "query": "..."}
+        leads = li_result.get("output", {}).get("results", [])
         if not isinstance(leads, list):
-            leads = [leads]
+            leads = []
 
         # Step 2: Save to CRM
         from app.tools.database.crm_ops import CRMOps
         crm = CRMOps(self.config)
         saved_count = 0
+        user_id = task.get("user_id", "system")
         for lead in leads[:10]:
             crm_result = await crm.execute(
                 "create_lead",
-                name=str(lead.get("name", "Unknown")),
-                company=str(lead.get("company", "")),
-                email=str(lead.get("email", "")),
+                company_name=str(lead.get("name", "Unknown")),
+                contact_name=str(lead.get("name", "Unknown")),
+                contact_email="",
+                industry="",
                 source="linkedin",
-                status="new",
-                notes=str(lead.get("description", ""))[:500],
+                assigned_to=user_id,
+                notes=str(lead.get("subtitle", ""))[:500],
+                source_ref=str(lead.get("url", "")),
             )
             if crm_result.get("success"):
                 saved_count += 1
         tools_called.append("create_lead")
 
-        # Step 3: Compose and send intro emails
-        self._require_permission(task, "email_send")
+        # Step 3: Compose and send intro emails (skip gracefully if no permission)
         sent_count = 0
-        for lead in leads[:5]:  # Limit initial outreach
-            email_result = lead.get("email", "")
-            if not email_result:
-                continue
-            compose_result = await email_skill.compose_email(
-                template="intro",
-                recipient_name=str(lead.get("name", "there")),
-                recipient_email=str(email_result),
-                company_name=str(lead.get("company", "")),
-            )
-            if compose_result.get("success"):
-                composed = compose_result["output"]
-                send_result = await email_skill.send_email(
-                    to=str(email_result),
-                    subject=composed["subject"],
-                    body_html=composed["body_html"],
+        try:
+            self._require_permission(task, "email_send")
+            for lead in leads[:5]:
+                email_addr = lead.get("email", "")
+                if not email_addr:
+                    continue
+                compose_result = await email_skill.compose_email(
+                    template="intro",
+                    recipient_name=str(lead.get("name", "there")),
+                    recipient_email=str(email_addr),
+                    company_name=str(lead.get("name", "")),
                 )
-                if send_result.get("success"):
-                    sent_count += 1
-        tools_called.extend(["compose_email", "send_email"])
+                if compose_result.get("success"):
+                    composed = compose_result["output"]
+                    send_result = await email_skill.send_email(
+                        to=str(email_addr),
+                        subject=composed["subject"],
+                        body_html=composed["body_html"],
+                    )
+                    if send_result.get("success"):
+                        sent_count += 1
+            tools_called.extend(["compose_email", "send_email"])
+        except PermissionError:
+            pass  # Email outreach skipped — user lacks email_send permission
 
         summary = (
             f"LinkedIn prospecting complete:\n"
