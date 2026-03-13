@@ -340,7 +340,6 @@ class OutlookOps(BaseTool):
                 top=limit,
                 select=["id", "subject", "from", "receivedDateTime", "body", "bodyPreview", "isRead"],
                 filter=filter_str,
-                order_by=["receivedDateTime DESC"],
             )
             config = MailFolderMessagesRequestBuilder.MessagesRequestBuilderGetRequestConfiguration(query_parameters=query_params)
 
