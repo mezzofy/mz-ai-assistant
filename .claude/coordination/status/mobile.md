@@ -1,8 +1,31 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-13
-**Session:** v1.19.0 — Fix: taskBarText vertical alignment (removed flex:1 from Text)
-**Context:** ~15% at checkpoint
-**Reason:** v1.19.0 release APK complete and verified
+**Session:** v1.20.0 — AI Model Check button (pulse icon + inline result row)
+**Context:** ~10% at checkpoint
+**Reason:** v1.20.0 release APK complete and verified
+
+---
+
+## v1.20.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 32 |
+| versionName | 1.20.0 |
+| Build time | 1m 9s |
+| Branch | eric-design |
+| Commit | `12f917c` — Add model-check endpoint, client & UI |
+
+**Changes in v1.20.0:**
+- `server/app/api/admin.py`: `POST /admin/model-check` endpoint (admin-only, 15s timeout, returns latency)
+- `APP/src/api/admin.ts`: `ModelCheckResult` interface + `checkModelStatus()` function
+- `APP/src/screens/AIUsageStatsScreen.tsx`: `ModelRow` gets `onCheck`/`checking`/`checkResult` props; pulse icon button; inline result row (green ✓ / red ✗); results cleared on main refresh
+- `server/tests/test_admin_model_check.py`: 5 test cases (success, API error, timeout, invalid model, non-admin 403)
+
+---
 
 ---
 
