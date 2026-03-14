@@ -26,6 +26,7 @@ import {ForgotPasswordScreen} from './src/screens/ForgotPasswordScreen';
 import {NewPasswordScreen} from './src/screens/NewPasswordScreen';
 import {PrivacySecurityScreen} from './src/screens/PrivacySecurityScreen';
 import {ChangePasswordScreen} from './src/screens/ChangePasswordScreen';
+import {ScheduleStatsScreen} from './src/screens/ScheduleStatsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -170,6 +171,11 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="ChangePassword"
                 component={ChangePasswordScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="ScheduleStats"
+                component={ScheduleStatsScreen}
                 options={{animation: 'slide_from_right'}}
               />
             </>

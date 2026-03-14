@@ -38,15 +38,14 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
   const {
-    notifications, speechLanguage, appearance, storageDisplay,
-    toggleNotifications, setSpeechLanguage, setAppearance, loadSettings, loadStorageInfo,
+    notifications, speechLanguage, appearance,
+    toggleNotifications, setSpeechLanguage, setAppearance, loadSettings,
   } = useSettingsStore();
   const {connected: msConnected, msEmail, loadStatus: loadMsStatus} = useMsStore();
   const colors = useTheme();
 
   useEffect(() => {
     loadSettings();
-    loadStorageInfo();
     loadMsStatus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -169,12 +168,7 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
         <View style={[styles.group, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
           <SettingsRow icon="shield-outline" label="Privacy & Security" accent colors={colors} onPress={() => navigation.navigate('PrivacySecurity')} />
-          <SettingsRow
-            icon="document-outline"
-            label="Storage & Data"
-            value={storageDisplay !== null ? storageDisplay : '—'}
-            colors={colors}
-          />
+          <SettingsRow icon="calendar-outline" label="Schedule Stats" accent colors={colors} onPress={() => navigation.navigate('ScheduleStats')} />
           <SettingsRow icon="time-outline" label="AI Usage Stats" accent colors={colors} onPress={() => navigation.navigate('AIUsageStats')} />
           <SettingsRow
             icon="logo-windows"
@@ -190,7 +184,7 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <SettingsRow icon="log-out-outline" label="Sign Out" danger colors={colors} onPress={() => { logout(); }} />
         </View>
 
-        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.22.0</Text>
+        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.23.0</Text>
       </ScrollView>
     </View>
   );
