@@ -26,6 +26,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
+from app.core.rbac import VALID_DEPARTMENTS
 from app.context.artifact_manager import (
     get_artifact,
     get_artifacts_dir,
@@ -238,16 +239,14 @@ async def upload_file(
 @router.get("/departments")
 async def list_departments(
     current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    """Return all distinct department names (Management only)."""
+    """Return all valid department names (Management only)."""
     if not _is_management(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Only the Management department can access this endpoint")
-    result = await db.execute(
-        text("SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department != '' ORDER BY department")
-    )
-    departments = [row.department for row in result.fetchall()]
+    # Use the canonical department list — not a DB query — so all depts always appear
+    # even if no users are registered in a given department yet.
+    departments = sorted(VALID_DEPARTMENTS - {"management"}) + ["management"]
     return {"departments": departments}
 
 
