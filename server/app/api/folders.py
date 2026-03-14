@@ -77,11 +77,21 @@ def _folder_visibility_clause(scope: str, user: dict) -> tuple[str, dict]:
 @router.get("/")
 async def list_folders(
     scope: str = Query("personal", pattern="^(personal|department|company)$"),
+    dept: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List folders visible to the current user for the given scope."""
-    where, params = _folder_visibility_clause(scope, current_user)
+    """List folders visible to the current user for the given scope.
+
+    Management users may pass ?dept=<name> to list folders from any department.
+    For non-management users the dept param is silently ignored.
+    """
+    # Management with explicit dept param → override department filter
+    if scope == "department" and dept and _is_management(current_user):
+        where = "scope = 'department' AND department = :dept"
+        params: dict = {"dept": dept}
+    else:
+        where, params = _folder_visibility_clause(scope, current_user)
     result = await db.execute(
         text(f"SELECT id, name, scope, department, created_at FROM folders WHERE {where} ORDER BY name"),
         params,

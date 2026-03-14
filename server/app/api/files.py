@@ -78,9 +78,11 @@ def _check_read_access(artifact: dict, current_user: dict):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                 detail="File not found or access denied")
     elif scope == "department":
-        if (artifact.get("department") or "").lower() != (current_user.get("department") or "").lower():
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail="Access denied")
+        # Management can read files from any department
+        if not _is_management(current_user):
+            if (artifact.get("department") or "").lower() != (current_user.get("department") or "").lower():
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="Access denied")
     # company — any authenticated user can read (no extra check)
 
 
@@ -233,29 +235,55 @@ async def upload_file(
     return response_data
 
 
+@router.get("/departments")
+async def list_departments(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all distinct department names (Management only)."""
+    if not _is_management(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Only the Management department can access this endpoint")
+    result = await db.execute(
+        text("SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND department != '' ORDER BY department")
+    )
+    departments = [row.department for row in result.fetchall()]
+    return {"departments": departments}
+
+
 @router.get("/")
 async def list_files(
     scope: str = Query("personal", pattern="^(personal|department|company)$"),
     folder_id: Optional[str] = Query(None),
+    dept: Optional[str] = Query(None),
     limit: int = 50,
     offset: int = 0,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List artifacts for the current user by scope and optional folder."""
+    """List artifacts for the current user by scope and optional folder.
+
+    Management users may pass ?dept=<name> to list files from any department.
+    For non-management users the dept param is silently ignored.
+    """
     uid = current_user["user_id"]
-    dept = current_user.get("department", "")
+    user_dept = current_user.get("department", "")
     email = current_user.get("email", "")
+
+    # Management can request a specific department; others always use their own
+    effective_dept = user_dept
+    if scope == "department" and dept and _is_management(current_user):
+        effective_dept = dept
 
     # Auto-sync orphaned disk files into DB (personal scope only)
     if scope == "personal" and not folder_id:
-        await sync_user_artifacts(db, uid, dept, email)
+        await sync_user_artifacts(db, uid, user_dept, email)
 
     artifacts = await list_artifacts(
         db=db,
         scope=scope,
         user_id=uid,
-        department=dept,
+        department=effective_dept,
         folder_id=folder_id,
         limit=limit,
         offset=offset,
@@ -274,8 +302,17 @@ async def search_files(
     uid = current_user["user_id"]
     dept = current_user.get("department", "")
     pattern = f"%{q}%"
+
+    # Management sees department files from ALL departments in search results
+    if _is_management(current_user):
+        dept_clause = "OR (a.scope = 'department')"
+        params: dict = {"pat": pattern, "uid": uid, "lim": limit}
+    else:
+        dept_clause = "OR (a.scope = 'department' AND a.department = :dept)"
+        params = {"pat": pattern, "uid": uid, "dept": dept, "lim": limit}
+
     result = await db.execute(
-        text("""
+        text(f"""
             SELECT a.id, a.filename, a.file_type, a.scope, a.folder_id, a.created_at,
                    a.user_id AS created_by_id, u.name AS creator_name
             FROM artifacts a
@@ -283,13 +320,13 @@ async def search_files(
             WHERE a.filename ILIKE :pat
               AND (
                 (a.scope = 'personal' AND a.user_id = :uid)
-                OR (a.scope = 'department' AND a.department = :dept)
+                {dept_clause}
                 OR a.scope = 'company'
               )
             ORDER BY a.created_at DESC
             LIMIT :lim
         """),
-        {"pat": pattern, "uid": uid, "dept": dept, "lim": limit},
+        params,
     )
     rows = result.fetchall()
     results = [

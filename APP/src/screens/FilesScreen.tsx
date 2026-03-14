@@ -23,6 +23,7 @@ import {useAuthStore} from '../stores/authStore';
 import {canWrite} from '../utils/fileRights';
 import {
   listFilesApi,
+  listDepartmentsApi,
   uploadFileApi,
   deleteFileApi,
   moveFileApi,
@@ -74,6 +75,13 @@ const getMimeType = (filename: string): string => {
   return map[ext] ?? 'application/octet-stream';
 };
 
+/**
+ * Extract the department name from a section key.
+ * 'dept_finance' → 'finance', 'company' → undefined
+ */
+const getSectionDept = (sectionKey: string): string | undefined =>
+  sectionKey.startsWith('dept_') ? sectionKey.slice(5) : undefined;
+
 // ── Section data type ─────────────────────────────────────────────────────────
 
 type SectionState = {
@@ -93,6 +101,7 @@ type FolderModalState = {
   visible: boolean;
   mode: 'create' | 'rename';
   scope: FileScope;
+  sectionKey: string;
   folder?: FolderItem;
   name: string;
 };
@@ -102,6 +111,7 @@ type FolderModalState = {
 type RenameFileModal = {
   visible: boolean;
   file?: ArtifactItem;
+  sectionKey?: string;
   name: string;
 };
 
@@ -111,19 +121,21 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const user = useAuthStore(s => s.user);
   const colors = useTheme();
 
-  const [sections, setSections] = useState<Record<FileScope, SectionState>>({
+  const isManagement = (user?.department ?? '').toLowerCase() === 'management';
+  const userDept = (user?.department ?? '').toLowerCase();
+
+  const [sections, setSections] = useState<Record<string, SectionState>>({
     company: emptySectionState(),
     department: emptySectionState(),
     personal: emptySectionState(),
   });
+  const [departments, setDepartments] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [downloadState, setDownloadState] = useState<Record<string, number | 'done' | 'error'>>({});
   const [folderModal, setFolderModal] = useState<FolderModalState>({
-    visible: false, mode: 'create', scope: 'personal', name: '',
+    visible: false, mode: 'create', scope: 'personal', sectionKey: 'personal', name: '',
   });
-  const [uploading, setUploading] = useState<Record<FileScope, boolean>>({
-    company: false, department: false, personal: false,
-  });
+  const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [searchActive, setSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ArtifactItem[] | null>(null);
@@ -134,27 +146,68 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
-  const loadSection = useCallback(async (scope: FileScope) => {
-    setSections(prev => ({...prev, [scope]: {...prev[scope], loading: true, error: null}}));
+  const loadSection = useCallback(async (sectionKey: string, scope: FileScope, dept?: string) => {
+    setSections(prev => ({
+      ...prev,
+      [sectionKey]: {...(prev[sectionKey] ?? emptySectionState()), loading: true, error: null},
+    }));
     try {
       const [foldersRes, filesRes] = await Promise.all([
-        listFoldersApi(scope),
-        listFilesApi(scope, null),
+        listFoldersApi(scope, dept),
+        listFilesApi(scope, null, dept),
       ]);
       setSections(prev => ({
         ...prev,
-        [scope]: {folders: foldersRes.folders, files: filesRes.artifacts, loading: false, error: null},
+        [sectionKey]: {folders: foldersRes.folders, files: filesRes.artifacts, loading: false, error: null},
       }));
     } catch {
-      setSections(prev => ({...prev, [scope]: {...prev[scope], loading: false, error: 'Failed to load'}}));
+      setSections(prev => ({
+        ...prev,
+        [sectionKey]: {...(prev[sectionKey] ?? emptySectionState()), loading: false, error: 'Failed to load'},
+      }));
     }
   }, []);
 
   const loadAll = useCallback(async (isRefresh = false) => {
     if (isRefresh) { setRefreshing(true); }
-    await Promise.all([loadSection('company'), loadSection('department'), loadSection('personal')]);
+
+    if (isManagement) {
+      try {
+        const deptsRes = await listDepartmentsApi();
+        const depts = deptsRes.departments;
+        setDepartments(depts);
+
+        // Reset sections to management layout
+        const initialSections: Record<string, SectionState> = {
+          company: emptySectionState(),
+          personal: emptySectionState(),
+        };
+        depts.forEach(d => { initialSections[`dept_${d}`] = emptySectionState(); });
+        setSections(initialSections);
+
+        await Promise.all([
+          loadSection('company', 'company'),
+          loadSection('personal', 'personal'),
+          ...depts.map(d => loadSection(`dept_${d}`, 'department', d)),
+        ]);
+      } catch {
+        // Fallback to standard 3-section layout on failure
+        await Promise.all([
+          loadSection('company', 'company'),
+          loadSection('department', 'department'),
+          loadSection('personal', 'personal'),
+        ]);
+      }
+    } else {
+      await Promise.all([
+        loadSection('company', 'company'),
+        loadSection('department', 'department'),
+        loadSection('personal', 'personal'),
+      ]);
+    }
+
     setRefreshing(false);
-  }, [loadSection]);
+  }, [isManagement, loadSection]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -217,10 +270,10 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   // ── Upload ──────────────────────────────────────────────────────────────────
 
-  const handleUpload = useCallback(async (scope: FileScope, folderId?: string) => {
+  const handleUpload = useCallback(async (sectionKey: string, scope: FileScope, folderId?: string) => {
     try {
       const result = await DocumentPicker.pickSingle({type: [DocTypes.allFiles]});
-      setUploading(prev => ({...prev, [scope]: true}));
+      setUploading(prev => ({...prev, [sectionKey]: true}));
       await uploadFileApi(
         result.uri,
         result.name ?? 'upload',
@@ -228,20 +281,21 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
         scope,
         folderId,
       );
-      await loadSection(scope);
+      const dept = getSectionDept(sectionKey);
+      await loadSection(sectionKey, scope, dept);
     } catch (err: any) {
       if (!DocumentPicker.isCancel(err)) {
         Alert.alert('Upload Failed', 'Could not upload the file. Please try again.');
       }
     } finally {
-      setUploading(prev => ({...prev, [scope]: false}));
+      setUploading(prev => ({...prev, [sectionKey]: false}));
     }
   }, [loadSection]);
 
   // ── Move file ────────────────────────────────────────────────────────────────
 
-  const handleMoveFile = useCallback((file: ArtifactItem) => {
-    const sectionFolders = sections[file.scope].folders;
+  const handleMoveFile = useCallback((file: ArtifactItem, sectionKey: string) => {
+    const sectionFolders = (sections[sectionKey] ?? {folders: []}).folders;
     const options: {label: string; folderId: string | null}[] = [
       {label: '📁 Root (no folder)', folderId: null},
       ...sectionFolders
@@ -258,7 +312,8 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
           onPress: async () => {
             try {
               await moveFileApi(file.id, opt.folderId);
-              await loadSection(file.scope);
+              const dept = getSectionDept(sectionKey);
+              await loadSection(sectionKey, file.scope, dept);
             } catch {
               Alert.alert('Error', 'Failed to move file.');
             }
@@ -270,14 +325,14 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   // ── Folder CRUD ─────────────────────────────────────────────────────────────
 
-  const openCreateFolder = (scope: FileScope) =>
-    setFolderModal({visible: true, mode: 'create', scope, name: ''});
+  const openCreateFolder = (sectionKey: string, scope: FileScope) =>
+    setFolderModal({visible: true, mode: 'create', scope, sectionKey, name: ''});
 
-  const openRenameFolder = (folder: FolderItem) =>
-    setFolderModal({visible: true, mode: 'rename', scope: folder.scope, folder, name: folder.name});
+  const openRenameFolder = (folder: FolderItem, sectionKey: string) =>
+    setFolderModal({visible: true, mode: 'rename', scope: folder.scope, sectionKey, folder, name: folder.name});
 
   const submitFolderModal = useCallback(async () => {
-    const {mode, scope, folder, name} = folderModal;
+    const {mode, scope, sectionKey, folder, name} = folderModal;
     const trimmed = name.trim();
     if (!trimmed) { return; }
     setFolderModal(prev => ({...prev, visible: false}));
@@ -287,13 +342,14 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
       } else if (folder) {
         await renameFolderApi(folder.id, trimmed);
       }
-      await loadSection(scope);
+      const dept = getSectionDept(sectionKey);
+      await loadSection(sectionKey, scope, dept);
     } catch {
       Alert.alert('Error', `Failed to ${mode} folder.`);
     }
   }, [folderModal, loadSection]);
 
-  const handleDeleteFolder = useCallback((folder: FolderItem) => {
+  const handleDeleteFolder = useCallback((folder: FolderItem, sectionKey: string) => {
     Alert.alert(
       'Delete Folder',
       `Delete "${folder.name}"? Files inside will be moved to the root of this section.`,
@@ -305,7 +361,8 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
           onPress: async () => {
             try {
               await deleteFolderApi(folder.id);
-              await loadSection(folder.scope);
+              const dept = getSectionDept(sectionKey);
+              await loadSection(sectionKey, folder.scope, dept);
             } catch {
               Alert.alert('Error', 'Failed to delete folder.');
             }
@@ -315,9 +372,9 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
     );
   }, [loadSection]);
 
-  const showFolderActions = useCallback((folder: FolderItem) => {
-    const doRename = () => openRenameFolder(folder);
-    const doDelete = () => handleDeleteFolder(folder);
+  const showFolderActions = useCallback((folder: FolderItem, sectionKey: string) => {
+    const doRename = () => openRenameFolder(folder, sectionKey);
+    const doDelete = () => handleDeleteFolder(folder, sectionKey);
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {options: ['Cancel', 'Rename', 'Delete'], destructiveButtonIndex: 2, cancelButtonIndex: 0},
@@ -335,9 +392,9 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
     }
   }, [handleDeleteFolder]);
 
-  const showSectionActions = useCallback((scope: FileScope) => {
-    const doNewFolder = () => openCreateFolder(scope);
-    const doUpload = () => handleUpload(scope);
+  const showSectionActions = useCallback((sectionKey: string, scope: FileScope) => {
+    const doNewFolder = () => openCreateFolder(sectionKey, scope);
+    const doUpload = () => handleUpload(sectionKey, scope);
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {options: ['Cancel', 'New Folder', 'Upload File'], cancelButtonIndex: 0},
@@ -363,17 +420,20 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
     return f.created_by_id === user.id;
   };
 
-  const openRenameFile = (f: ArtifactItem) =>
-    setRenameFileModal({visible: true, file: f, name: f.filename});
+  const openRenameFile = (f: ArtifactItem, sectionKey: string) =>
+    setRenameFileModal({visible: true, file: f, sectionKey, name: f.filename});
 
   const submitRenameFileModal = useCallback(async () => {
-    const {file, name} = renameFileModal;
+    const {file, name, sectionKey} = renameFileModal;
     const trimmed = name.trim();
     if (!trimmed || !file) { return; }
     setRenameFileModal(prev => ({...prev, visible: false}));
     try {
       await renameFileApi(file.id, trimmed);
-      await loadSection(file.scope);
+      if (sectionKey) {
+        const dept = getSectionDept(sectionKey);
+        await loadSection(sectionKey, file.scope, dept);
+      }
       if (searchResults !== null && searchQuery.trim()) {
         const res = await searchFilesApi(searchQuery.trim());
         setSearchResults(res.results);
@@ -427,7 +487,7 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   // ── Render helpers ──────────────────────────────────────────────────────────
 
-  const renderFileCard = (f: ArtifactItem, canDeleteFile: boolean) => {
+  const renderFileCard = (f: ArtifactItem, canDeleteFile: boolean, sectionKey: string) => {
     const typeKey = getTypeKey(f.filename, f.file_type);
     const ts = FILE_TYPE_STYLES[typeKey] || FILE_TYPE_STYLES.md;
     const viewerType = getViewerType(f.filename, f.file_type);
@@ -477,8 +537,11 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: async () => {
-                      try { await deleteFileApi(f.id); await loadSection(f.scope); }
-                      catch { Alert.alert('Error', 'Failed to delete file.'); }
+                      try {
+                        await deleteFileApi(f.id);
+                        const dept = getSectionDept(sectionKey);
+                        await loadSection(sectionKey, f.scope, dept);
+                      } catch { Alert.alert('Error', 'Failed to delete file.'); }
                     },
                   },
                 ])
@@ -490,7 +553,7 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
           ) : null}
           {canDeleteFile ? (
             <TouchableOpacity
-              onPress={() => handleMoveFile(f)}
+              onPress={() => handleMoveFile(f, sectionKey)}
               style={styles.actionBtn}
               hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
               <Icon name="folder-open-outline" size={18} color={colors.textMuted} />
@@ -498,7 +561,7 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
           ) : null}
           {canRenameFile ? (
             <TouchableOpacity
-              onPress={() => openRenameFile(f)}
+              onPress={() => openRenameFile(f, sectionKey)}
               style={styles.actionBtn}
               hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
               <Icon name="pencil-outline" size={18} color={colors.textMuted} />
@@ -529,24 +592,36 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
     );
   };
 
-  const renderSection = (scope: FileScope, label: string) => {
-    const {folders, files, loading, error} = sections[scope];
-    const write = canWrite(scope, user);
+  /**
+   * Render a file section.
+   * @param sectionKey  Key into the sections state map (e.g. 'company', 'dept_finance', 'personal')
+   * @param label       Header label shown to the user
+   * @param scope       API scope used for uploads/folder creates
+   * @param isReadOnly  When true, hides all write actions (upload, create folder, delete, move)
+   */
+  const renderSection = (
+    sectionKey: string,
+    label: string,
+    scope: FileScope,
+    isReadOnly?: boolean,
+  ) => {
+    const {folders, files, loading, error} = sections[sectionKey] ?? emptySectionState();
+    const write = isReadOnly ? false : canWrite(scope, user);
     const isEmpty = !loading && !error && folders.length === 0 && files.length === 0;
 
     return (
       <View
-        key={scope}
+        key={sectionKey}
         style={[styles.section, {borderColor: colors.border, backgroundColor: colors.surfaceLight}]}>
         {/* Section header */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, {color: colors.textMuted}]}>{label}</Text>
           {write && !loading ? (
-            uploading[scope] ? (
+            uploading[sectionKey] ? (
               <ActivityIndicator size="small" color={colors.accent} />
             ) : (
               <TouchableOpacity
-                onPress={() => showSectionActions(scope)}
+                onPress={() => showSectionActions(sectionKey, scope)}
                 style={styles.addBtn}
                 hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
                 <Icon name="add-circle-outline" size={20} color={colors.accent} />
@@ -576,7 +651,7 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 <Icon name="chevron-forward" size={14} color={colors.textDim} />
                 {write ? (
                   <TouchableOpacity
-                    onPress={() => showFolderActions(folder)}
+                    onPress={() => showFolderActions(folder, sectionKey)}
                     style={{paddingLeft: 10}}
                     hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
                     <Icon name="ellipsis-horizontal" size={16} color={colors.textMuted} />
@@ -584,18 +659,51 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 ) : null}
               </TouchableOpacity>
             ))}
-            {files.map(f => renderFileCard(f, write))}
+            {files.map(f => renderFileCard(f, write, sectionKey))}
           </>
         )}
       </View>
     );
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Section layout ───────────────────────────────────────────────────────────
 
-  const deptLabel = user?.department
-    ? `DEPARTMENT — ${user.department.toUpperCase()}`
-    : 'DEPARTMENT';
+  const renderSections = () => {
+    if (isManagement && departments.length > 0) {
+      // Sort alphabetically; own dept (management) always last among dept sections
+      const sortedDepts = [...departments].sort((a, b) => {
+        if (a.toLowerCase() === userDept) { return 1; }
+        if (b.toLowerCase() === userDept) { return -1; }
+        return a.localeCompare(b);
+      });
+      return (
+        <>
+          {renderSection('company', 'COMPANY PUBLIC', 'company')}
+          {sortedDepts.map(dept => {
+            const isOwnDept = dept.toLowerCase() === userDept;
+            const sectionKey = `dept_${dept}`;
+            const label = `DEPARTMENT — ${dept.toUpperCase()}`;
+            return renderSection(sectionKey, label, 'department', !isOwnDept);
+          })}
+          {renderSection('personal', 'PERSONAL', 'personal')}
+        </>
+      );
+    }
+
+    // Non-management (or management before dept list loads): standard 3-section layout
+    const deptLabel = user?.department
+      ? `DEPARTMENT — ${user.department.toUpperCase()}`
+      : 'DEPARTMENT';
+    return (
+      <>
+        {renderSection('company', 'COMPANY PUBLIC', 'company')}
+        {renderSection('department', deptLabel, 'department')}
+        {renderSection('personal', 'PERSONAL', 'personal')}
+      </>
+    );
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <View style={[styles.container, {backgroundColor: colors.primary}]}>
@@ -654,11 +762,7 @@ export const FilesScreen: React.FC<{navigation: any}> = ({navigation}) => {
             searchResults.map(f => renderSearchResult(f))
           )
         ) : (
-          <>
-            {renderSection('company', 'COMPANY PUBLIC')}
-            {renderSection('department', deptLabel)}
-            {renderSection('personal', 'PERSONAL')}
-          </>
+          renderSections()
         )}
         <View style={{height: 24}} />
       </ScrollView>

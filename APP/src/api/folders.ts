@@ -18,8 +18,13 @@ export interface FoldersResponse {
 
 // ── API functions ──────────────────────────────────────────────────────────────
 
-export const listFoldersApi = (scope: FileScope): Promise<FoldersResponse> =>
-  apiFetch<FoldersResponse>(`/folders/?scope=${scope}`);
+/** List folders for the given scope.
+ *  Management users can pass `dept` to list folders from any department. */
+export const listFoldersApi = (scope: FileScope, dept?: string): Promise<FoldersResponse> => {
+  let url = `/folders/?scope=${scope}`;
+  if (dept) { url += `&dept=${encodeURIComponent(dept)}`; }
+  return apiFetch<FoldersResponse>(url);
+};
 
 export const createFolderApi = (
   name: string,

@@ -387,6 +387,37 @@ Three places must always be updated together: `build.gradle`, `package.json`, `S
 | **1.19.0** | **31** | **Fix: taskBarText vertical alignment — removed flex:1 from banner Text** |
 | **1.20.0** | **32** | **AI Model Check button — pulse icon + inline result per model row** |
 | **1.21.0** | **33** | **LinkedIn Session status card in Connected Accounts (read-only, server-managed)** |
+| **1.22.0** | **34** | **Management cross-dept Files view — all dept sections visible with read-only guard** |
+
+---
+
+## v1.22.0 Changes
+
+**Feature:** Management department users now see department folders/files for ALL departments in the Files Tab (read-only for other depts, full write for own dept).
+
+**Backend (server):**
+- `server/app/api/files.py`:
+  - `_check_read_access()`: management bypasses dept equality check (can download/view any dept file)
+  - `GET /files/departments` (NEW): returns distinct dept names from users table (management-only, 403 for others)
+  - `GET /files/` — new `?dept=` query param; management users can pass any dept name; others silently ignored
+  - `GET /files/search` — management sees all dept files in search results (not just own dept)
+- `server/app/api/folders.py`:
+  - `GET /folders/` — new `?dept=` query param; management can list folders for any dept
+
+**Mobile (APP):**
+- `APP/src/api/files.ts`: `DepartmentsResponse` interface + `listDepartmentsApi()`; `listFilesApi()` gains optional `dept?` param
+- `APP/src/api/folders.ts`: `listFoldersApi()` gains optional `dept?` param
+- `APP/src/screens/FilesScreen.tsx` — major refactor:
+  - `sections` state: `Record<FileScope, SectionState>` → `Record<string, SectionState>` (supports `dept_*` keys)
+  - `getSectionDept(key)` helper: extracts dept from key (e.g. `'dept_finance'` → `'finance'`)
+  - Management path: fetches dept list on mount, renders one section per dept (sorted alpha, own dept last)
+  - `renderSection(sectionKey, label, scope, isReadOnly?)`: `isReadOnly=true` hides all write actions
+  - `loadSection(sectionKey, scope, dept?)`: passes dept override to both API calls
+  - `handleMoveFile`, `handleDeleteFolder`, `submitFolderModal`, `submitRenameFileModal`: all use `getSectionDept(sectionKey)` for reload
+  - `FolderModalState` + `RenameFileModal`: added `sectionKey` field
+  - Non-management path: **unchanged** — same 3-section layout
+- `APP/package.json`: version 1.22.0
+- `APP/android/app/build.gradle`: versionCode 34, versionName 1.22.0
 
 ---
 

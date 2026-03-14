@@ -36,13 +36,24 @@ export interface UploadResponse {
 
 // ── API functions ──────────────────────────────────────────────────────────────
 
-/** List files for a given scope, optionally inside a folder. */
+export interface DepartmentsResponse {
+  departments: string[];
+}
+
+/** List all distinct department names (Management only). */
+export const listDepartmentsApi = (): Promise<DepartmentsResponse> =>
+  apiFetch<DepartmentsResponse>('/files/departments');
+
+/** List files for a given scope, optionally inside a folder.
+ *  Management users can pass `dept` to list files from any department. */
 export const listFilesApi = (
   scope: FileScope = 'personal',
   folderId?: string | null,
+  dept?: string,
 ): Promise<FilesResponse> => {
   let url = `/files/?scope=${encodeURIComponent(scope)}`;
   if (folderId) { url += `&folder_id=${encodeURIComponent(folderId)}`; }
+  if (dept) { url += `&dept=${encodeURIComponent(dept)}`; }
   return apiFetch<FilesResponse>(url);
 };
 
