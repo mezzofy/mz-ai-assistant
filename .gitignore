@@ -23,6 +23,7 @@ venv/
 # Runtime data
 logs/*.log
 data/
+celerybeat-schedule
 
 # Test artifacts
 .pytest_cache/
