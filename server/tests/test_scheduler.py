@@ -547,29 +547,23 @@ class TestCronValidation:
         assert result == "0 */1 * * *"
 
 
-# ── BUG-017: next_run never populated ─────────────────────────────────────────
-# Root cause: No code path computes or writes next_run.
-#   - create_job INSERT omits next_run → column stays NULL
-#   - run_job_now UPDATE only sets last_run = NOW(), never next_run
-#   - DatabaseScheduler loads from DB but never writes next_run back
-# Expected fix: use croniter to compute next_run at create and after run_now.
-# These tests assert the DESIRED post-fix behaviour.
-# Currently they FAIL — they serve as the acceptance criteria for the fix.
+# ── BUG-017: next_run never populated — FIXED v1.26.0 ─────────────────────────
+# Root cause: No code path computed or wrote next_run.
+#   - create_job INSERT omitted next_run → column stayed NULL
+#   - run_job_now UPDATE only set last_run = NOW(), never next_run
+#   - DatabaseScheduler loads from DB at startup but never writes next_run back
+# Fix: croniter-based compute_next_run() called at create and after run_now.
 # ──────────────────────────────────────────────────────────────────────────────
 
 class TestNextRunPopulated:
     """
-    BUG-017: next_run column is always NULL.
+    BUG-017: next_run column is always NULL — fixed in v1.26.0.
 
-    The fix must:
-      1. Populate next_run on job CREATE (computed from cron expression).
-      2. Update next_run after run_job_now (next occurrence after NOW()).
-
-    Tests marked xfail until the fix is merged so CI stays green.
-    Remove the xfail markers once BUG-017 is resolved.
+    Verifies:
+      1. next_run is populated on job CREATE (computed from cron expression via croniter).
+      2. next_run is updated after run_job_now (next occurrence after NOW()).
     """
 
-    @pytest.mark.xfail(reason="BUG-017: next_run not computed at create time", strict=True)
     async def test_create_job_response_includes_next_run(self, client):
         """POST /scheduler/jobs response must include a non-null next_run timestamp."""
         mock_db = AsyncMock()
@@ -596,7 +590,6 @@ class TestNextRunPopulated:
         assert "next_run" in data, "next_run missing from create response"
         assert data["next_run"] is not None, "next_run must not be null after create"
 
-    @pytest.mark.xfail(reason="BUG-017: next_run not written to DB at create time", strict=True)
     async def test_create_job_inserts_next_run_into_db(self, client):
         """INSERT statement must include a non-null next_run value."""
         mock_db = AsyncMock()
@@ -628,7 +621,6 @@ class TestNextRunPopulated:
         assert "next_run" in params, "INSERT missing next_run parameter"
         assert params["next_run"] is not None, "next_run must not be None in INSERT"
 
-    @pytest.mark.xfail(reason="BUG-017: run_job_now does not update next_run", strict=True)
     async def test_run_job_now_updates_next_run(self, client, mock_celery_delay):
         """POST /scheduler/jobs/{id}/run must UPDATE both last_run and next_run."""
         user_id = USERS["sales_manager"]["user_id"]
@@ -661,7 +653,6 @@ class TestNextRunPopulated:
             "Currently only sets last_run — BUG-017."
         )
 
-    @pytest.mark.xfail(reason="BUG-017: next_run not computed at create time", strict=True)
     def test_next_run_is_in_future(self, client):
         """
         next_run computed from cron must be strictly in the future.

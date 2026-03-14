@@ -163,8 +163,11 @@ class SchedulerOps(BaseTool):
         if deliver_to_channel and deliver_to_channel.strip():
             deliver_to["teams_channel"] = deliver_to_channel.strip()
 
+        from app.webhooks.scheduler import compute_next_run
+
         job_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
+        next_run = compute_next_run(cron)
 
         async with AsyncSessionLocal() as db:
             # Enforce job limit
@@ -185,8 +188,8 @@ class SchedulerOps(BaseTool):
             await db.execute(
                 text(
                     "INSERT INTO scheduled_jobs "
-                    "(id, user_id, name, agent, message, schedule, deliver_to, is_active, created_at) "
-                    "VALUES (:id, :uid, :name, :agent, :message, :schedule, :deliver_to, TRUE, :now)"
+                    "(id, user_id, name, agent, message, schedule, deliver_to, is_active, next_run, created_at) "
+                    "VALUES (:id, :uid, :name, :agent, :message, :schedule, :deliver_to, TRUE, :next_run, :now)"
                 ),
                 {
                     "id": job_id,
@@ -196,6 +199,7 @@ class SchedulerOps(BaseTool):
                     "message": message,
                     "schedule": cron,
                     "deliver_to": json.dumps(deliver_to),
+                    "next_run": next_run,
                     "now": now,
                 },
             )
@@ -210,6 +214,7 @@ class SchedulerOps(BaseTool):
             "name": name,
             "agent": agent,
             "schedule": cron,
+            "next_run": next_run.isoformat(),
             "message": (
                 f"Scheduled job **{name}** created successfully. "
                 f"It will run the {agent} agent on schedule: `{cron}` (UTC)."
@@ -300,7 +305,7 @@ class SchedulerOps(BaseTool):
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 text(
-                    "SELECT id, name, agent, message, user_id, deliver_to "
+                    "SELECT id, name, agent, message, schedule, user_id, deliver_to "
                     "FROM scheduled_jobs WHERE id = :id"
                 ),
                 {"id": job_id},
@@ -330,11 +335,14 @@ class SchedulerOps(BaseTool):
             }
 
             from app.tasks.tasks import process_agent_task
+            from app.webhooks.scheduler import compute_next_run
+
             celery_task = process_agent_task.delay(task_data)
 
+            next_run = compute_next_run(row.schedule)
             await db.execute(
-                text("UPDATE scheduled_jobs SET last_run = NOW() WHERE id = :id"),
-                {"id": job_id},
+                text("UPDATE scheduled_jobs SET last_run = NOW(), next_run = :next_run WHERE id = :id"),
+                {"id": job_id, "next_run": next_run},
             )
             await db.commit()
 

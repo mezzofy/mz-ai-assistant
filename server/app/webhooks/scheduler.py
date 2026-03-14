@@ -107,6 +107,20 @@ class UpdateJobRequest(BaseModel):
     is_active: Optional[bool] = None
 
 
+# ── Cron next-run helper ──────────────────────────────────────────────────────
+
+def compute_next_run(cron_expr: str) -> datetime:
+    """
+    Compute the next UTC run time for a 5-field cron expression.
+
+    Uses croniter (standard library for cron iteration).
+    Returns a timezone-aware UTC datetime strictly after now.
+    """
+    from croniter import croniter as _croniter
+    base = datetime.now(timezone.utc)
+    return _croniter(cron_expr, base).get_next(datetime).replace(tzinfo=timezone.utc)
+
+
 # ── Validation helpers ────────────────────────────────────────────────────────
 
 def _schedule_dto_to_cron(schedule: ScheduleDTO) -> str:
@@ -232,6 +246,7 @@ async def create_job(
 
     # Convert schedule to cron expression
     cron_expr = _schedule_dto_to_cron(body.schedule)
+    next_run = compute_next_run(cron_expr)
 
     # Build deliver_to dict
     deliver_to = body.deliver_to.model_dump(exclude_none=True)
@@ -243,9 +258,9 @@ async def create_job(
         text(
             """
             INSERT INTO scheduled_jobs
-              (id, user_id, name, agent, message, schedule, deliver_to, is_active, created_at)
+              (id, user_id, name, agent, message, schedule, deliver_to, is_active, next_run, created_at)
             VALUES
-              (:id, :uid, :name, :agent, :message, :schedule, :deliver_to, TRUE, :now)
+              (:id, :uid, :name, :agent, :message, :schedule, :deliver_to, TRUE, :next_run, :now)
             """
         ),
         {
@@ -256,6 +271,7 @@ async def create_job(
             "message": body.message,
             "schedule": cron_expr,
             "deliver_to": json.dumps(deliver_to),
+            "next_run": next_run,
             "now": now,
         },
     )
@@ -270,6 +286,7 @@ async def create_job(
         "schedule": cron_expr,
         "deliver_to": deliver_to,
         "is_active": True,
+        "next_run": next_run.isoformat(),
         "created_at": now.isoformat(),
         "note": "Job will be picked up at next Celery Beat restart. Use /run for immediate execution.",
     }
@@ -383,10 +400,11 @@ async def run_job_now(
     from app.tasks.tasks import process_agent_task
     celery_task = process_agent_task.delay(task_data)
 
-    # Update last_run
+    # Update last_run and next_run
+    next_run = compute_next_run(row.schedule)
     await db.execute(
-        text("UPDATE scheduled_jobs SET last_run = NOW() WHERE id = :id"),
-        {"id": job_id},
+        text("UPDATE scheduled_jobs SET last_run = NOW(), next_run = :next_run WHERE id = :id"),
+        {"id": job_id, "next_run": next_run},
     )
     await db.commit()
 
