@@ -291,6 +291,10 @@ def process_chat_task(self, task_data: dict):
     """
     task_data["_celery_task_id"] = self.request.id
     try:
+        try:
+            engine.sync_engine.dispose()
+        except Exception as _e:
+            logger.warning(f"process_chat_task engine.dispose() failed (non-fatal): {_e}")
         result = asyncio.run(_run_chat_task(task_data))
         logger.info(
             f"process_chat_task completed: user={task_data.get('user_id')!r} "

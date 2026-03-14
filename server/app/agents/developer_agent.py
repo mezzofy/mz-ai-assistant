@@ -68,6 +68,7 @@ class DeveloperAgent(BaseAgent):
         cmd = [
             "claude",
             "--output-format", "stream-json",
+            "--verbose",
             "--dangerously-skip-permissions",
             "-p", query,
         ]
