@@ -206,8 +206,8 @@ async def test_semantic_search_returns_results_when_rows_found():
 
         result = await ops._semantic_search(query="billing problem", limit=5)
 
-    assert result["status"] == "ok"
-    data = result["data"]
+    assert result["success"] is True, f"Expected success, got: {result}"
+    data = result["output"]
     assert data["total_found"] == 2
     assert data["results"][0]["chunk_text"] == "Billing errors are tracked in the finance portal."
     assert data["results"][0]["score"] == 0.87
@@ -226,7 +226,7 @@ async def test_semantic_search_disabled_by_config():
     ops = KnowledgeOps(cfg)
     result = await ops._semantic_search(query="anything")
 
-    assert result["status"] == "error"
+    assert result["success"] is False
     assert "disabled" in result["error"].lower()
 
 
@@ -262,9 +262,9 @@ async def test_semantic_search_filters_by_threshold():
 
         result = await ops._semantic_search(query="sales pitch", limit=5)
 
-    assert result["status"] == "ok"
-    assert result["data"]["total_found"] == 1
-    assert result["data"]["results"][0]["chunk_text"] == "High-relevance chunk."
+    assert result["success"] is True, f"Expected success, got: {result}"
+    assert result["output"]["total_found"] == 1
+    assert result["output"]["results"][0]["chunk_text"] == "High-relevance chunk."
 
 
 @pytest.mark.asyncio
@@ -285,7 +285,7 @@ async def test_semantic_search_no_database_url():
 
         result = await ops._semantic_search(query="test")
 
-    assert result["status"] == "error"
+    assert result["success"] is False
     assert "DATABASE_URL" in result["error"]
 
 
@@ -315,8 +315,8 @@ async def test_semantic_search_live_db_returns_rows():
     with patch.dict(os.environ, {"DATABASE_URL": db_url}):
         result = await ops._semantic_search(query="billing payment error", limit=3)
 
-    assert result["status"] == "ok", f"semantic_search failed: {result.get('error')}"
+    assert result["success"] is True, f"semantic_search failed: {result.get('error')}"
     # If KB is indexed, we expect rows. If KB is empty, total_found = 0 (still a pass — no crash).
-    assert "total_found" in result["data"]
-    assert isinstance(result["data"]["results"], list)
-    print(f"\n  Live DB results: {result['data']['total_found']} chunks found")
+    assert "total_found" in result["output"]
+    assert isinstance(result["output"]["results"], list)
+    print(f"\n  Live DB results: {result['output']['total_found']} chunks found")

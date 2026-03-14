@@ -268,7 +268,7 @@ class KnowledgeOps(BaseTool):
         limit: int = 5,
     ) -> dict:
         """Semantic vector search via pgvector + sentence-transformers."""
-        rag_cfg = self._config.get("rag", {})
+        rag_cfg = self.config.get("rag", {})
         if not rag_cfg.get("enabled", True):
             return self._err("RAG semantic search is disabled in config.")
 
