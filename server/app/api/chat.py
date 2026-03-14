@@ -108,6 +108,14 @@ _DEVELOPER_KEYWORDS = [
     "write a python", "write a bash", "run claude code",
 ]
 
+_SCHEDULER_KEYWORDS = {
+    "schedule a", "create a schedule", "set up a schedule",
+    "scheduled task", "scheduled job", "recurring task",
+    "my schedules", "show my schedule", "list my schedule",
+    "delete schedule", "cancel schedule", "remove schedule",
+    "run schedule", "trigger schedule",
+}
+
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".heic"}
 
 
@@ -115,6 +123,12 @@ def _is_long_running(message: str) -> bool:
     """Return True if the message contains a long-running task keyword."""
     lower = message.lower()
     return any(kw in lower for kw in _LONG_RUNNING_KEYWORDS)
+
+
+def _is_scheduler_request(message: str) -> bool:
+    """Return True if the message contains a scheduler management keyword."""
+    lower = message.lower()
+    return any(kw in lower for kw in _SCHEDULER_KEYWORDS)
 
 
 def _detect_agent_type(message: str) -> str | None:
@@ -234,6 +248,10 @@ async def send_message(
                 "estimated_seconds": 120,
             },
         )
+
+    # Scheduler detection — synchronous path, no Celery needed
+    if _is_scheduler_request(body.message):
+        task["agent"] = "scheduler"
 
     # Process input (text passthrough)
     task = await process_input(task)

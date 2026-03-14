@@ -81,6 +81,9 @@ class ToolExecutor:
         # ── Personal MS Graph (delegated OAuth) ──────────────────────────────
         self._register_ops("communication.personal_ms_ops", "PersonalMSOps")
 
+        # ── Scheduler tools (chat-based job management) ───────────────────────
+        self._register_ops("scheduler.scheduler_ops", "SchedulerOps")
+
         self._loaded = True
         logger.info(f"ToolExecutor loaded {len(self._definitions)} tools")
 

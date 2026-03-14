@@ -100,6 +100,11 @@ async def _route_scheduler(task: dict, config: dict) -> dict:
 
 async def _route_mobile(task: dict, config: dict) -> dict:
     """Route mobile/Teams requests via agent_registry keyword classification."""
+    # Explicit agent override (e.g. "scheduler" set by keyword detection in chat.py)
+    explicit_agent = task.get("agent", "")
+    if explicit_agent and explicit_agent in AGENT_MAP:
+        return await _execute_by_name(explicit_agent, task, config)
+
     agent = get_agent_for_task(task, config)
 
     if agent is None:
