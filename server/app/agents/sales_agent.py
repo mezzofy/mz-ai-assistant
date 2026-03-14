@@ -11,6 +11,7 @@ Sources:
 """
 
 import logging
+from datetime import date, timedelta
 
 from app.agents.base_agent import BaseAgent
 from app.llm import llm_manager as llm_mod
@@ -49,6 +50,8 @@ class SalesAgent(BaseAgent):
             return await self._customer_onboarding_workflow(task)
         if any(w in message for w in ("pitch deck", "pitch", "deck", "presentation")):
             return await self._pitch_deck_workflow(task)
+        if "email lead report" in message or "inbox lead report" in message:
+            return await self._daily_email_lead_report_workflow(task)
         if any(w in message for w in ("linkedin", "prospect", "lead", "find")):
             return await self._prospecting_workflow(task)
         return await self._general_sales_workflow(task)
@@ -280,6 +283,35 @@ class SalesAgent(BaseAgent):
             content=f"Onboarding complete for {customer_name} ({plan} plan).",
             tools_called=tools_called,
         )
+
+    async def _daily_email_lead_report_workflow(self, task: dict) -> dict:
+        """
+        Daily workflow: read hello@mezzofy.com inbox for yesterday's emails,
+        identify new lead enquiries, save as Leads_DDMMYY.txt in sales dept folder.
+        Backend injects yesterday's date — never relies on LLM for date generation.
+        """
+        from app.core.user_context import set_user_context
+
+        # Inject context so create_txt saves to sales dept folder
+        set_user_context(dept="sales", email="")
+
+        yesterday = date.today() - timedelta(days=1)
+        filename = f"Leads_{yesterday.strftime('%d%m%y')}"
+        date_label = yesterday.strftime("%d %b %Y")
+        yesterday_start = yesterday.isoformat() + "T00:00:00"
+        yesterday_end = yesterday.isoformat() + "T23:59:59"
+
+        message = (
+            f"Read the hello@mezzofy.com email inbox for {date_label} "
+            f"(received_after={yesterday_start}, received_before={yesterday_end}, limit=100). "
+            f"From those emails, identify all new lead enquiries (ignore out-of-office replies, "
+            f"spam, internal emails, and automated notifications). "
+            f"For each lead, list: sender name, email, company (if available), and enquiry summary. "
+            f"Save the full list as a text file named '{filename}' with storage_scope='department'."
+        )
+
+        task["message"] = message
+        return await self._general_sales_workflow(task)
 
     async def _general_sales_workflow(self, task: dict) -> dict:
         """Fallback: route to LLM with sales context and all tools."""
