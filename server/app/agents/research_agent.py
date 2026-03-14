@@ -69,6 +69,7 @@ class ResearchAgent(BaseAgent):
             "content": final_text or "No result returned from web search.",
             "artifacts": [],
             "tools_called": ["web_search"],
+            "agent_used": "research",
         }
 
     # ── Claude loop ───────────────────────────────────────────────────────────

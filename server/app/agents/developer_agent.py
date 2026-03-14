@@ -152,6 +152,7 @@ class DeveloperAgent(BaseAgent):
             "content": final_result or "Task complete.",
             "artifacts": [],
             "tools_called": ["claude_code"],
+            "agent_used": "developer",
         }
 
     # ── Step broadcasting ─────────────────────────────────────────────────────
