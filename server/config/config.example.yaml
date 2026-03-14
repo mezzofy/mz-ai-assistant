@@ -264,6 +264,13 @@ agents:
     - support
     - management
     - hr
+    - research
+    - developer
+  # Research Agent settings
+  max_research_iterations: 8        # Max agentic loop iterations for web search
+  # Developer Agent settings
+  developer_work_dir: ~/mezzofy-workspace   # Working directory for Claude Code subprocess
+  max_developer_timeout: 300        # Seconds before developer agent subprocess is killed
 
 # File Storage
 storage:

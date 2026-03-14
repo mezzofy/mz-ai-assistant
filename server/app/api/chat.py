@@ -90,6 +90,22 @@ class SessionUpdateRequest(BaseModel):
 _LONG_RUNNING_KEYWORDS = [
     "research", "report", "generate pdf", "create pdf", "analyze all",
     "weekly", "monthly", "compare", "pitch deck", "scrape", "linkedin",
+    # Research agent triggers
+    "search the web", "web search", "look up online", "find online",
+    "what is the latest", "find information about",
+    # Developer agent triggers
+    "write code", "create a script", "build a program",
+    "write a python", "write a bash", "run claude code",
+]
+
+_RESEARCH_KEYWORDS = [
+    "search the web", "web search", "look up online", "find online",
+    "what is the latest", "find information about",
+]
+
+_DEVELOPER_KEYWORDS = [
+    "write code", "create a script", "build a program",
+    "write a python", "write a bash", "run claude code",
 ]
 
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".heic"}
@@ -99,6 +115,21 @@ def _is_long_running(message: str) -> bool:
     """Return True if the message contains a long-running task keyword."""
     lower = message.lower()
     return any(kw in lower for kw in _LONG_RUNNING_KEYWORDS)
+
+
+def _detect_agent_type(message: str) -> str | None:
+    """
+    Detect whether a message should be routed to a specific power-user agent.
+
+    Returns "research", "developer", or None (fall through to department routing).
+    Prefix syntax ("research: ...", "developer: ...") takes priority over keyword scan.
+    """
+    lower = message.lower()
+    if lower.startswith("research:") or any(kw in lower for kw in _RESEARCH_KEYWORDS):
+        return "research"
+    if lower.startswith("developer:") or any(kw in lower for kw in _DEVELOPER_KEYWORDS):
+        return "developer"
+    return None
 
 
 # ── REST: POST /chat/send ─────────────────────────────────────────────────────
@@ -127,6 +158,10 @@ async def send_message(
         "input_type": "text",
     })
 
+    # Detect power-user agent type before long-running check
+    # (checked first so "research:"/"developer:" prefixes always route correctly)
+    _detected_agent = _detect_agent_type(body.message)
+
     # Long-running task detection — dispatch to Celery and return 202 immediately
     if _is_long_running(body.message):
         import uuid as _uuid
@@ -134,6 +169,7 @@ async def send_message(
 
         new_task_id = str(_uuid.uuid4())
         task_ref = f"TASK-{new_task_id[:8].upper()}"
+        queue_name_value = _detected_agent or "background"
 
         # Create (or retrieve) session BEFORE inserting agent_tasks.
         # This guarantees session_id is never null in agent_tasks, even if the
@@ -148,7 +184,7 @@ async def send_message(
                 text(
                     "INSERT INTO agent_tasks "
                     "(id, task_ref, user_id, session_id, department, title, status, queue_name, notify_on_done) "
-                    "VALUES (:id, :ref, :uid, :sid, :dept, :title, 'queued', 'background', true)"
+                    "VALUES (:id, :ref, :uid, :sid, :dept, :title, 'queued', :qname, true)"
                 ),
                 {
                     "id": new_task_id,
@@ -157,6 +193,7 @@ async def send_message(
                     "sid": resolved_session_id,   # ← real session ID, never null
                     "dept": user.get("department", ""),
                     "title": body.message[:80],
+                    "qname": queue_name_value,
                 },
             )
             # Save user message immediately so chat history is never blank
@@ -173,7 +210,8 @@ async def send_message(
             "session_id": resolved_session_id,    # ← pass to Celery so it reuses the session
             "message": body.message,
             "department": user.get("department", ""),
-            "agent": user.get("department", ""),   # use dept as agent name; registry resolves
+            # Power-user agents use their own name; department agents use dept name
+            "agent": _detected_agent or user.get("department", ""),
             "device_token": body.device_token or "",
             "platform": body.platform,
             "source": "mobile",

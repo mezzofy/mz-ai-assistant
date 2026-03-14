@@ -158,7 +158,7 @@ async def list_user_sessions(
     for row in rows:
         msgs = _parse_messages(row.messages)
         sessions.append({
-            "session_id": row.id,
+            "session_id": str(row.id),
             "message_count": len(msgs),
             "last_message": msgs[-1] if msgs else None,
             "created_at": _iso(row.created_at),
@@ -183,7 +183,7 @@ async def _fetch_session(
     row = result.fetchone()
     if row is None:
         return None
-    return {"id": row.id, "messages": _parse_messages(row.messages)}
+    return {"id": str(row.id), "messages": _parse_messages(row.messages)}
 
 
 def _parse_messages(raw) -> list:

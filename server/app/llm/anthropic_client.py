@@ -190,15 +190,22 @@ class AnthropicClient:
 
         Anthropic format:
             {"name": "...", "description": "...", "input_schema": {...JSON Schema...}}
+
+        Native Anthropic built-in tools (e.g. web_search_20250305) are passed through
+        unchanged — they only have "type" and "name" keys, not "description"/"parameters".
         """
-        return [
-            {
-                "name": t["name"],
-                "description": t["description"],
-                "input_schema": t.get("parameters", {"type": "object", "properties": {}}),
-            }
-            for t in tools
-        ]
+        result = []
+        for t in tools:
+            # Native Anthropic built-in tool — pass through unchanged
+            if "type" in t and t.get("type") != "function":
+                result.append(t)
+            else:
+                result.append({
+                    "name": t["name"],
+                    "description": t["description"],
+                    "input_schema": t.get("parameters", {"type": "object", "properties": {}}),
+                })
+        return result
 
     def _parse_response(self, response) -> dict:
         """

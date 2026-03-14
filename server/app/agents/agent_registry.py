@@ -20,6 +20,8 @@ from app.agents.management_agent import ManagementAgent
 from app.agents.marketing_agent import MarketingAgent
 from app.agents.sales_agent import SalesAgent
 from app.agents.support_agent import SupportAgent
+from app.agents.research_agent import ResearchAgent
+from app.agents.developer_agent import DeveloperAgent
 
 logger = logging.getLogger("mezzofy.agents.registry")
 
@@ -31,6 +33,8 @@ AGENT_MAP = {
     "marketing": MarketingAgent,
     "support": SupportAgent,
     "management": ManagementAgent,
+    "research": ResearchAgent,
+    "developer": DeveloperAgent,
 }
 
 # All agent classes (for cross-department keyword fallback)

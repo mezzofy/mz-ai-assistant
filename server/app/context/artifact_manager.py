@@ -121,7 +121,7 @@ async def register_artifact(
             {
                 "id": artifact_id,
                 "uid": user_id,
-                "sid": session_id,
+                "sid": str(session_id) if session_id is not None else None,
                 "fname": filename,
                 "fpath": file_path,
                 "ftype": file_type,

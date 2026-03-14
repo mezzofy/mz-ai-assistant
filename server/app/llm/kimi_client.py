@@ -137,18 +137,25 @@ class KimiClient:
 
         OpenAI/Kimi format:
             {"type": "function", "function": {"name": "...", "description": "...", "parameters": {...}}}
+
+        Tools already in OpenAI function format (e.g. Kimi's $web_search) are passed
+        through unchanged — they already have a "function" dict key.
         """
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": t["name"],
-                    "description": t["description"],
-                    "parameters": t.get("parameters", {"type": "object", "properties": {}}),
-                },
-            }
-            for t in tools
-        ]
+        result = []
+        for t in tools:
+            # Already in OpenAI function format — pass through unchanged
+            if "function" in t and isinstance(t.get("function"), dict):
+                result.append(t)
+            else:
+                result.append({
+                    "type": "function",
+                    "function": {
+                        "name": t["name"],
+                        "description": t["description"],
+                        "parameters": t.get("parameters", {"type": "object", "properties": {}}),
+                    },
+                })
+        return result
 
     def _parse_response(self, response) -> dict:
         """
