@@ -1,5 +1,5 @@
 """
-DeveloperAgent — Runs `claude --output-format stream-json --no-interactive -p <query>`
+DeveloperAgent — Runs `claude --output-format stream-json --dangerously-skip-permissions -p <query>`
 as a headless subprocess and streams structured JSON output as task step events.
 
 Dispatched via POST /chat/send when the message starts with "developer:" or contains
@@ -36,7 +36,7 @@ class DeveloperAgent(BaseAgent):
     Claude Code headless subprocess agent.
 
     can_handle: task["agent"] == "developer"
-    execute:    Runs `claude --output-format stream-json --no-interactive -p <query>`
+    execute:    Runs `claude --output-format stream-json --dangerously-skip-permissions -p <query>`
                 in a work directory, streams JSON events, and returns the final result.
     """
 
