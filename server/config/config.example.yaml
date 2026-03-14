@@ -188,6 +188,14 @@ tools:
     enabled: true
     directory: "knowledge"
 
+# RAG (Retrieval-Augmented Generation)
+rag:
+  enabled: true
+  model: "all-MiniLM-L6-v2"        # Local sentence-transformers model (384-dim, no API cost)
+  chunk_size: 500                   # Characters per chunk
+  chunk_overlap: 50                 # Overlap between consecutive chunks
+  similarity_threshold: 0.4        # Minimum cosine similarity score to return a result
+
   media_processing:
     enabled: true
     max_image_size_mb: 20

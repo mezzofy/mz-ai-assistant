@@ -6,6 +6,7 @@ from the knowledge base directory (config: tools.knowledge_base.directory).
 
 Tools:
     search_knowledge    — Search knowledge base by keyword/topic
+    semantic_search     — Semantic vector search using sentence-transformers + pgvector
     get_template        — Load a specific template (email, PDF, PPTX)
     get_brand_guidelines — Load brand voice, colors, logo specs
     get_playbook        — Load existing playbook content
@@ -13,6 +14,7 @@ Tools:
 
 import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -20,6 +22,20 @@ from typing import Optional
 from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger("mezzofy.tools.knowledge_ops")
+
+# Module-level singleton — loaded once on first semantic_search call
+_embedding_model = None
+
+
+def _get_embedding_model(model_name: str = "all-MiniLM-L6-v2"):
+    """Lazy-load the sentence-transformers model (singleton)."""
+    global _embedding_model
+    if _embedding_model is None:
+        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+        logger.info(f"Loading embedding model '{model_name}' (first call only)...")
+        _embedding_model = SentenceTransformer(model_name)
+        logger.info("Embedding model loaded.")
+    return _embedding_model
 
 
 class KnowledgeOps(BaseTool):
@@ -37,6 +53,37 @@ class KnowledgeOps(BaseTool):
 
     def get_tools(self) -> list[dict]:
         return [
+            {
+                "name": "semantic_search",
+                "description": (
+                    "Semantic similarity search across the Mezzofy knowledge base using vector embeddings. "
+                    "Better than keyword search for natural language queries — finds conceptually related "
+                    "content even when exact words don't match (e.g. 'billing problem' finds 'payment error'). "
+                    "Use this as the primary knowledge search; fall back to search_knowledge if no results."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Natural language query to search for semantically similar knowledge base content.",
+                        },
+                        "category": {
+                            "type": "string",
+                            "description": (
+                                "Optional category to restrict search "
+                                "(brand, playbooks, product_data, sales, templates)."
+                            ),
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of results to return. Default: 5.",
+                        },
+                    },
+                    "required": ["query"],
+                },
+                "handler": self._semantic_search,
+            },
             {
                 "name": "search_knowledge",
                 "description": (
@@ -212,6 +259,94 @@ class KnowledgeOps(BaseTool):
             "category": category,
             "total_found": len(results),
             "results": results[:limit],
+        })
+
+    async def _semantic_search(
+        self,
+        query: str,
+        category: Optional[str] = None,
+        limit: int = 5,
+    ) -> dict:
+        """Semantic vector search via pgvector + sentence-transformers."""
+        rag_cfg = self._config.get("rag", {})
+        if not rag_cfg.get("enabled", True):
+            return self._err("RAG semantic search is disabled in config.")
+
+        model_name = rag_cfg.get("model", "all-MiniLM-L6-v2")
+        threshold = rag_cfg.get("similarity_threshold", 0.4)
+
+        try:
+            model = _get_embedding_model(model_name)
+            query_vec = model.encode(query).tolist()
+        except Exception as e:
+            logger.error(f"Embedding model error: {e}")
+            return self._err(f"Failed to generate query embedding: {e}")
+
+        db_url = os.environ.get("DATABASE_URL", "")
+        sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+        if not sync_url:
+            return self._err("DATABASE_URL not set — cannot run semantic search.")
+
+        try:
+            import psycopg2  # noqa: PLC0415
+            from pgvector.psycopg2 import register_vector  # noqa: PLC0415
+
+            conn = psycopg2.connect(sync_url)
+            register_vector(conn)
+            cur = conn.cursor()
+
+            if category:
+                cur.execute(
+                    """
+                    SELECT chunk_text, category, file_path,
+                           1 - (embedding <=> %s::vector) AS score
+                    FROM knowledge_vectors
+                    WHERE category = %s
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (query_vec, category, query_vec, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT chunk_text, category, file_path,
+                           1 - (embedding <=> %s::vector) AS score
+                    FROM knowledge_vectors
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s
+                    """,
+                    (query_vec, query_vec, limit),
+                )
+
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"pgvector query error: {e}")
+            return self._err(
+                f"Semantic search failed: {e}. "
+                "Ensure pgvector extension is installed and knowledge_vectors table exists "
+                "(run: python scripts/migrate.py && python scripts/index_knowledge.py)."
+            )
+
+        results = [
+            {
+                "chunk_text": row[0],
+                "category": row[1],
+                "file_path": row[2],
+                "score": round(float(row[3]), 4),
+            }
+            for row in rows
+            if float(row[3]) >= threshold
+        ]
+
+        return self._ok({
+            "query": query,
+            "category": category,
+            "model": model_name,
+            "total_found": len(results),
+            "results": results,
         })
 
     async def _get_template(

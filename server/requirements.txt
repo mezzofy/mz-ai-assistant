@@ -38,6 +38,10 @@ sqlalchemy[asyncio]==2.0.25
 alembic==1.13.1
 psycopg2-binary==2.9.9
 
+# Vector Search (RAG)
+sentence-transformers>=2.2.0
+pgvector>=0.2.0
+
 # Document Generation
 reportlab==4.0.7
 weasyprint==61.0

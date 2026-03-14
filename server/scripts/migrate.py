@@ -374,6 +374,26 @@ def run_migrations(conn):
         cur.execute(sql)
         print(f"  ✅ {name}")
 
+    # ── 13. knowledge_vectors (RAG / pgvector) ───────────────────
+    cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS knowledge_vectors (
+            id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            file_path  TEXT NOT NULL,
+            category   TEXT NOT NULL,
+            chunk_text TEXT NOT NULL,
+            embedding  vector(384) NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(file_path, chunk_text)
+        )
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS knowledge_vectors_embedding_idx
+            ON knowledge_vectors USING ivfflat (embedding vector_cosine_ops)
+            WITH (lists = 10)
+    """)
+    print("  ✅ knowledge_vectors (pgvector RAG table)")
+
     # ── Optional: check support_tickets table presence ─────────
     cur.execute("""
         SELECT EXISTS (
