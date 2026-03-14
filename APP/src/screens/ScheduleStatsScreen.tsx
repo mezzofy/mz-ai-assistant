@@ -27,12 +27,21 @@ function formatNextRun(iso: string | null): string {
   });
 }
 
-function formatDelivery(deliver_to: ScheduledJob['deliver_to']): string {
-  if (deliver_to.teams_channel) { return deliver_to.teams_channel; }
-  if (deliver_to.email && deliver_to.email.length > 0) {
-    return deliver_to.email.join(', ');
+function renderDelivery(deliver_to: ScheduledJob['deliver_to'], colors: ReturnType<typeof useTheme>): React.ReactNode[] {
+  const rows: string[] = [];
+  if (deliver_to.teams_channel) {
+    rows.push(`→ Teams: #${deliver_to.teams_channel}`);
   }
-  return 'Personal folder';
+  if (deliver_to.email && deliver_to.email.length > 0) {
+    const extra = deliver_to.email.length - 1;
+    rows.push(`→ Email: ${deliver_to.email[0]}${extra > 0 ? ` +${extra} more` : ''}`);
+  }
+  if (rows.length === 0) {
+    rows.push('→ No delivery configured');
+  }
+  return rows.map((r, i) => (
+    <Text key={i} style={[styles.deliveryText, {color: colors.textMuted}]}>{r}</Text>
+  ));
 }
 
 type JobCardProps = {
@@ -71,15 +80,25 @@ const JobCard: React.FC<JobCardProps> = ({job, colors}) => (
       <Text style={[styles.scheduleText, {color: colors.textDim}]}>{job.schedule}</Text>
     </View>
 
-    <Text style={[styles.message, {color: colors.textMuted}]} numberOfLines={2}>
-      {job.message}
-    </Text>
+    <View style={styles.metaRow}>
+      <Icon name="finger-print-outline" size={13} color={colors.textMuted} />
+      <Text style={[styles.jobId, {color: colors.textMuted}]}>{`ID: ${job.id.substring(0, 8)}`}</Text>
+    </View>
+
+    {job.message ? (
+      <View style={styles.metaRow}>
+        <Icon name="chatbubble-ellipses-outline" size={13} color={colors.textMuted} />
+        <Text style={[styles.messageText, {color: colors.textMuted}]} numberOfLines={1}>
+          {job.message.length > 60 ? job.message.substring(0, 60) + '…' : job.message}
+        </Text>
+      </View>
+    ) : null}
 
     <View style={[styles.deliveryRow, {borderTopColor: colors.border}]}>
       <Icon name="send-outline" size={13} color={colors.textMuted} />
-      <Text style={[styles.deliveryText, {color: colors.textMuted}]}>
-        {formatDelivery(job.deliver_to)}
-      </Text>
+      <View style={styles.deliveryLines}>
+        {renderDelivery(job.deliver_to, colors)}
+      </View>
     </View>
   </View>
 );
@@ -171,14 +190,16 @@ const styles = StyleSheet.create({
   metaLabel: {fontSize: 12},
   metaValue: {fontSize: 12, fontWeight: '500'},
   scheduleText: {fontSize: 11, fontFamily: 'monospace'},
-  message: {fontSize: 13, lineHeight: 19},
+  jobId: {fontSize: 11, fontFamily: 'monospace'},
+  messageText: {fontSize: 13, flex: 1},
   deliveryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 6,
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     marginTop: 2,
   },
+  deliveryLines: {flex: 1, gap: 2},
   deliveryText: {fontSize: 12},
 });

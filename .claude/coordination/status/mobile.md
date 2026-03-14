@@ -1,8 +1,8 @@
 # Context Checkpoint: Mobile Agent
-**Date:** 2026-03-14
-**Session:** v1.22.0 — Management cross-dept Files view
-**Context:** ~15% at checkpoint
-**Reason:** v1.22.0 release APK complete and verified
+**Date:** 2026-03-15
+**Session:** v1.26.0 — ScheduleStatsScreen card enhancements (FEAT-E01 + FEAT-E02)
+**Context:** ~10% at checkpoint
+**Reason:** v1.26.0 release APK complete and verified
 
 ---
 
@@ -388,6 +388,34 @@ Three places must always be updated together: `build.gradle`, `package.json`, `S
 | **1.20.0** | **32** | **AI Model Check button — pulse icon + inline result per model row** |
 | **1.21.0** | **33** | **LinkedIn Session status card in Connected Accounts (read-only, server-managed)** |
 | **1.22.0** | **34** | **Management cross-dept Files view — all dept sections visible with read-only guard** |
+| **1.26.0** | **35** | **ScheduleStatsScreen: Job ID row, message preview (60-char), delivery multi-line rows** |
+
+---
+
+## v1.26.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~61 MB |
+| versionCode | 35 |
+| versionName | 1.26.0 |
+| Build time | 1m 5s |
+| Branch | eric-design |
+
+## v1.26.0 Changes
+
+**Feature:** ScheduleStatsScreen job card enhancements (FEAT-E01 + FEAT-E02)
+
+- `APP/src/screens/ScheduleStatsScreen.tsx`:
+  - FEAT-E01: Added Job ID row — `finger-print-outline` icon + `ID: xxxxxxxx` (8-char prefix, monospace, muted)
+  - FEAT-E02: Message preview row — `chatbubble-ellipses-outline` icon, 60-char truncation with `…`, conditional (hidden when empty)
+  - FEAT-E02: Replaced `formatDelivery()` string with `renderDelivery()` returning multi-line `Text` nodes: `→ Teams: #channel`, `→ Email: addr +N more`, `→ No delivery configured`
+  - New styles: `jobId`, `messageText`, `deliveryLines`; removed old `message` style
+- `APP/package.json`: version 1.26.0
+- `APP/android/app/build.gradle`: versionCode 35, versionName 1.26.0
+- `APP/src/screens/SettingsScreen.tsx`: footer → v1.26.0
 
 ---
 
