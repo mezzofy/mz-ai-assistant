@@ -17,6 +17,7 @@ import os
 import uuid
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 # ── Markers ───────────────────────────────────────────────────────────────────
@@ -191,7 +192,7 @@ async def test_semantic_search_returns_results_when_rows_found():
     ]
 
     mock_model = MagicMock()
-    mock_model.encode.return_value = fake_vec
+    mock_model.encode.return_value = np.array(fake_vec)
 
     mock_cur = MagicMock()
     mock_cur.fetchall.return_value = fake_rows
@@ -247,7 +248,7 @@ async def test_semantic_search_filters_by_threshold():
     ]
 
     mock_model = MagicMock()
-    mock_model.encode.return_value = [0.1] * 384
+    mock_model.encode.return_value = np.array([0.1] * 384)
 
     mock_cur = MagicMock()
     mock_cur.fetchall.return_value = fake_rows
@@ -276,7 +277,7 @@ async def test_semantic_search_no_database_url():
     ops = KnowledgeOps(cfg)
 
     mock_model = MagicMock()
-    mock_model.encode.return_value = [0.1] * 384
+    mock_model.encode.return_value = np.array([0.1] * 384)
 
     env_without_db = {k: v for k, v in os.environ.items() if k != "DATABASE_URL"}
 
