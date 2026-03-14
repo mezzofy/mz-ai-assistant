@@ -545,3 +545,134 @@ class TestCronValidation:
         dto = ScheduleDTO(type="interval", interval_minutes=60)
         result = _schedule_dto_to_cron(dto)
         assert result == "0 */1 * * *"
+
+
+# ── BUG-017: next_run never populated ─────────────────────────────────────────
+# Root cause: No code path computes or writes next_run.
+#   - create_job INSERT omits next_run → column stays NULL
+#   - run_job_now UPDATE only sets last_run = NOW(), never next_run
+#   - DatabaseScheduler loads from DB but never writes next_run back
+# Expected fix: use croniter to compute next_run at create and after run_now.
+# These tests assert the DESIRED post-fix behaviour.
+# Currently they FAIL — they serve as the acceptance criteria for the fix.
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestNextRunPopulated:
+    """
+    BUG-017: next_run column is always NULL.
+
+    The fix must:
+      1. Populate next_run on job CREATE (computed from cron expression).
+      2. Update next_run after run_job_now (next occurrence after NOW()).
+
+    Tests marked xfail until the fix is merged so CI stays green.
+    Remove the xfail markers once BUG-017 is resolved.
+    """
+
+    @pytest.mark.xfail(reason="BUG-017: next_run not computed at create time", strict=True)
+    async def test_create_job_response_includes_next_run(self, client):
+        """POST /scheduler/jobs response must include a non-null next_run timestamp."""
+        mock_db = AsyncMock()
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+        mock_db.execute = AsyncMock(return_value=count_result)
+        mock_db.commit = AsyncMock()
+
+        with db_override(mock_db):
+            response = await client.post(
+                "/scheduler/jobs",
+                json={
+                    "name": "Daily Leads Report",
+                    "agent": "sales",
+                    "message": "email lead report",
+                    "schedule": {"type": "cron", "cron": "0 1 * * *"},
+                },
+                headers=auth_headers("sales_manager"),
+            )
+
+        assert response.status_code == 201
+        data = response.json()
+        # Fix must return next_run in the create response
+        assert "next_run" in data, "next_run missing from create response"
+        assert data["next_run"] is not None, "next_run must not be null after create"
+
+    @pytest.mark.xfail(reason="BUG-017: next_run not written to DB at create time", strict=True)
+    async def test_create_job_inserts_next_run_into_db(self, client):
+        """INSERT statement must include a non-null next_run value."""
+        mock_db = AsyncMock()
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+        mock_db.execute = AsyncMock(return_value=count_result)
+        mock_db.commit = AsyncMock()
+
+        with db_override(mock_db):
+            await client.post(
+                "/scheduler/jobs",
+                json={
+                    "name": "Weekly Finance",
+                    "agent": "finance",
+                    "message": "finance summary",
+                    "schedule": {"type": "cron", "cron": "0 9 * * 1"},
+                },
+                headers=auth_headers("finance_manager"),
+            )
+
+        # Inspect the INSERT call — params must contain next_run
+        all_calls = mock_db.execute.call_args_list
+        insert_call = next(
+            (c for c in all_calls if "INSERT" in str(c)),
+            None,
+        )
+        assert insert_call is not None, "No INSERT call found"
+        params = insert_call.args[1] if len(insert_call.args) > 1 else {}
+        assert "next_run" in params, "INSERT missing next_run parameter"
+        assert params["next_run"] is not None, "next_run must not be None in INSERT"
+
+    @pytest.mark.xfail(reason="BUG-017: run_job_now does not update next_run", strict=True)
+    async def test_run_job_now_updates_next_run(self, client, mock_celery_delay):
+        """POST /scheduler/jobs/{id}/run must UPDATE both last_run and next_run."""
+        user_id = USERS["sales_manager"]["user_id"]
+        row = _make_db_row(user_id=user_id, schedule="0 1 * * *")
+
+        mock_db = AsyncMock()
+        fetchone_result = MagicMock()
+        fetchone_result.fetchone.return_value = row
+        mock_db.execute = AsyncMock(return_value=fetchone_result)
+        mock_db.commit = AsyncMock()
+
+        with db_override(mock_db):
+            response = await client.post(
+                f"/scheduler/jobs/{row.id}/run",
+                headers=auth_headers("sales_manager"),
+            )
+
+        assert response.status_code == 202
+
+        # The UPDATE call must set next_run, not just last_run
+        all_calls = mock_db.execute.call_args_list
+        update_call = next(
+            (c for c in all_calls if "UPDATE" in str(c) and "last_run" in str(c)),
+            None,
+        )
+        assert update_call is not None, "No UPDATE call found after run_job_now"
+        update_sql = str(update_call.args[0])
+        assert "next_run" in update_sql, (
+            "UPDATE after run_job_now must set next_run. "
+            "Currently only sets last_run — BUG-017."
+        )
+
+    @pytest.mark.xfail(reason="BUG-017: next_run not computed at create time", strict=True)
+    def test_next_run_is_in_future(self, client):
+        """
+        next_run computed from cron must be strictly in the future.
+        Validates the croniter-based helper the fix must introduce.
+        """
+        from datetime import datetime, timezone
+
+        # Import the helper once BUG-017 is fixed — it doesn't exist yet.
+        # This import will fail (ImportError) until the fix adds compute_next_run().
+        from app.webhooks.scheduler import compute_next_run  # noqa: F401
+
+        now = datetime.now(timezone.utc)
+        next_run = compute_next_run("0 1 * * *")  # daily at 01:00 UTC
+        assert next_run > now, "compute_next_run() must return a future datetime"
