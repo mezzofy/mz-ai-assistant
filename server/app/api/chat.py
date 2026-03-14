@@ -172,12 +172,19 @@ async def send_message(
         "input_type": "text",
     })
 
+    # Scheduler detection runs FIRST — always synchronous, never Celery.
+    # Must precede _is_long_running() because common scheduler phrases like
+    # "schedule a weekly report" contain long-running keywords ("weekly", "report").
+    if _is_scheduler_request(body.message):
+        task["agent"] = "scheduler"
+
     # Detect power-user agent type before long-running check
     # (checked first so "research:"/"developer:" prefixes always route correctly)
     _detected_agent = _detect_agent_type(body.message)
 
-    # Long-running task detection — dispatch to Celery and return 202 immediately
-    if _is_long_running(body.message):
+    # Long-running task detection — dispatch to Celery and return 202 immediately.
+    # Skipped for scheduler requests (they always run synchronously).
+    if not task.get("agent") and _is_long_running(body.message):
         import uuid as _uuid
         from app.tasks.tasks import process_chat_task
 
@@ -248,10 +255,6 @@ async def send_message(
                 "estimated_seconds": 120,
             },
         )
-
-    # Scheduler detection — synchronous path, no Celery needed
-    if _is_scheduler_request(body.message):
-        task["agent"] = "scheduler"
 
     # Process input (text passthrough)
     task = await process_input(task)

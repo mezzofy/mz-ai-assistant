@@ -70,13 +70,12 @@ class SchedulerAgent(BaseAgent):
         )
 
         try:
-            from app.llm.llm_manager import LLMManager
+            from app.llm import llm_manager as llm_mod
 
-            llm = LLMManager(config)
             task_with_prompt = dict(task)
             task_with_prompt["system_prompt"] = _SYSTEM_PROMPT
 
-            result = await llm.execute_with_tools(task_with_prompt)
+            result = await llm_mod.get().execute_with_tools(task_with_prompt)
         except Exception as exc:
             logger.error(f"SchedulerAgent.execute failed: {exc}", exc_info=True)
             return self._err(f"Scheduler error: {exc}")

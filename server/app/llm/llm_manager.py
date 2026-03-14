@@ -444,7 +444,15 @@ class LLMManager:
     # ── Private helpers ───────────────────────────────────────────────────────
 
     def _build_system_prompt(self, task: Optional[dict]) -> str:
-        """Build department-aware system prompt from task context."""
+        """Build department-aware system prompt from task context.
+
+        If task contains a "system_prompt" key, it is returned as-is.
+        This allows specialist agents (e.g. SchedulerAgent) to inject a
+        fully custom prompt without going through the department template.
+        """
+        if task and task.get("system_prompt"):
+            return task["system_prompt"]
+
         dept = (task or {}).get("department", "General")
         role = (task or {}).get("role", "user")
         source = (task or {}).get("source", "mobile")
