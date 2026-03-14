@@ -51,7 +51,10 @@
       "Bash(find /c/Mezzofy/workspace/mz-ai-assistant -type f \\\\\\( -name \".env*\" -o -name \"config.py\" -o -name \"settings.py\" -o -name \"*.env\" \\\\\\) 2>/dev/null | head -20)",
       "Bash(cd \"C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android\" && gradlew.bat assembleRelease 2>&1)",
       "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android'; .\\\\gradlew.bat assembleRelease 2>&1\" 2>&1)",
-      "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/server/app -type f -name \"*file*\" -o -name \"*folder*\" | grep -E \"\\\\.\\(py\\)$\")"
+      "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/server/app -type f -name \"*file*\" -o -name \"*folder*\" | grep -E \"\\\\.\\(py\\)$\")",
+      "Bash(cd \"C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android\" && gradlew.bat assembleRelease 2>&1 | tail -30)",
+      "Bash(powershell.exe -Command \"Get-Command java -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell.exe -Command \"Get-Item 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\release\\\\app-release.apk' | Select-Object Name, Length, LastWriteTime\")"
     ]
   }
 }
