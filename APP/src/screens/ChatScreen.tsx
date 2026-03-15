@@ -549,9 +549,9 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
               value={input}
               onChangeText={setInput}
               editable={!isTyping}
-              onSubmitEditing={() => {
-                if (!isTyping) {handleSend(input, inputMode, mediaPreview, mediaUri);}
-              }}
+              multiline={true}
+              blurOnSubmit={false}
+              textAlignVertical="top"
               placeholder={
                 inputMode === 'url'
                   ? 'Paste URL to analyze...'
@@ -565,7 +565,6 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 {backgroundColor: colors.surfaceLight, borderColor: colors.border, color: colors.text},
                 isTyping && styles.textInputDisabled,
               ]}
-              returnKeyType="send"
             />
           )}
 
@@ -708,11 +707,11 @@ const styles = StyleSheet.create({
   recordStopText: {color: '#fff', fontSize: 14, fontWeight: '700'},
   taskBar: {flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#f97316', paddingHorizontal: 16, height: 40},
   taskBarText: {color: '#fff', fontSize: 12, fontWeight: '600'},
-  inputBar: {flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, paddingTop: 10, borderTopWidth: 1},
+  inputBar: {flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12, paddingTop: 10, borderTopWidth: 1},
   plusBtn: {borderWidth: 1, borderRadius: 12, width: 48, height: 48, alignItems: 'center', justifyContent: 'center'},
   holdBtn: {flex: 1, padding: 14, borderRadius: 14, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center'},
   holdBtnText: {fontSize: 14, fontWeight: '600'},
-  textInput: {flex: 1, paddingVertical: 13, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, fontSize: 14, minHeight: 48},
+  textInput: {flex: 1, paddingVertical: 13, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, fontSize: 14, minHeight: 48, maxHeight: 120},
   textInputDisabled: {opacity: 0.5},
   sendBtn: {borderRadius: 12, width: 48, height: 48, alignItems: 'center', justifyContent: 'center', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6},
   // My Files modal
