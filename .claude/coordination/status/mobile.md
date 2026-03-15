@@ -1,8 +1,38 @@
 # Context Checkpoint: Mobile Agent
-**Date:** 2026-03-15
-**Session:** v1.26.0 — ScheduleStatsScreen card enhancements (FEAT-E01 + FEAT-E02)
+**Date:** 2026-03-16
+**Session:** v1.29.0 — Multiline chat input
 **Context:** ~10% at checkpoint
-**Reason:** v1.26.0 release APK complete and verified
+**Reason:** v1.29.0 release APK complete and verified
+
+---
+
+## v1.29.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~62 MB |
+| versionCode | 37 |
+| versionName | 1.29.0 |
+| Build time | 1m 4s |
+| Branch | eric-design |
+| Commit | `21ff39d` — Bump version to 1.29.0 and adjust chat input |
+
+## v1.29.0 Changes
+
+**Feature:** Multiline chat input
+
+- `APP/src/screens/ChatScreen.tsx`:
+  - TextInput: added `multiline={true}`, `blurOnSubmit={false}`, `textAlignVertical="top"`
+  - Removed `onSubmitEditing` and `returnKeyType="send"` — send button is sole trigger
+  - `inputBar` style: `alignItems: 'center'` → `alignItems: 'flex-end'`
+  - `textInput` style: added `maxHeight: 120` (~5 lines cap)
+- `APP/package.json`: version 1.29.0
+- `APP/android/app/build.gradle`: versionCode 37, versionName 1.29.0
+- `APP/src/screens/SettingsScreen.tsx`: footer → v1.29.0
+
+---
 
 ---
 
