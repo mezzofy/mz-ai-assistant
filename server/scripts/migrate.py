@@ -190,17 +190,18 @@ def run_migrations(conn):
     # ── 10. scheduled_jobs ───────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS scheduled_jobs (
-            id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id     UUID NOT NULL REFERENCES users(id),
-            name        TEXT NOT NULL,
-            agent       TEXT NOT NULL,      -- finance, sales, marketing, support, management
-            message     TEXT NOT NULL,      -- Natural language task description
-            schedule    TEXT NOT NULL,      -- Cron expression (e.g. "0 9 * * 1")
-            deliver_to  JSONB NOT NULL,     -- {"teams_channel": "sales", "email": [...]}
-            is_active   BOOLEAN DEFAULT TRUE,
-            last_run    TIMESTAMPTZ,
-            next_run    TIMESTAMPTZ,
-            created_at  TIMESTAMPTZ DEFAULT NOW()
+            id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id        UUID NOT NULL REFERENCES users(id),
+            name           TEXT NOT NULL,
+            agent          TEXT NOT NULL,      -- finance, sales, marketing, support, management
+            message        TEXT NOT NULL,      -- Natural language task description
+            workflow_name  TEXT,               -- Human-readable label shown in mobile card
+            schedule       TEXT NOT NULL,      -- Cron expression (e.g. "0 9 * * 1")
+            deliver_to     JSONB NOT NULL,     -- {"teams_channel": "sales", "email": [...]}
+            is_active      BOOLEAN DEFAULT TRUE,
+            last_run       TIMESTAMPTZ,
+            next_run       TIMESTAMPTZ,
+            created_at     TIMESTAMPTZ DEFAULT NOW()
         )
     """)
     print("  ✅ scheduled_jobs")
@@ -288,6 +289,13 @@ def run_migrations(conn):
             FOR EACH ROW EXECUTE FUNCTION update_updated_at()
     """)
     print("  ✅ sales_leads updated_at trigger")
+
+    # scheduled_jobs: add workflow_name column if missing
+    cur.execute("""
+        ALTER TABLE scheduled_jobs
+            ADD COLUMN IF NOT EXISTS workflow_name TEXT
+    """)
+    print("  ✅ scheduled_jobs.workflow_name")
 
     # conversations: add favorite + archive columns
     cur.execute("""

@@ -72,6 +72,7 @@ class CreateJobRequest(BaseModel):
     description: Optional[str] = None
     agent: str
     message: str
+    workflow_name: Optional[str] = None   # Human-readable label shown in mobile card
     schedule: ScheduleDTO
     deliver_to: DeliverToDTO = DeliverToDTO()
 
@@ -102,6 +103,7 @@ class CreateJobRequest(BaseModel):
 class UpdateJobRequest(BaseModel):
     name: Optional[str] = None
     message: Optional[str] = None
+    workflow_name: Optional[str] = None
     schedule: Optional[ScheduleDTO] = None
     deliver_to: Optional[DeliverToDTO] = None
     is_active: Optional[bool] = None
@@ -202,7 +204,7 @@ async def list_jobs(
     """List the current user's scheduled jobs."""
     result = await db.execute(
         text(
-            "SELECT id, name, agent, message, schedule, deliver_to, is_active, "
+            "SELECT id, name, agent, message, workflow_name, schedule, deliver_to, is_active, "
             "last_run, next_run, created_at "
             "FROM scheduled_jobs WHERE user_id = :uid "
             "ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
@@ -258,9 +260,9 @@ async def create_job(
         text(
             """
             INSERT INTO scheduled_jobs
-              (id, user_id, name, agent, message, schedule, deliver_to, is_active, next_run, created_at)
+              (id, user_id, name, agent, message, workflow_name, schedule, deliver_to, is_active, next_run, created_at)
             VALUES
-              (:id, :uid, :name, :agent, :message, :schedule, :deliver_to, TRUE, :next_run, :now)
+              (:id, :uid, :name, :agent, :message, :workflow_name, :schedule, :deliver_to, TRUE, :next_run, :now)
             """
         ),
         {
@@ -269,6 +271,7 @@ async def create_job(
             "name": body.name,
             "agent": body.agent,
             "message": body.message,
+            "workflow_name": body.workflow_name,
             "schedule": cron_expr,
             "deliver_to": json.dumps(deliver_to),
             "next_run": next_run,
@@ -321,6 +324,8 @@ async def update_job(
         updates["name"] = body.name.strip()
     if body.message is not None:
         updates["message"] = body.message.strip()
+    if body.workflow_name is not None:
+        updates["workflow_name"] = body.workflow_name.strip()
     if body.schedule is not None:
         new_cron = _schedule_dto_to_cron(body.schedule)
         updates["schedule"] = new_cron
@@ -439,7 +444,7 @@ async def _fetch_job(
     """
     result = await db.execute(
         text(
-            "SELECT id, user_id, name, agent, message, schedule, deliver_to, "
+            "SELECT id, user_id, name, agent, message, workflow_name, schedule, deliver_to, "
             "is_active, last_run, next_run, created_at "
             "FROM scheduled_jobs WHERE id = :id"
         ),
@@ -471,6 +476,7 @@ def _row_to_dict(row) -> dict:
         "name": row.name,
         "agent": row.agent,
         "message": row.message,
+        "workflow_name": row.workflow_name,
         "schedule": row.schedule,
         "deliver_to": deliver_to,
         "is_active": row.is_active,

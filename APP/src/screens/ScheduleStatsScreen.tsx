@@ -85,11 +85,11 @@ const JobCard: React.FC<JobCardProps> = ({job, colors}) => (
       <Text style={[styles.jobId, {color: colors.textMuted}]}>{`ID: ${job.id.substring(0, 8)}`}</Text>
     </View>
 
-    {job.message ? (
+    {job.workflow_name ? (
       <View style={styles.metaRow}>
-        <Icon name="chatbubble-ellipses-outline" size={13} color={colors.textMuted} />
+        <Icon name="layers-outline" size={13} color={colors.textMuted} />
         <Text style={[styles.messageText, {color: colors.textMuted}]} numberOfLines={1}>
-          {job.message.length > 60 ? job.message.substring(0, 60) + '…' : job.message}
+          {job.workflow_name}
         </Text>
       </View>
     ) : null}

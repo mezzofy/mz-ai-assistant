@@ -54,7 +54,8 @@
       "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/server/app -type f -name \"*file*\" -o -name \"*folder*\" | grep -E \"\\\\.\\(py\\)$\")",
       "Bash(cd \"C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android\" && gradlew.bat assembleRelease 2>&1 | tail -30)",
       "Bash(powershell.exe -Command \"Get-Command java -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
-      "Bash(powershell.exe -Command \"Get-Item 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\release\\\\app-release.apk' | Select-Object Name, Length, LastWriteTime\")"
+      "Bash(powershell.exe -Command \"Get-Item 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\release\\\\app-release.apk' | Select-Object Name, Length, LastWriteTime\")",
+      "Bash(ls -la \"C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\server\\\\app\\\\\" | grep -E \"controller|schema|service|route\")"
     ]
   }
 }

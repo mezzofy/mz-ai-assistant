@@ -69,6 +69,13 @@ class SchedulerOps(BaseTool):
                                 "Leave empty if no delivery needed."
                             ),
                         },
+                        "workflow_name": {
+                            "type": "string",
+                            "description": (
+                                "Human-readable workflow label shown in the mobile card "
+                                "(e.g. 'Weekly Sales Report'). Optional."
+                            ),
+                        },
                     },
                     "required": ["name", "agent", "message", "cron"],
                 },
@@ -131,6 +138,7 @@ class SchedulerOps(BaseTool):
         message: str,
         cron: str,
         deliver_to_channel: str = "",
+        workflow_name: str = "",
     ) -> dict:
         from app.core.user_context import get_user_id
         from app.core.database import AsyncSessionLocal
@@ -188,8 +196,8 @@ class SchedulerOps(BaseTool):
             await db.execute(
                 text(
                     "INSERT INTO scheduled_jobs "
-                    "(id, user_id, name, agent, message, schedule, deliver_to, is_active, next_run, created_at) "
-                    "VALUES (:id, :uid, :name, :agent, :message, :schedule, :deliver_to, TRUE, :next_run, :now)"
+                    "(id, user_id, name, agent, message, workflow_name, schedule, deliver_to, is_active, next_run, created_at) "
+                    "VALUES (:id, :uid, :name, :agent, :message, :workflow_name, :schedule, :deliver_to, TRUE, :next_run, :now)"
                 ),
                 {
                     "id": job_id,
@@ -197,6 +205,7 @@ class SchedulerOps(BaseTool):
                     "name": name,
                     "agent": agent,
                     "message": message,
+                    "workflow_name": workflow_name.strip() if workflow_name else None,
                     "schedule": cron,
                     "deliver_to": json.dumps(deliver_to),
                     "next_run": next_run,

@@ -173,6 +173,32 @@ def process_agent_task(self, task_data: dict):
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
 
 
+async def _fetch_user_context(user_id: str) -> tuple:
+    """
+    Fetch (email, role) for the given user_id from the users table.
+
+    Returns ("", "user") when user_id is empty or the lookup fails.
+    Called by Celery task functions to restore user context that is lost
+    when tasks cross the process boundary (ContextVars are not propagated).
+    """
+    if not user_id:
+        return ("", "user")
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                text("SELECT email, role FROM users WHERE id = :uid"),
+                {"uid": user_id},
+            )
+            row = result.fetchone()
+            if row:
+                return (row.email or "", row.role or "user")
+    except Exception as e:
+        logger.warning(f"_fetch_user_context failed for user_id={user_id!r}: {e}")
+    return ("", "user")
+
+
 async def _run_agent_task(task_data: dict) -> dict:
     """Async core for process_agent_task: run agent + deliver results."""
     from app.core.config import get_config
@@ -180,6 +206,15 @@ async def _run_agent_task(task_data: dict) -> dict:
 
     config = get_config()
     task_data["_config"] = config
+
+    # Restore user context — ContextVars are not propagated across the Celery
+    # process boundary, so get_user_dept() / get_user_email() return defaults
+    # ("general" / "") inside Celery workers without this call.
+    from app.core.user_context import set_user_context
+    _dept = task_data.get("department", "general")
+    _uid = task_data.get("user_id", "")
+    _email, _role = await _fetch_user_context(_uid)
+    set_user_context(dept=_dept, email=_email, role=_role, user_id=_uid)
 
     # Ensure source is set (enables permission bypass for system tasks)
     if not task_data.get("source"):
@@ -366,6 +401,15 @@ async def _run_chat_task(task_data: dict) -> dict:
     task_data.setdefault("permissions", ["all"])
     task_data.setdefault("attachments", [])
     task_data.setdefault("conversation_history", [])
+
+    # Restore user context — ContextVars are not propagated across the Celery
+    # process boundary, so get_user_dept() / get_user_email() return defaults
+    # ("general" / "") inside Celery workers without this call.
+    from app.core.user_context import set_user_context
+    _dept = task_data.get("department", "general")
+    _uid_ctx = task_data.get("user_id", "")
+    _email_ctx, _role_ctx = await _fetch_user_context(_uid_ctx)
+    set_user_context(dept=_dept, email=_email_ctx, role=_role_ctx, user_id=_uid_ctx)
 
     user_id = task_data["user_id"]
     session_id = task_data.get("session_id")

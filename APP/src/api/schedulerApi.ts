@@ -5,6 +5,7 @@ export interface ScheduledJob {
   name: string;
   agent: string;
   message: string;
+  workflow_name?: string | null;
   schedule: string;          // cron string, e.g. "0 9 * * 1"
   deliver_to: {
     teams_channel?: string;
