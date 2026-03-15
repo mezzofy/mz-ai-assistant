@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "696122986614",
+    "project_id": "mz-ai-assistant",
+    "storage_bucket": "mz-ai-assistant.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:696122986614:android:e9e26c84d52e420d714f57",
+        "android_client_info": {
+          "package_name": "com.mezzofyai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgDvr2PWD11W7aMr2GB-coqF7lbqoq4kw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

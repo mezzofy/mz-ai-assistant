@@ -8,6 +8,8 @@ config/.env
 config/config.yaml
 *.env.*
 server/scripts/seed.py
+firebase-service-account.json
+*service-account*.json
 
 # Python
 __pycache__/
