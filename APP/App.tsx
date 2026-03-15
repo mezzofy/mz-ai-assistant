@@ -27,6 +27,7 @@ import {NewPasswordScreen} from './src/screens/NewPasswordScreen';
 import {PrivacySecurityScreen} from './src/screens/PrivacySecurityScreen';
 import {ChangePasswordScreen} from './src/screens/ChangePasswordScreen';
 import {ScheduleStatsScreen} from './src/screens/ScheduleStatsScreen';
+import {initPushNotifications} from './src/notifications/pushHandler';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -84,6 +85,7 @@ function App(): React.JSX.Element {
   const loadStoredUser = useAuthStore(s => s.loadStoredUser);
   const loadTitles = useChatStore(s => s.loadTitles);
   const appearance = useSettingsStore(s => s.appearance);
+  const notifications = useSettingsStore(s => s.notifications);
   const isDark = appearance !== 'Light';
   const colors = isDark ? BRAND : LIGHT_THEME;
 
@@ -91,6 +93,12 @@ function App(): React.JSX.Element {
     loadStoredUser();
     loadTitles();
   }, [loadStoredUser, loadTitles]);
+
+  useEffect(() => {
+    if (isLoggedIn && notifications) {
+      initPushNotifications().catch(() => {});
+    }
+  }, [isLoggedIn, notifications]);
 
   return (
     <SafeAreaProvider>

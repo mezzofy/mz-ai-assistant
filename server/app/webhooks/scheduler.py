@@ -396,6 +396,8 @@ async def run_job_now(
         "department": row.agent,
         "user_id": current_user["user_id"],
         "message": row.message,
+        "workflow_name": row.workflow_name,
+        "_job_name": row.name,
         "deliver_to": deliver_to,
         "_job_id": job_id,
         "input_type": "text",

@@ -198,7 +198,7 @@ async def _load_db_jobs_async() -> dict:
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             text(
-                "SELECT id, user_id, name, agent, message, schedule, deliver_to "
+                "SELECT id, user_id, name, agent, message, workflow_name, schedule, deliver_to "
                 "FROM scheduled_jobs WHERE is_active = TRUE ORDER BY created_at"
             )
         )
@@ -240,6 +240,8 @@ def _row_to_beat_entry(row) -> dict | None:
             "department": row.agent,
             "user_id": str(row.user_id),
             "message": row.message,
+            "workflow_name": row.workflow_name,
+            "_job_name": row.name,
             "deliver_to": deliver_to,
             "_job_id": str(row.id),
         }],

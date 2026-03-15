@@ -297,6 +297,34 @@ def run_migrations(conn):
     """)
     print("  ✅ scheduled_jobs.workflow_name")
 
+    # user_devices: FCM device token registry
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_devices (
+            id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            device_token TEXT NOT NULL,
+            platform     TEXT NOT NULL DEFAULT 'android'
+                             CHECK (platform IN ('android', 'ios')),
+            created_at   TIMESTAMPTZ DEFAULT NOW(),
+            updated_at   TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE (device_token)
+        )
+    """)
+    print("  ✅ user_devices")
+
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_user_devices_user_id
+            ON user_devices (user_id)
+    """)
+    print("  ✅ idx_user_devices_user_id")
+
+    # users: push notification preference
+    cur.execute("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS push_notifications_enabled BOOLEAN DEFAULT TRUE
+    """)
+    print("  ✅ users.push_notifications_enabled")
+
     # conversations: add favorite + archive columns
     cur.execute("""
         ALTER TABLE conversations

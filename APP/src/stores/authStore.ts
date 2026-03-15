@@ -112,6 +112,12 @@ export const useAuthStore = create<AuthState>(set => {
     },
 
     logout: async () => {
+      // Unregister push device BEFORE clearing tokens (still needs valid JWT)
+      try {
+        const {unregisterPushDevice} = await import('../notifications/pushHandler');
+        await unregisterPushDevice();
+      } catch { /* non-fatal */ }
+
       const storedRefresh = await getRefreshToken();
       if (storedRefresh) {
         try {

@@ -1,5 +1,6 @@
 import {create} from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {updatePushPreference} from '../api/notificationsApi';
 
 type SettingsState = {
   notifications: boolean;
@@ -20,6 +21,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const next = !get().notifications;
     set({notifications: next});
     AsyncStorage.setItem('@mz_settings_notifications', JSON.stringify(next)).catch(() => {});
+    updatePushPreference(next).catch(() => {});   // sync to backend — fire-and-forget
   },
 
   setSpeechLanguage: (lang) => {

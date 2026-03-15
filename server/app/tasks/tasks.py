@@ -298,6 +298,30 @@ async def _run_agent_task(task_data: dict) -> dict:
     if job_id:
         await _update_job_last_run(job_id)
 
+    # Push notification for scheduled job completion
+    _uid_push = task_data.get("user_id", "")
+    if _uid_push and _uid_push != "system":
+        try:
+            from app.tools.communication.push_ops import get_user_push_targets, send_push as _send_push
+            _targets = await get_user_push_targets(_uid_push)
+            if _targets:
+                _job_name = (task_data.get("workflow_name")
+                             or task_data.get("_job_name")
+                             or task_data.get("message", "")[:40])
+                _short_id = (job_id or "")[:8].upper() or "TASK"
+                for _t in _targets:
+                    await _send_push(
+                        user_id=_uid_push,
+                        device_token=_t["device_token"],
+                        platform=_t["platform"],
+                        title="Scheduled Task Completed",
+                        body=f"Task ID: {_short_id} · {_job_name}",
+                        data={"type": "job_complete", "job_id": job_id or "",
+                              "job_name": _job_name},
+                    )
+        except Exception as _e:
+            logger.warning(f"Push notification failed for scheduled job: {_e}")
+
     # Deliver results if configured
     deliver_to = task_data.get("deliver_to") or {}
     if deliver_to:
@@ -392,7 +416,6 @@ async def _run_chat_task(task_data: dict) -> dict:
     from app.core.database import AsyncSessionLocal
     from app.context.session_manager import get_or_create_session
     from app.context.processor import process_result
-    from app.tools.communication.push_ops import send_push
 
     config = get_config()
     task_data["_config"] = config
@@ -522,36 +545,43 @@ async def _run_chat_task(task_data: dict) -> dict:
             })
             await redis_client.publish(f"user:{user_id}:notifications", notification_payload)
 
-        # Send push notification if device_token is present
-        if device_token:
-            # Summarize to ≤10 words for push body
-            words = task_data["message"].split()
-            push_body = " ".join(words[:10]) + ("…" if len(words) > 10 else "")
-            push_data = {"session_id": session["id"], "file_url": file_url or ""}
-            await send_push(
-                user_id=user_id,
-                device_token=device_token,
-                platform=platform,
-                title="Your task is ready",
-                body=push_body,
-                data=push_data,
-            )
+        # Push via DB-registered tokens (replaces per-request device_token approach)
+        try:
+            from app.tools.communication.push_ops import get_user_push_targets, send_push as _send_push
+            _targets = await get_user_push_targets(user_id)
+            if _targets:
+                _summary = task_data["message"][:60] + ("…" if len(task_data["message"]) > 60 else "")
+                _short_id = (agent_task_id or celery_task_id or "")[:8].upper() or "TASK"
+                _push_data = {
+                    "type": "task_complete",
+                    "task_id": agent_task_id or celery_task_id or "",
+                    "session_id": str(session["id"]),
+                    "file_url": file_url or "",
+                }
+                for _t in _targets:
+                    await _send_push(
+                        user_id=user_id, device_token=_t["device_token"],
+                        platform=_t["platform"],
+                        title="Task Ready",
+                        body=f"Task ID: {_short_id} · {_summary}",
+                        data=_push_data,
+                    )
+        except Exception as _e:
+            logger.warning(f"Push notification failed for chat task: {_e}")
 
         return response
 
     except Exception as exc:
-        # Send failure push if device_token is available; then re-raise for Celery retry
-        if device_token:
-            try:
-                await send_push(
-                    user_id=user_id,
-                    device_token=device_token,
-                    platform=platform,
-                    title="Task failed",
+        try:
+            from app.tools.communication.push_ops import get_user_push_targets, send_push as _send_push
+            for _t in await get_user_push_targets(user_id):
+                await _send_push(
+                    user_id=user_id, device_token=_t["device_token"],
+                    platform=_t["platform"], title="Task Failed",
                     body="Something went wrong. Please try again.",
                 )
-            except Exception:
-                pass  # Don't let push failure block the retry
+        except Exception:
+            pass
         raise
 
 

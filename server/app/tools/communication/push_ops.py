@@ -176,6 +176,33 @@ class PushOps(BaseTool):
             return self._err(str(e))
 
 
+async def get_user_push_targets(user_id: str) -> list[dict]:
+    """
+    Return registered FCM targets for a user, respecting push_notifications_enabled.
+    Returns [] if no devices, preference OFF, or DB error (fail silently).
+    """
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text as _text
+        async with AsyncSessionLocal() as db:
+            pref = await db.execute(
+                _text("SELECT push_notifications_enabled FROM users WHERE id = :uid"),
+                {"uid": user_id},
+            )
+            pref_row = pref.fetchone()
+            if pref_row is None or not pref_row.push_notifications_enabled:
+                return []
+            tokens = await db.execute(
+                _text("SELECT device_token, platform FROM user_devices WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+            return [{"device_token": r.device_token, "platform": r.platform}
+                    for r in tokens.fetchall()]
+    except Exception as e:
+        logger.warning(f"get_user_push_targets failed for user={user_id}: {e}")
+        return []
+
+
 async def send_push(
     user_id: str,
     device_token: str,
