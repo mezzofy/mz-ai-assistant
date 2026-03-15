@@ -322,7 +322,9 @@ async def update_job(
     if body.message is not None:
         updates["message"] = body.message.strip()
     if body.schedule is not None:
-        updates["schedule"] = _schedule_dto_to_cron(body.schedule)
+        new_cron = _schedule_dto_to_cron(body.schedule)
+        updates["schedule"] = new_cron
+        updates["next_run"] = compute_next_run(new_cron)
     if body.deliver_to is not None:
         updates["deliver_to"] = json.dumps(body.deliver_to.model_dump(exclude_none=True))
     if body.is_active is not None:
