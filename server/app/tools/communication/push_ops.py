@@ -161,6 +161,7 @@ class PushOps(BaseTool):
             )
 
             import asyncio
+            import firebase_admin
             app = firebase_admin.get_app(self._app_name)
             loop = asyncio.get_event_loop()
             message_id = await loop.run_in_executor(None, lambda: messaging.send(message, app=app))
