@@ -11,7 +11,7 @@ Beat is started with:
     celery -A app.tasks.celery_app beat --loglevel=info \
            --scheduler app.tasks.beat_schedule:DatabaseScheduler
 
-All schedules use SGT (Asia/Singapore) timezone as configured in celery_app.
+All schedules use UTC timezone. Conversion: 9AM SGT = 01:00 UTC, 10AM SGT = 02:00 UTC.
 """
 
 import asyncio

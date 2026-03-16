@@ -37,8 +37,9 @@ celery_app.conf.update(
     result_serializer="json",
     accept_content=["json"],
 
-    # Timezone (all scheduled times in SGT)
-    timezone="Asia/Singapore",
+    # Timezone: UTC (cron expressions are stored and evaluated in UTC)
+    # Conversion examples: 9AM SGT = 01:00 UTC, 10AM SGT = 02:00 UTC, 5PM SGT = 09:00 UTC
+    timezone="UTC",
     enable_utc=True,
 
     # Task tracking
