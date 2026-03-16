@@ -56,7 +56,9 @@
       "Bash(powershell.exe -Command \"Get-Command java -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
       "Bash(powershell.exe -Command \"Get-Item 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android\\\\app\\\\build\\\\outputs\\\\apk\\\\release\\\\app-release.apk' | Select-Object Name, Length, LastWriteTime\")",
       "Bash(ls -la \"C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\server\\\\app\\\\\" | grep -E \"controller|schema|service|route\")",
-      "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/APP/src /c/Mezzofy/workspace/mz-ai-assistant/APP/android/app/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.kt\" -o -name \"*.java\" \\\\\\) 2>/dev/null | head -50)"
+      "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/APP/src /c/Mezzofy/workspace/mz-ai-assistant/APP/android/app/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.kt\" -o -name \"*.java\" \\\\\\) 2>/dev/null | head -50)",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android'; .\\\\gradlew.bat assembleRelease 2>&1 | Out-String\" 2>&1)",
+      "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android'; .\\\\gradlew.bat assembleRelease 2>&1 | Select-String -Pattern 'FAILED|error:|Error|BUILD' | Out-String\" 2>&1)"
     ]
   }
 }
