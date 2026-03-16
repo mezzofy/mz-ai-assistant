@@ -318,6 +318,25 @@ def run_migrations(conn):
     """)
     print("  ✅ idx_user_devices_user_id")
 
+    # notification_log: push notification history per user
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS notification_log (
+            id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            title    TEXT NOT NULL,
+            body     TEXT NOT NULL,
+            data     JSONB,
+            sent_at  TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    print("  ✅ notification_log")
+
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_notification_log_user
+            ON notification_log (user_id, sent_at DESC)
+    """)
+    print("  ✅ idx_notification_log_user")
+
     # users: push notification preference
     cur.execute("""
         ALTER TABLE users

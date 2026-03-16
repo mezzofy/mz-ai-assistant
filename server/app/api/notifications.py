@@ -10,8 +10,11 @@ All endpoints require a valid JWT access token (Bearer).
 """
 
 import logging
+from datetime import datetime
+from typing import Any, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +40,19 @@ class UnregisterDeviceRequest(BaseModel):
 
 class PushPreferenceRequest(BaseModel):
     push_notifications_enabled: bool
+
+
+class NotificationRecord(BaseModel):
+    id: UUID
+    title: str
+    body: str
+    data: Optional[Any] = None
+    sent_at: datetime
+
+
+class NotificationHistoryResponse(BaseModel):
+    notifications: list[NotificationRecord]
+    count: int
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -119,3 +135,37 @@ async def update_push_preferences(
 
     logger.info(f"Push preference updated: user={uid} enabled={body.push_notifications_enabled}")
     return {"push_notifications_enabled": body.push_notifications_enabled}
+
+
+@router.get("/history", response_model=NotificationHistoryResponse)
+async def get_notification_history(
+    limit: int = Query(default=10, ge=1, le=50),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the last N push notifications sent to the current user."""
+    uid = current_user["user_id"]
+    clamped = min(max(limit, 1), 50)
+
+    result = await db.execute(
+        text("""
+            SELECT id, title, body, data, sent_at
+            FROM notification_log
+            WHERE user_id = :uid
+            ORDER BY sent_at DESC
+            LIMIT :lim
+        """),
+        {"uid": uid, "lim": clamped},
+    )
+    rows = result.fetchall()
+    records = [
+        NotificationRecord(
+            id=r.id,
+            title=r.title,
+            body=r.body,
+            data=r.data,
+            sent_at=r.sent_at,
+        )
+        for r in rows
+    ]
+    return NotificationHistoryResponse(notifications=records, count=len(records))

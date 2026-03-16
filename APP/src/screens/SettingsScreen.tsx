@@ -167,6 +167,7 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
         </View>
 
         <View style={[styles.group, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
+          <SettingsRow icon="notifications-circle-outline" label="Notification History" accent colors={colors} onPress={() => navigation.navigate('NotificationHistory')} />
           <SettingsRow icon="shield-outline" label="Privacy & Security" accent colors={colors} onPress={() => navigation.navigate('PrivacySecurity')} />
           <SettingsRow icon="calendar-outline" label="Schedule Stats" accent colors={colors} onPress={() => navigation.navigate('ScheduleStats')} />
           <SettingsRow icon="time-outline" label="AI Usage Stats" accent colors={colors} onPress={() => navigation.navigate('AIUsageStats')} />
@@ -184,7 +185,7 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <SettingsRow icon="log-out-outline" label="Sign Out" danger colors={colors} onPress={() => { logout(); }} />
         </View>
 
-        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.29.0</Text>
+        <Text style={[styles.version, {color: colors.textDim}]}>Mezzofy AI Assistant v1.30.0</Text>
       </ScrollView>
     </View>
   );

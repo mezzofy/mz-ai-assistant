@@ -178,6 +178,29 @@ class PushOps(BaseTool):
             return self._err(str(e))
 
 
+async def log_notification(user_id: str, title: str, body: str, data: Optional[dict] = None) -> None:
+    """
+    Insert one row into notification_log for the given user.
+    Fails silently — never raises; logs a warning on error.
+    """
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text as _text
+        import json as _json
+        data_json = _json.dumps(data) if data else None
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                _text("""
+                    INSERT INTO notification_log (user_id, title, body, data)
+                    VALUES (:uid, :title, :body, :data::jsonb)
+                """),
+                {"uid": user_id, "title": title, "body": body, "data": data_json},
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"log_notification failed for user={user_id}: {e}")
+
+
 async def get_user_push_targets(user_id: str) -> list[dict]:
     """
     Return registered FCM targets for a user, respecting push_notifications_enabled.
@@ -235,6 +258,10 @@ async def send_push(
         f"send_push: user={user_id} platform={platform} "
         f"success={result.get('success')} msg={result.get('output', {}).get('message_id')}"
     )
+    if result.get("success"):
+        await log_notification(user_id=user_id, title=title, body=body, data=data)
+    # NOTE: webhook_tasks.py calls PushOps._send_push() directly and does not go
+    # through this function — that path does not log to notification_log in v1.30.0.
     return {
         "success": result.get("success", False),
         "message_id": result.get("output", {}).get("message_id"),

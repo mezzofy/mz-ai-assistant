@@ -27,6 +27,7 @@ import {NewPasswordScreen} from './src/screens/NewPasswordScreen';
 import {PrivacySecurityScreen} from './src/screens/PrivacySecurityScreen';
 import {ChangePasswordScreen} from './src/screens/ChangePasswordScreen';
 import {ScheduleStatsScreen} from './src/screens/ScheduleStatsScreen';
+import {NotificationHistoryScreen} from './src/screens/NotificationHistoryScreen';
 import {initPushNotifications} from './src/notifications/pushHandler';
 
 const Stack = createNativeStackNavigator();
@@ -184,6 +185,11 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="ScheduleStats"
                 component={ScheduleStatsScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="NotificationHistory"
+                component={NotificationHistoryScreen}
                 options={{animation: 'slide_from_right'}}
               />
             </>
