@@ -116,6 +116,14 @@ _SCHEDULER_KEYWORDS = {
     "run schedule", "trigger schedule",
 }
 
+_CALENDAR_SIGNALS = {
+    "meeting", "appointment", "call", "catch-up", "catch up",
+    "lunch", "dinner", "interview", "event", "calendar",
+    "conference", "standup", "stand-up", "1:1", "one-on-one",
+    "sync", "huddle", "slot", "availability", "free slot",
+    "book", "invite", "rsvp",
+}
+
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".heic"}
 
 
@@ -128,7 +136,13 @@ def _is_long_running(message: str) -> bool:
 def _is_scheduler_request(message: str) -> bool:
     """Return True if the message contains a scheduler management keyword."""
     lower = message.lower()
-    return any(kw in lower for kw in _SCHEDULER_KEYWORDS)
+    if not any(kw in lower for kw in _SCHEDULER_KEYWORDS):
+        return False
+    # If the message contains calendar/meeting signals, it's a calendar request —
+    # let it fall through to department routing where MS Calendar tools are available.
+    if any(sig in lower for sig in _CALENDAR_SIGNALS):
+        return False
+    return True
 
 
 def _detect_agent_type(message: str) -> str | None:
