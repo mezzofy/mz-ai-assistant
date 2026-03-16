@@ -65,7 +65,12 @@ async def lifespan(app: FastAPI):
         llm_mod.init(config)
         logger.info("LLM manager initialized")
     except Exception as e:
-        logger.warning(f"LLM manager init failed: {e} — LLM calls will fail until fixed")
+        logger.error(
+            "LLM manager init FAILED — server cannot start without LLM. "
+            f"Check ANTHROPIC_API_KEY and config.yaml [llm] section. Error: {e}",
+            exc_info=True,
+        )
+        raise
 
     # Initialize skill registry singleton
     try:
