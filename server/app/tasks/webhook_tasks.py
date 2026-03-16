@@ -357,14 +357,19 @@ async def _deliver_results_async(result: dict, deliver_to: dict, config: dict):
 
     if deliver_to.get("push_user_id"):
         try:
-            from app.tools.communication.push_ops import PushOps
-            push = PushOps(config)
-            await push.execute(
-                "send_push",
-                user_id=deliver_to["push_user_id"],
-                title="Task Complete",
-                body=(content or "")[:100],
-            )
+            from app.tools.communication.push_ops import get_user_push_targets, send_push
+            push_user_id = deliver_to["push_user_id"]
+            push_title = deliver_to.get("push_title", "Task Complete")
+            push_body = (content or "")[:100]
+            targets = await get_user_push_targets(push_user_id)
+            for target in targets:
+                await send_push(
+                    user_id=push_user_id,
+                    device_token=target["device_token"],
+                    platform=target["platform"],
+                    title=push_title,
+                    body=push_body,
+                )
         except Exception as e:
             logger.warning(f"Push delivery failed: {e}")
 
