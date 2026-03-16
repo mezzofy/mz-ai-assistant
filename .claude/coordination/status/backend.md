@@ -1,7 +1,20 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-14
+**Date:** 2026-03-16
 **Project:** mz-ai-assistant
-**Session:** 18 (v1.23.0 — Multi-Agent Orchestration)
+**Session:** 19 (v1.31.0 — Webhook push logging fix)
+
+## Completed This Session (Session 19)
+
+- ✅ `server/app/tasks/webhook_tasks.py` — Fixed `_deliver_results_async()` push block: replaced broken `PushOps.execute()` call (wrong args, no logging) with `get_user_push_targets()` + `send_push()` pattern. Adds `push_title` from `deliver_to` payload (backwards-compatible). Commit: `320d979`.
+
+## Notes
+- No DB schema changes — no migrate.py run needed
+- No service restart needed for this fix to take effect after `git pull`
+- No types changed — no handoff required
+
+---
+
+# Previous Checkpoint (Session 18)
 **Context:** ~40% at checkpoint
 **Reason:** Feature complete, Lead review PASS (after P1 fix)
 
