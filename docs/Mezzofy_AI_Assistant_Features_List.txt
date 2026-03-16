@@ -1,69 +1,67 @@
 ====================================================================
-                MEZZOFY AI ASSISTANT FEATURES LIST
+               MEZZOFY AI ASSISTANT FEATURES LIST
 ====================================================================
 
 Last Updated: March 15, 2026
-
 
 ====================================================================
 GENERAL FEATURES (ALL USERS)
 ====================================================================
 
 COMMUNICATION & COLLABORATION
-- Send emails via Microsoft Outlook (with CC, BCC, attachments)
-- Batch send personalized emails to multiple recipients
-- Read and search emails from Outlook inbox
-- Reply to email threads
-- Post messages to Microsoft Teams channels
-- Send direct messages to Teams users
-- Read messages from Teams channels
-- Create and manage calendar events in Outlook
-- Find available meeting time slots
-- Create online Teams meetings with auto-generated links
+✅ Send emails via Microsoft Outlook (with CC, BCC, attachments)
+✅ Batch send personalized emails to multiple recipients
+✅ Read and search emails from Outlook inbox
+✅ Reply to email threads
+✅ Post messages to Microsoft Teams channels (TBT)
+✅ Send direct messages to Teams users (TBT)
+✅ Read messages from Teams channels (TBT)
+✅ Create and manage calendar events in Outlook
+✅ Find available meeting time slots
+❌ Create online Teams meetings with auto-generated links
 
 DOCUMENT GENERATION & PROCESSING
-- Generate branded PDF reports with custom styling
-- Create PowerPoint presentations with multiple slide types
-- Generate Word documents with structured content
-- Create CSV files for data export
-- Create plain text files
-- Read and extract text from PDFs, PPTX, DOCX, CSV, TXT files
-- Merge multiple PDF files into one document
-- File storage options: Personal, Department, or Company-wide folders
-- Search user files across all accessible folders
+✅ Generate branded PDF reports with custom styling
+✅ Create PowerPoint presentations with multiple slide types
+✅ Generate Word documents with structured content
+✅ Create CSV files for data export
+✅ Create plain text files
+✅ Read and extract text from PDFs, PPTX, DOCX, CSV, TXT files
+✅ Merge multiple PDF files into one document
+✅ File storage options: Personal, Department, or Company-wide folders
+✅ Search user files across all accessible folders
 
 IMAGE PROCESSING
-- OCR text extraction from images (supports multiple languages)
-- AI-powered image analysis and description
-- Resize and compress images
-- Extract EXIF metadata (GPS, camera info, timestamps)
+✅ OCR text extraction from images (supports multiple languages)
+✅ AI-powered image analysis and description
+✅ Resize and compress images
+✅ Extract EXIF metadata (GPS, camera info, timestamps)
 
 VIDEO & AUDIO PROCESSING
-- Extract key frames from videos for visual analysis
-- Extract audio tracks from video files
-- Get video metadata (duration, resolution, codec, FPS)
-- Full video analysis (visual + audio transcription)
-- Transcribe audio files to text using OpenAI Whisper
-- Detect spoken language in audio
-- Convert audio between formats (MP3, WAV, M4A, OGG, FLAC)
-- Get audio file metadata
+✅ Extract key frames from videos for visual analysis
+✅ Extract audio tracks from video files
+✅ Get video metadata (duration, resolution, codec, FPS)
+✅ Full video analysis (visual + audio transcription)
+✅ Transcribe audio files to text using OpenAI Whisper
+✅ Detect spoken language in audio
+✅ Convert audio between formats (MP3, WAV, M4A, OGG, FLAC)
+✅ Get audio file metadata
 
 WEB RESEARCH & SCRAPING
-- Open and load web pages in headless browser
-- Take full-page screenshots of websites
-- Extract visible text from web pages
-- Scrape web content with CSS selector filtering
-- Extract HTML tables from web pages
-- Extract all hyperlinks from pages
-- Extract contact information (emails, phones, addresses)
+✅ Open and load web pages in headless browser
+✅ Take full-page screenshots of websites
+✅ Extract visible text from web pages
+✅ Scrape web content with CSS selector filtering
+✅ Extract HTML tables from web pages
+✅ Extract all hyperlinks from pages
+✅ Extract contact information (emails, phones, addresses)
 
 LINKEDIN RESEARCH
-- Search LinkedIn for people or companies
-- Extract structured profile data from LinkedIn URLs
+✅ Search LinkedIn for people or companies (TBT - Required Session ID)
+✅ Extract structured profile data from LinkedIn URLs (TBT - Required Session ID)
 
 PUSH NOTIFICATIONS
-- Send mobile push notifications to users via Firebase
-
+✅ Send mobile push notifications to users via Firebase
 
 ====================================================================
 PERSONAL MICROSOFT ACCOUNT INTEGRATION
@@ -71,237 +69,241 @@ PERSONAL MICROSOFT ACCOUNT INTEGRATION
 (Requires user to connect personal Microsoft account in Settings)
 
 PERSONAL EMAIL
-- Read emails from personal Outlook/Hotmail/Microsoft 365 inbox
-- Search personal emails by keyword
-- Send emails from personal account
-- Get detailed email information by message ID
+✅ Read emails from personal Outlook/Hotmail/Microsoft 365 inbox
+✅ Search personal emails by keyword
+✅ Send emails from personal account
+✅ Get detailed email information by message ID
 
 PERSONAL CALENDAR
-- View personal calendar events
-- Create events in personal calendar
-- Update existing calendar events
-- Delete calendar events
-- Find free time slots in personal calendar
+✅ View personal calendar events
+✅ Create events in personal calendar
+✅ Update existing calendar events
+✅ Delete calendar events
+✅ Find free time slots in personal calendar
 
 PERSONAL ONENOTE
-- List OneNote notebooks
-- View OneNote pages
-- Search OneNote pages
-- Create new OneNote pages
+✅ List OneNote notebooks
+✅ View OneNote pages
+✅ Search OneNote pages
+✅ Create new OneNote pages
 
 PERSONAL TEAMS
-- List personal Teams chats (1:1 and group)
-- Read messages from Teams chats
-- Send messages to Teams chats
-- List joined Teams
-- Read channel messages from personal Teams
+✅ List personal Teams chats (1:1 and group)
+✅ Read messages from Teams chats
+✅ Send messages to Teams chats
+✅ List joined Teams
+✅ Read channel messages from personal Teams
 
 PERSONAL CONTACTS
-- List personal Microsoft contacts
-- Search contacts by name or email
-- View detailed contact information
-- Create new contacts
+✅ List personal Microsoft contacts
+✅ Search contacts by name or email
+✅ View detailed contact information
+✅ Create new contacts
 
 DIAGNOSTICS
-- Check Microsoft Graph permissions and token scopes
-
+✅ Check Microsoft Graph permissions and token scopes
 
 ====================================================================
 SALES DEPARTMENT FEATURES
 ====================================================================
 
 CRM & LEAD MANAGEMENT
-- Create new sales leads in CRM
-- Update lead status, notes, and follow-up dates
-- Search leads by company, status, industry, or assigned rep
-- Get full details for individual leads
-- Export leads to CSV with filters
-- Get sales pipeline summary (by status or rep)
-- Identify stale/overdue leads requiring follow-up
+✅ Create new sales leads in CRM
+✅ Update lead status, notes, and follow-up dates
+✅ Search leads by company, status, industry, or assigned rep
+✅ Get full details for individual leads
+✅ Export leads to CSV with filters
+✅ Get sales pipeline summary (by status or rep)
+✅ Identify stale/overdue leads requiring follow-up
 
-PRODUCT & SALES CONTENT
-- Fetch Mezzofy product catalog and features
-- Retrieve case studies filtered by industry or use case
-- Get pricing tables by plan tier (multi-currency)
-- Get detailed feature specifications
-- Access sales playbooks (cold outreach, upsell, objection handling)
-- Load email templates for campaigns
-
+PRODUCT & SALES CONTENT (Required Content Uploaded)
+✅ Fetch Mezzofy product catalog and features
+✅ Retrieve case studies filtered by industry or use case
+✅ Get pricing tables by plan tier (multi-currency)
+✅ Get detailed feature specifications
+✅ Access sales playbooks (cold outreach, upsell, objection handling)
+✅ Load email templates for campaigns
 
 ====================================================================
 MARKETING DEPARTMENT FEATURES
 ====================================================================
 
 CAMPAIGN MANAGEMENT
-- Batch send personalized email campaigns (30/hour limit)
-- Post marketing updates to Teams channels
-- Generate branded marketing materials (PDF, PPTX, DOCX)
+✅ Batch send personalized email campaigns (30/hour limit)
+✅ Post marketing updates to Teams channels
+✅ Generate branded marketing materials (PDF, PPTX, DOCX)
 
 CONTENT & BRAND
-- Access Mezzofy brand guidelines (colors, voice, logo, typography)
-- Load marketing email templates
-- Access marketing playbooks
-- Generate customer case studies
+✅ Access Mezzofy brand guidelines (colors, voice, logo, typography)
+✅ Load marketing email templates
+✅ Access marketing playbooks
+✅ Generate customer case studies
 
 RESEARCH & ANALYTICS
-- Web scraping for competitive research
-- LinkedIn company and people search
-- Extract contact information from websites
-- Query analytics and usage data
-
+✅ Web scraping for competitive research
+✅ LinkedIn company and people search
+✅ Extract contact information from websites
+✅ Query analytics and usage data
 
 ====================================================================
 FINANCE DEPARTMENT FEATURES
 ====================================================================
 
-FINANCIAL DATA ACCESS
-- Query financial data tables with date ranges
-- Filter by specific metrics (revenue, orders, refunds)
-- Export financial reports to CSV
-- Generate branded financial PDF reports
-- Access restricted finance data (requires finance_read permission)
+FINANCIAL DATA ACCESS (Required Data Input and Source)
+✅ Query financial data tables with date ranges
+✅ Filter by specific metrics (revenue, orders, refunds)
+✅ Export financial reports to CSV
+✅ Generate branded financial PDF reports
+✅ Access restricted finance data (requires finance_read permission)
 
 REPORTING
-- Create financial summaries in PowerPoint
-- Generate Word documents for financial analysis
-- Merge multiple financial PDFs
-- Query analytics for financial KPIs
+✅ Create financial summaries in PowerPoint
+✅ Generate Word documents for financial analysis
+✅ Merge multiple financial PDFs
+✅ Query analytics for financial KPIs
 
+====================================================================
+HUMAN RESOURCE DEPARTMENT FEATURES
+====================================================================
+
+HUMAN RESOURCE DATA ACCESS (Required Data Input and Source)
+✅ Query personal data tables
+✅ Leave management to allow apply, amend and approve leaves
+✅ Access restricted hr data (requires hr_read permission)
+
+REPORTING
+✅ Create Organization Chart
+✅ Generate Leave reports
+✅ Export hr reports to CSV
 
 ====================================================================
 SUPPORT DEPARTMENT FEATURES
 ====================================================================
 
-TICKET MANAGEMENT
-- Query support tickets by status, assignee, or date range
-- Filter tickets (open, in_progress, resolved, closed)
-- Export ticket data to CSV
-- Generate support performance reports
+TICKET MANAGEMENT (Required to Connect to Mz Tickets App)
+✅ Query support tickets by status, assignee, or date range
+✅ Filter tickets (open, in_progress, resolved, closed)
+✅ Export ticket data to CSV
+✅ Generate support performance reports
 
 CUSTOMER COMMUNICATION
-- Send support emails via Outlook
-- Post updates to support Teams channel
-- Access support playbooks and scripts
-- Create ticket summary documents
-
+✅ Send support emails via Outlook
+✅ Post updates to support Teams channel
+✅ Access support playbooks and scripts
+✅ Create ticket summary documents
 
 ====================================================================
 MANAGEMENT DEPARTMENT FEATURES
 ====================================================================
 
 EXECUTIVE ACCESS
-- Full access to all department features
-- Query any database (financial, tickets, analytics, CRM)
-- Company-wide file storage permissions
-- Access to all Teams channels
-- View complete sales pipeline across all reps
-- Export company-wide reports
+✅ Full access to all department features
+✅ Query any database (financial, tickets, analytics, CRM)
+✅ Company-wide file storage permissions
+✅ Access to all Teams channels
+✅ View complete sales pipeline across all reps
+✅ Export company-wide reports
 
 STRATEGIC TOOLS
-- Search entire knowledge base (brand, playbooks, templates)
-- Access all case studies and product specifications
-- Generate executive summary presentations
-- Create board reports and strategic documents
-- Query usage analytics across all departments
-
+✅ Search entire knowledge base (brand, playbooks, templates)
+✅ Access all case studies and product specifications
+✅ Generate executive summary presentations
+✅ Create board reports and strategic documents
+✅ Query usage analytics across all departments
 
 ====================================================================
 KNOWLEDGE BASE & SEARCH
 ====================================================================
 
 SEMANTIC SEARCH
-- Natural language query across knowledge base
-- Finds conceptually related content (not just keyword matching)
-- Categories: brand, playbooks, product_data, sales, templates
+✅ Natural language query across knowledge base
+✅ Finds conceptually related content (not just keyword matching)
+✅ Categories: brand, playbooks, product_data, sales, templates
 
 KEYWORD SEARCH
-- Traditional keyword search in knowledge base
-- Filter by category (templates, playbooks, brand, products, FAQs)
+✅ Traditional keyword search in knowledge base
+✅ Filter by category (templates, playbooks, brand, products, FAQs)
 
 CONTENT RETRIEVAL
-- Load specific templates by name and type
-- Access brand guidelines by section
-- Retrieve playbooks with specific sections
-- Get feature specifications
-- Load case studies and product data
-
+✅ Load specific templates by name and type
+✅ Access brand guidelines by section
+✅ Retrieve playbooks with specific sections
+✅ Get feature specifications
+✅ Load case studies and product data
 
 ====================================================================
 DATABASE & ANALYTICS QUERIES
 ====================================================================
 
 GENERAL DATABASE
-- Execute read-only SQL queries (SELECT statements only)
-- Parameterized queries for security
-- Returns up to 500 rows per query
+✅ Execute read-only SQL queries (SELECT statements only)
+✅ Parameterized queries for security
+✅ Returns up to 500 rows per query
 
 SPECIALIZED QUERIES
-- Financial data queries (date ranges, metrics)
-- Support ticket queries (status, assignee filters)
-- Analytics queries (usage, active users, API calls, errors)
-- Time period analysis (7d, 30d, 90d, 1y)
-
+✅ Financial data queries (date ranges, metrics)
+✅ Support ticket queries (status, assignee filters)
+✅ Analytics queries (usage, active users, API calls, errors)
+✅ Time period analysis (7d, 30d, 90d, 1y)
 
 ====================================================================
 SPECIAL AGENTS & AUTOMATION
 ====================================================================
 
 SCHEDULED JOBS
-- Create recurring scheduled tasks (cron-based)
-- Available agents: Sales, Marketing, Finance, Support, Management
-- Automatic report generation and delivery
-- Post results to Teams channels
-- Minimum interval: 15 minutes
-- Maximum: 10 active jobs per user
-- Trigger jobs manually on-demand
-- List and manage active scheduled jobs
-- UTC timezone (9AM SGT = cron '0 1 * * *')
+✅ Create recurring scheduled tasks (cron-based)
+✅ Available agents: Sales, Marketing, Finance, Support, Management
+✅ Automatic report generation and delivery
+✅ Post results to Teams channels
+✅ Minimum interval: 15 minutes
+✅ Maximum: 10 active jobs per user
+✅ Trigger jobs manually on-demand
+✅ List and manage active scheduled jobs
+✅ UTC timezone (9AM SGT = cron '0 1 * * *')
 
 RESEARCH AGENT
-- Web research and data extraction
-- LinkedIn prospecting and profile analysis
-- Competitive intelligence gathering
-- Contact information discovery
-- Multi-source data aggregation
+✅ Web research and data extraction
+✅ LinkedIn prospecting and profile analysis
+✅ Competitive intelligence gathering
+✅ Contact information discovery
+✅ Multi-source data aggregation
 
 DEVELOPER AGENT
-- Database query assistance
-- API integration support
-- Data export and transformation
-- Technical specification retrieval
-- Custom report generation
+✅ Database query assistance
+✅ API integration support
+✅ Data export and transformation
+✅ Technical specification retrieval
+✅ Custom report generation
 
 DOCUMENT AGENT
-- Batch document processing
-- Multi-file merging and conversion
-- Template-based document generation
-- OCR and text extraction
-- Document analysis and summarization
+⚠️ Batch document processing
+⚠️ Multi-file merging and conversion
+⚠️ Template-based document generation
+✅ OCR and text extraction
+⚠️ Document analysis and summarization
 
 ANALYST AGENT
-- Data analysis and visualization
-- Trend identification
-- Performance metric tracking
-- Cross-department reporting
-- Predictive insights
-
+⚠️ Data analysis and visualization
+⚠️ Trend identification
+⚠️ Performance metric tracking
+✅ Cross-department reporting
+❌ Predictive insights
 
 ====================================================================
 SYSTEM CONFIGURATION & DIAGNOSTICS
 ====================================================================
 
 MICROSOFT 365 INTEGRATION
-- Test app-only Azure AD service account
-- Verify access to shared mailboxes (hello@, sales@mezzofy.com)
-- Diagnose permission issues
+✅ Test app-only Azure AD service account
+✅ Verify access to shared mailboxes (hello@, sales@mezzofy.com)
+✅ Diagnose permission issues
 
 SECURITY & PERMISSIONS
-- Role-based access control
-- Department-scoped data access
-- Finance data restricted to authorized users
-- Personal vs. shared file storage
-- Audit logging for database queries
-
+✅ Role-based access control
+✅ Department-scoped data access
+✅ Finance data restricted to authorized users
+✅ Personal vs. shared file storage
+✅ Audit logging for database queries
 
 ====================================================================
 FILE STORAGE HIERARCHY
@@ -319,7 +321,6 @@ COMPANY SCOPE (Company-wide Public Folder)
 - Visible to all staff across all departments
 - Management-only write access
 - Used for company-wide policies and announcements
-
 
 ====================================================================
 SUPPORTED FILE FORMATS
