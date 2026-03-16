@@ -1,8 +1,38 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-16
-**Session:** v1.29.0 — Multiline chat input
-**Context:** ~10% at checkpoint
-**Reason:** v1.29.0 release APK complete and verified
+**Session:** v1.30.0 — Notification History Screen
+**Context:** ~15% at checkpoint
+**Reason:** v1.30.0 release APK complete and verified
+
+---
+
+## v1.30.0 Build Result
+
+| Field | Value |
+|-------|-------|
+| Result | BUILD SUCCESSFUL |
+| APK path | `APP/android/app/build/outputs/apk/release/app-release.apk` |
+| APK size | ~62 MB |
+| versionCode | 38 |
+| versionName | 1.30.0 |
+| Build time | 38s |
+| Branch | eric-design |
+| Commits | `0d24e94` (feature) + `ac6e973` (version bump) |
+
+## v1.30.0 Changes
+
+**Feature:** Notification History Screen
+
+- `APP/src/api/notificationsApi.ts`: Added `NotificationRecord` + `NotificationHistoryResponse` types + `getNotificationHistory()` fetch helper
+- `APP/src/stores/notificationStore.ts` (NEW): Zustand store — `notifications`, `loading`, `error`, `loadNotifications()`
+- `APP/src/screens/NotificationHistoryScreen.tsx` (NEW): FlatList with back header, bell icon cards (title/body/relative time), pull-to-refresh, empty state, `formatRelativeTime()` helper
+- `APP/src/screens/SettingsScreen.tsx`: Added "Notification History" row (first in second group, above Privacy & Security); version → v1.30.0
+- `APP/App.tsx`: Added import + `Stack.Screen name="NotificationHistory"` after ScheduleStats
+
+**Backend (done in same session, separate commits):**
+- `server/scripts/migrate.py`: `notification_log` table + `idx_notification_log_user` index
+- `server/app/tools/communication/push_ops.py`: `log_notification()` helper + call in `send_push()`
+- `server/app/api/notifications.py`: `GET /notifications/history` endpoint
 
 ---
 
