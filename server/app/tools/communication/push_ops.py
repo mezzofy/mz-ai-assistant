@@ -161,8 +161,9 @@ class PushOps(BaseTool):
             )
 
             import asyncio
+            app = firebase_admin.get_app(self._app_name)
             loop = asyncio.get_event_loop()
-            message_id = await loop.run_in_executor(None, messaging.send, message)
+            message_id = await loop.run_in_executor(None, lambda: messaging.send(message, app=app))
             logger.info(f"Push notification sent: {message_id} → '{title}'")
 
             return self._ok({
