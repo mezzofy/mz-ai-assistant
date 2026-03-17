@@ -1,7 +1,20 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-16
+**Date:** 2026-03-17
 **Project:** mz-ai-assistant
-**Session:** 19 (v1.31.0 — Webhook push logging fix)
+**Session:** 20 (BUG-C/D/E — tool kwarg filter)
+
+## Completed This Session (Session 20)
+- ✅ `server/app/tools/base_tool.py` — global kwarg filter via inspect.signature in execute()
+- ✅ `server/app/tools/document/pdf_ops.py` — content= alias for html_content= (BUG-D)
+- ✅ `server/app/tools/communication/teams_ops.py` — channel= alias for channel_name= (BUG-E)
+- ✅ `server/tests/test_tool_kwarg_fixes.py` — 10 new tests; 420 total passing
+- ✅ Commit: `e583d7d`
+- ✅ EC2 deploy pending: git pull + restart mezzofy-api.service + mezzofy-celery.service
+
+---
+
+# Previous Checkpoint: Session 19 (v1.31.0 — Webhook push logging fix)
+**Date:** 2026-03-16
 
 ## Completed This Session (Session 19)
 
