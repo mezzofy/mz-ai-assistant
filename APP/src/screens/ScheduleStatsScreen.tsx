@@ -36,9 +36,6 @@ function renderDelivery(deliver_to: ScheduledJob['deliver_to'], colors: ReturnTy
     const extra = deliver_to.email.length - 1;
     rows.push(`→ Email: ${deliver_to.email[0]}${extra > 0 ? ` +${extra} more` : ''}`);
   }
-  if (rows.length === 0) {
-    rows.push('→ No delivery configured');
-  }
   return rows.map((r, i) => (
     <Text key={i} style={[styles.deliveryText, {color: colors.textMuted}]}>{r}</Text>
   ));
