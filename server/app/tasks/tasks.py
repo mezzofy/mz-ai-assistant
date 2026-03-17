@@ -586,15 +586,29 @@ async def _run_chat_task(task_data: dict) -> dict:
 
 
 async def _update_job_last_run(job_id: str):
-    """Update scheduled_jobs.last_run timestamp after successful execution."""
+    """Update scheduled_jobs.last_run and next_run after successful execution."""
     try:
         from app.core.database import AsyncSessionLocal
+        from app.webhooks.scheduler import compute_next_run
         from sqlalchemy import text
 
         async with AsyncSessionLocal() as db:
-            await db.execute(
-                text("UPDATE scheduled_jobs SET last_run = NOW() WHERE id = :id"),
+            # Fetch the job's cron expression so we can recompute next_run
+            result = await db.execute(
+                text("SELECT schedule FROM scheduled_jobs WHERE id = :id"),
                 {"id": job_id},
+            )
+            row = result.fetchone()
+            if row is None:
+                logger.warning(f"Job not found when updating last_run (id={job_id})")
+                return
+            next_run = compute_next_run(row.schedule)
+            await db.execute(
+                text(
+                    "UPDATE scheduled_jobs SET last_run = NOW(), next_run = :next_run"
+                    " WHERE id = :id"
+                ),
+                {"id": job_id, "next_run": next_run},
             )
             await db.commit()
     except Exception as e:

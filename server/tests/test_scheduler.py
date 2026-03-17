@@ -667,3 +667,95 @@ class TestNextRunPopulated:
         now = datetime.now(timezone.utc)
         next_run = compute_next_run("0 1 * * *")  # daily at 01:00 UTC
         assert next_run > now, "compute_next_run() must return a future datetime"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# _update_job_last_run — BUG fix: must update next_run alongside last_run
+#
+# When Celery Beat fires a scheduled job it calls _update_job_last_run(job_id).
+# The old implementation only set last_run = NOW() and left next_run stale.
+# The fix fetches the job's cron schedule, recomputes next_run via
+# compute_next_run(), and writes both columns in one UPDATE.
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestUpdateJobLastRun:
+    """
+    _update_job_last_run() must update BOTH last_run and next_run.
+
+    Previously only last_run was set; next_run stayed at its original value
+    (or NULL) forever, so the scheduler UI always showed a stale next run time.
+    """
+
+    @pytest.mark.asyncio
+    async def test_update_sets_next_run(self):
+        """UPDATE statement must include next_run, not just last_run."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from app.tasks.tasks import _update_job_last_run
+
+        mock_db = AsyncMock()
+        # SELECT returns a row with a schedule
+        select_result = MagicMock()
+        fake_row = MagicMock()
+        fake_row.schedule = "0 9 * * 1"  # weekly Monday 09:00 UTC
+        select_result.fetchone.return_value = fake_row
+        # UPDATE returns a plain result (not inspected)
+        update_result = MagicMock()
+        mock_db.execute = AsyncMock(side_effect=[select_result, update_result])
+        mock_db.commit = AsyncMock()
+
+        mock_session_cls = MagicMock()
+        mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        from datetime import datetime, timezone
+        fake_next_run = datetime(2099, 1, 1, tzinfo=timezone.utc)
+
+        # Lazy inline imports — patch at source modules (project pattern)
+        with patch("app.core.database.AsyncSessionLocal", mock_session_cls), \
+             patch("app.webhooks.scheduler.compute_next_run", return_value=fake_next_run):
+            await _update_job_last_run("job-abc-123")
+
+        # Two execute() calls: SELECT then UPDATE
+        assert mock_db.execute.call_count == 2, (
+            "_update_job_last_run must issue a SELECT then an UPDATE"
+        )
+
+        update_call = mock_db.execute.call_args_list[1]
+        update_sql = str(update_call.args[0])
+        update_params = update_call.args[1]
+
+        assert "next_run" in update_sql, (
+            "UPDATE must set next_run — old code only set last_run"
+        )
+        assert "next_run" in update_params, (
+            "UPDATE params must include next_run value"
+        )
+        assert update_params["next_run"] == fake_next_run, (
+            "next_run param must be the value returned by compute_next_run"
+        )
+        mock_db.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_job_not_found_logs_warning_and_returns(self):
+        """If the job row no longer exists, log a warning and skip the UPDATE."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from app.tasks.tasks import _update_job_last_run
+
+        mock_db = AsyncMock()
+        select_result = MagicMock()
+        select_result.fetchone.return_value = None  # job deleted
+        mock_db.execute = AsyncMock(return_value=select_result)
+        mock_db.commit = AsyncMock()
+
+        mock_session_cls = MagicMock()
+        mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+        mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # Lazy inline import — patch at the source module (project pattern)
+        with patch("app.core.database.AsyncSessionLocal", mock_session_cls):
+            # Should not raise
+            await _update_job_last_run("nonexistent-job")
+
+        # Only the SELECT was issued — no UPDATE, no commit
+        assert mock_db.execute.call_count == 1
+        mock_db.commit.assert_not_called()
