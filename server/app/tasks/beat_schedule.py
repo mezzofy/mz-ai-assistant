@@ -16,6 +16,7 @@ All schedules use UTC timezone. Conversion: 9AM SGT = 01:00 UTC, 10AM SGT = 02:0
 
 import asyncio
 import logging
+import time
 
 from celery.beat import PersistentScheduler
 from celery.schedules import crontab
@@ -286,9 +287,16 @@ class DatabaseScheduler(PersistentScheduler):
       2. Calls load_db_jobs() to read user-created jobs from DB
       3. Merges both into the active schedule
 
+    Every 60 seconds during normal operation, tick() calls _reload_db_jobs()
+    to pick up any jobs created (or deactivated) since Beat last started —
+    eliminating the need to restart Beat after creating a new scheduled job.
+
     Usage:
         celery -A app.tasks.celery_app beat --scheduler app.tasks.beat_schedule:DatabaseScheduler
     """
+
+    _DB_RELOAD_INTERVAL = 60   # seconds between DB polls
+    _last_db_reload: float = 0.0
 
     def setup_schedule(self):
         # Start with static built-in schedule
@@ -308,3 +316,45 @@ class DatabaseScheduler(PersistentScheduler):
 
         # Let PersistentScheduler finish setup with the merged schedule
         super().setup_schedule()
+
+        # Record startup time so first reload fires after full interval
+        self._last_db_reload = time.monotonic()
+
+    def tick(self, *args, **kwargs):
+        """Override tick() to periodically reload DB jobs into the live schedule."""
+        now = time.monotonic()
+        if now - self._last_db_reload >= self._DB_RELOAD_INTERVAL:
+            self._reload_db_jobs()
+            self._last_db_reload = now
+        return super().tick(*args, **kwargs)
+
+    def _reload_db_jobs(self):
+        """
+        Reconcile the live Beat schedule against the current DB state.
+
+        Adds newly created active jobs; removes jobs that have been
+        deactivated or deleted since the last reload.
+        """
+        try:
+            db_jobs = load_db_jobs()
+            existing = {k for k in self.schedule if k.startswith("db-job-")}
+            current = set(db_jobs.keys())
+
+            added = current - existing
+            removed = existing - current
+
+            if added:
+                self.update_from_dict({k: db_jobs[k] for k in added})
+                logger.info(f"Beat reload: +{len(added)} new job(s) added: {added}")
+
+            for key in removed:
+                self.schedule.pop(key, None)
+                self.app.conf.beat_schedule.pop(key, None)
+            if removed:
+                logger.info(f"Beat reload: -{len(removed)} job(s) removed: {removed}")
+
+            if added or removed:
+                self.sync()
+
+        except Exception as exc:
+            logger.error(f"Beat DB reload failed: {exc}")
