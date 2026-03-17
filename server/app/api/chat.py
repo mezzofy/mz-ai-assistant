@@ -113,7 +113,10 @@ _SCHEDULER_KEYWORDS = {
     "scheduled task", "scheduled job", "recurring task",
     "my schedules", "show my schedule", "list my schedule",
     "delete schedule", "cancel schedule", "remove schedule",
+    "update schedule", "change schedule", "edit schedule",
+    "pause schedule", "resume schedule",
     "run schedule", "trigger schedule",
+    "list jobs", "show jobs", "my jobs",
 }
 
 _CALENDAR_SIGNALS = {

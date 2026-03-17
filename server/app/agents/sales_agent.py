@@ -50,7 +50,10 @@ class SalesAgent(BaseAgent):
             return await self._customer_onboarding_workflow(task)
         if any(w in message for w in ("pitch deck", "pitch", "deck", "presentation")):
             return await self._pitch_deck_workflow(task)
-        if "email lead report" in message or "inbox lead report" in message:
+        if any(w in message for w in (
+            "email lead report", "inbox lead report",
+            "inbox lead scan", "lead scan", "inbox scan", "daily lead scan",
+        )):
             return await self._daily_email_lead_report_workflow(task)
         if any(w in message for w in ("linkedin", "prospect", "lead", "find")):
             return await self._prospecting_workflow(task)
