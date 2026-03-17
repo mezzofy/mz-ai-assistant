@@ -117,6 +117,10 @@ class PDFOps(BaseTool):
                             "type": "string",
                             "description": "HTML body content to render as PDF.",
                         },
+                        "content": {
+                            "type": "string",
+                            "description": "Alias for html_content. HTML body content to render as PDF.",
+                        },
                         "document_type": {
                             "type": "string",
                             "description": (
@@ -147,7 +151,7 @@ class PDFOps(BaseTool):
                             "default": "user",
                         },
                     },
-                    "required": ["title", "html_content"],
+                    "required": ["title"],
                 },
                 "handler": self._create_pdf,
             },
@@ -212,13 +216,15 @@ class PDFOps(BaseTool):
     async def _create_pdf(
         self,
         title: str,
-        html_content: str,
+        html_content: Optional[str] = None,
+        content: Optional[str] = None,
         document_type: str = "Report",
         filename: Optional[str] = None,
         extra_css: Optional[str] = None,
         storage_scope: str = "user",
     ) -> dict:
         """Generate a branded PDF from HTML content."""
+        html_content = html_content or content or ""
         if not filename:
             safe_title = "".join(c if c.isalnum() or c in "-_ " else "" for c in title)
             safe_title = safe_title.replace(" ", "_")[:50]

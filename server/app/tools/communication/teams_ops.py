@@ -72,6 +72,11 @@ class TeamsOps(BaseTool):
                             ),
                             "enum": ["general", "sales", "finance", "marketing", "support", "management"],
                         },
+                        "channel": {
+                            "type": "string",
+                            "description": "Alias for channel_name.",
+                            "enum": ["general", "sales", "finance", "marketing", "support", "management"],
+                        },
                         "content": {
                             "type": "string",
                             "description": "Message content. Supports HTML formatting.",
@@ -81,7 +86,7 @@ class TeamsOps(BaseTool):
                             "description": "Optional message subject/headline (displayed above content).",
                         },
                     },
-                    "required": ["channel_name", "content"],
+                    "required": ["content"],
                 },
                 "handler": self._post_message,
             },
@@ -148,11 +153,15 @@ class TeamsOps(BaseTool):
 
     async def _post_message(
         self,
-        channel_name: str,
-        content: str,
+        channel_name: Optional[str] = None,
+        content: str = "",
+        channel: Optional[str] = None,
         subject: Optional[str] = None,
     ) -> dict:
         """Post a message to a Teams channel."""
+        channel_name = channel_name or channel
+        if not channel_name:
+            return self._err("channel_name (or channel) is required.")
         if not self._team_id:
             return self._err("Teams team_id is not configured.")
 

@@ -20,6 +20,7 @@ Every tool module (OutlookOps, TeamsOps, PDFOps, etc.) implements this pattern:
 The ToolExecutor (tool_executor.py) registers all tools and dispatches calls from the LLM.
 """
 
+import inspect
 import logging
 import traceback
 from abc import ABC, abstractmethod
@@ -68,7 +69,21 @@ class BaseTool(ABC):
             return {"success": False, "error": f"Tool '{tool_name}' not found in {self.__class__.__name__}"}
 
         try:
-            result = await tool["handler"](**kwargs)
+            handler = tool["handler"]
+            sig = inspect.signature(handler)
+            has_var_keyword = any(
+                p.kind == inspect.Parameter.VAR_KEYWORD
+                for p in sig.parameters.values()
+            )
+            if not has_var_keyword:
+                accepted = set(sig.parameters.keys()) - {"self"}
+                filtered = {k: v for k, v in kwargs.items() if k in accepted}
+                dropped = set(kwargs) - set(filtered)
+                if dropped:
+                    logger.warning(f"Tool '{tool_name}' dropped unknown kwargs: {dropped}")
+                kwargs = filtered
+
+            result = await handler(**kwargs)
             if not isinstance(result, dict):
                 result = {"output": result}
             if "success" not in result:
