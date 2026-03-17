@@ -260,8 +260,6 @@ async def send_push(
     )
     if result.get("success"):
         await log_notification(user_id=user_id, title=title, body=body, data=data)
-    # NOTE: webhook_tasks.py calls PushOps._send_push() directly and does not go
-    # through this function — that path does not log to notification_log in v1.30.0.
     return {
         "success": result.get("success", False),
         "message_id": result.get("output", {}).get("message_id"),

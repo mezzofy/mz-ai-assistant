@@ -1,7 +1,16 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-17
 **Project:** mz-ai-assistant
-**Session:** 20 (BUG-C/D/E — tool kwarg filter)
+**Session:** 21 (BUG-notification-history — stale comment removed)
+
+## Completed This Session (Session 21)
+- ✅ `server/app/tools/communication/push_ops.py` — removed stale comment (lines 263–264 ref to pre-Session-19 behavior)
+- ✅ EC2 action required: run `python scripts/migrate.py` to create `notification_log` table (see plan)
+
+---
+
+# Previous Checkpoint: Session 20 (BUG-C/D/E — tool kwarg filter)
+**Date:** 2026-03-17
 
 ## Completed This Session (Session 20)
 - ✅ `server/app/tools/base_tool.py` — global kwarg filter via inspect.signature in execute()
@@ -9,7 +18,7 @@
 - ✅ `server/app/tools/communication/teams_ops.py` — channel= alias for channel_name= (BUG-E)
 - ✅ `server/tests/test_tool_kwarg_fixes.py` — 10 new tests; 420 total passing
 - ✅ Commit: `e583d7d`
-- ✅ EC2 deploy pending: git pull + restart mezzofy-api.service + mezzofy-celery.service
+- ✅ EC2 deployed: git pull + restarted mezzofy-api.service + mezzofy-celery.service
 
 ---
 
