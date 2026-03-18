@@ -381,6 +381,14 @@ def run_migrations(conn):
     else:
         print("  ⏭  artifacts.folder_id (already exists)")
 
+    # users: Mission Control Portal columns
+    cur.execute("""
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS invite_token VARCHAR(64),
+            ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ
+    """)
+    print("  ✅ users.invite_token / users.deleted_at")
+
     # ── Indexes ──────────────────────────────────────────────
     print("\nCreating indexes...")
 

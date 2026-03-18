@@ -297,3 +297,15 @@ cors:
   allowed_origins:
     - "http://localhost:8081"     # React Native Metro bundler
     - "https://assistant.mezzofy.com"
+
+# Mission Control Admin Portal
+admin_portal:
+  allowed_email: "${ADMIN_EMAIL}"  # default: admin@mezzofy.com
+  session_idle_minutes: 30
+  portal_domain: "${PORTAL_DOMAIN}"
+  llm_budgets:
+    claude-sonnet: { daily_usd: 50.0 }
+    claude-haiku: { daily_usd: 10.0 }
+    claude-opus: { daily_usd: 100.0 }
+    kimi: { daily_usd: 20.0 }
+  file_retention_days: 90
