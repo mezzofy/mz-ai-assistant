@@ -121,6 +121,15 @@ _SCHEDULER_KEYWORDS = {
     "scan now", "report now", "run now", "trigger now",
     "run the job", "trigger the job", "trigger my job",
     "run the daily", "trigger the daily",
+    # catch "update/edit/delete/run job [id]" patterns
+    "update job", "update the job", "edit job", "edit the job",
+    "change job", "modify job", "patch job",
+    "delete job", "remove job", "cancel job",
+    "run job", "trigger job",
+    "list job", "show job",
+    # catch shared folder delivery config updates
+    "deliver results to", "deliver to shared",
+    "shared folder",
 }
 
 _CALENDAR_SIGNALS = {
