@@ -1145,7 +1145,7 @@ async def list_tasks(
                 t.id, t.title, t.status, t.department,
                 t.created_at, t.started_at, t.completed_at,
                 EXTRACT(EPOCH FROM (t.completed_at - t.started_at)) * 1000 AS duration_ms,
-                t.error, t.details,
+                t.error, t.result AS details,
                 u.email AS triggered_by_email,
                 u.name AS triggered_by_name
             FROM agent_tasks t
@@ -1422,8 +1422,8 @@ async def get_crm_leads(
             SELECT
                 sl.id, sl.company_name, sl.contact_name, sl.contact_email,
                 sl.contact_phone, sl.industry, sl.location, sl.source,
-                sl.status, sl.notes, sl.created_at, sl.updated_at,
-                sl.follow_up_date, sl.last_contacted, sl.source_ref,
+                sl.status, sl.notes, sl.created_at, sl.created_at AS updated_at,
+                sl.follow_up_date, sl.last_contacted, NULL::text AS source_ref,
                 u.name AS assigned_to_name, u.email AS assigned_to_email
             FROM sales_leads sl
             LEFT JOIN users u ON u.id::text = sl.assigned_to

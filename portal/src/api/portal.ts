@@ -24,7 +24,9 @@ export const portalApi = {
   uploadAgentMemory: (agent: string, file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return client.post(`/api/admin-portal/agents/${agent}/rag-memory/upload`, form)
+    return client.post(`/api/admin-portal/agents/${agent}/rag-memory/upload`, form, {
+      headers: { 'Content-Type': undefined },
+    })
   },
   deleteAgentMemory: (agent: string, filename: string) =>
     client.delete(`/api/admin-portal/agents/${agent}/rag-memory/${encodeURIComponent(filename)}`),
@@ -46,7 +48,9 @@ export const portalApi = {
     form.append('file', file)
     if (department) form.append('department', department)
     form.append('scope', scope || 'shared')
-    return client.post('/api/admin-portal/files/upload', form)
+    return client.post('/api/admin-portal/files/upload', form, {
+      headers: { 'Content-Type': undefined },
+    })
   },
   deleteFile: (id: string) => client.delete(`/api/admin-portal/files/${id}`),
 

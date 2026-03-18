@@ -132,7 +132,7 @@ function drawSprite(
   // Completed-today teal label below name area
   if (tasksToday > 0) {
     const labelY = cy + 72
-    ctx.font = '9px monospace'
+    ctx.font = '13px monospace'
     ctx.fillStyle = '#00D4AA'
     ctx.textAlign = 'center'
     ctx.fillText(`\u2713${tasksToday}`, x, labelY)

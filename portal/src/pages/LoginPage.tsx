@@ -211,6 +211,12 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: '#1E3A5F' }}>
+            <p className="text-xs" style={{ color: '#374151' }}>
+              v1.38.0 · Powered by <span style={{ color: '#f97316' }}>Mezzofy</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>

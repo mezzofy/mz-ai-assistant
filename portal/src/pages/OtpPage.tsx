@@ -140,6 +140,16 @@ export default function OtpPage() {
             {countdown > 0 ? `Resend in ${countdown}s` : 'Resend OTP'}
           </button>
         </div>
+
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => navigate('/mission-control/login')}
+            className="text-sm transition-colors"
+            style={{ color: '#6B7280' }}
+          >
+            ← Cancel
+          </button>
+        </div>
       </div>
     </div>
   )
