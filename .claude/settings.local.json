@@ -60,7 +60,18 @@
       "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android'; .\\\\gradlew.bat assembleRelease 2>&1 | Out-String\" 2>&1)",
       "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android'; .\\\\gradlew.bat assembleRelease 2>&1 | Select-String -Pattern 'FAILED|error:|Error|BUILD' | Out-String\" 2>&1)",
       "Bash(find \"C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\server\" -type f \\\\\\( -name \"*.py\" -path \"*models*\" -o -name \"*migration*\" \\\\\\) 2>/dev/null | grep -i \"schedul\\\\|job\" | head -20)",
-      "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/APP/src -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))"
+      "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/APP/src -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(cp server/app/main.py ../../server/app/main.py)",
+      "Bash(cp server/config/config.example.yaml ../../server/config/config.example.yaml)",
+      "Bash(cp server/config/nginx.conf ../../server/config/nginx.conf)",
+      "Bash(cp server/requirements.txt ../../server/requirements.txt)",
+      "Bash(cp server/scripts/migrate.py ../../server/scripts/migrate.py)",
+      "Bash(SRC=/c/Mezzofy/workspace/mz-ai-assistant/.claude/worktrees/agent-ac91dd7b)",
+      "Bash(DST=/c/Mezzofy/workspace/mz-ai-assistant)",
+      "Bash(__NEW_LINE_9b45aded907f2d85__ cp:*)",
+      "Bash(cp \"$SRC/server/config/config.example.yaml\" \"$DST/server/config/config.example.yaml\")",
+      "Bash(cp \"$SRC/server/config/nginx.conf\" \"$DST/server/config/nginx.conf\")",
+      "Bash(cd /c/Mezzofy/workspace/mz-ai-assistant/portal echo \"=== Build check ===\" npm run build)"
     ]
   }
 }
