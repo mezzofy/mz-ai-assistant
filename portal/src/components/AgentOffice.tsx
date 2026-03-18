@@ -6,15 +6,15 @@ interface Props {
 }
 
 const AGENT_POSITIONS: Record<string, { x: number; y: number }> = {
-  management: { x: 400, y: 70 },
-  finance:    { x: 80,  y: 180 },
-  sales:      { x: 200, y: 260 },
-  hr:         { x: 320, y: 320 },
-  marketing:  { x: 480, y: 320 },
-  support:    { x: 600, y: 260 },
-  research:   { x: 720, y: 180 },
-  developer:  { x: 680, y: 320 },
-  scheduler:  { x: 120, y: 310 },
+  management: { x: 400, y: 60 },
+  finance:    { x: 90,  y: 190 },
+  sales:      { x: 210, y: 270 },
+  hr:         { x: 330, y: 330 },
+  marketing:  { x: 470, y: 330 },
+  support:    { x: 590, y: 270 },
+  research:   { x: 710, y: 190 },
+  developer:  { x: 670, y: 330 },
+  scheduler:  { x: 130, y: 320 },
 }
 
 const DEPT_COLORS: Record<string, string> = {
@@ -42,7 +42,7 @@ function drawSprite(
   activeTasks: number
 ) {
   const cy = y + bobOffset
-  const scale = dept === 'management' ? 1.5 : 1
+  const scale = dept === 'management' ? 2.0 : 1.5
 
   // Desk
   ctx.fillStyle = '#1E3A5F'
@@ -193,7 +193,7 @@ export default function AgentOffice({ agents }: Props) {
       })
 
       // Labels
-      ctx.font = '10px Inter, sans-serif'
+      ctx.font = '14px Inter, sans-serif'
       ALL_DEPTS.forEach((dept) => {
         const pos = AGENT_POSITIONS[dept]
         if (!pos) return
@@ -218,9 +218,9 @@ export default function AgentOffice({ agents }: Props) {
     <canvas
       ref={canvasRef}
       width={800}
-      height={420}
+      height={480}
       className="w-full rounded-lg"
-      style={{ imageRendering: 'pixelated', maxHeight: '420px' }}
+      style={{ imageRendering: 'pixelated', maxHeight: '480px' }}
     />
   )
 }

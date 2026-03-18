@@ -825,6 +825,23 @@ async def get_folder_tree(
     db: AsyncSession = Depends(get_db),
 ):
     """Get all files grouped by scope and department."""
+    # Sync orphaned disk files into DB for all users
+    try:
+        from app.context.artifact_manager import sync_user_artifacts
+        from pathlib import Path as FsPath
+
+        artifacts_root = FsPath("/var/mezzofy/artifacts")
+        if artifacts_root.exists():
+            users_result = await db.execute(text("SELECT id, email, department FROM users WHERE deleted_at IS NULL"))
+            all_users = users_result.fetchall()
+            for u in all_users:
+                try:
+                    await sync_user_artifacts(db, str(u.id), u.department or "general", u.email)
+                except Exception as sync_err:
+                    logger.warning(f"sync_user_artifacts failed for {u.email}: {sync_err}")
+    except Exception as sync_ex:
+        logger.warning(f"Pre-query artifact sync failed: {sync_ex}")
+
     result = await db.execute(
         text("""
             SELECT
@@ -963,11 +980,14 @@ async def create_user(
             subject="Welcome to Mezzofy AI Assistant",
             body=(
                 f"Hi {body.name},\n\n"
-                f"You have been invited to Mezzofy AI Assistant.\n"
-                f"Your temporary password is: {temp_password}\n\n"
-                f"Please log in and change your password.\n\n"
-                f"Invite token: {invite_token}\n\n"
-                "Best regards,\nMezzofy Team"
+                f"You have been invited to Mezzofy AI Assistant.\n\n"
+                f"To activate your account:\n"
+                f"1. Open the Mezzofy mobile app\n"
+                f"2. Tap 'Activate Account' on the login screen\n"
+                f"3. Enter your activation code: {invite_token}\n"
+                f"4. Set a new password (minimum 8 characters)\n\n"
+                f"Your email: {body.email}\n\n"
+                f"Best regards,\nMezzofy Team"
             ),
         )
     except Exception as e:

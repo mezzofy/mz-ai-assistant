@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError
 
@@ -119,6 +119,11 @@ class VerifyResetOTPResponse(BaseModel):
 class ResetPasswordRequest(BaseModel):
     reset_token: str
     new_password: str
+
+
+class ActivateAccountRequest(BaseModel):
+    invite_token: str
+    new_password: str = Field(..., min_length=8)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -539,3 +544,63 @@ async def change_password(
     await _update_password(db, str(user["id"]), new_hash)
 
     return {"status": "ok"}
+
+
+@router.post("/activate")
+async def activate_account(
+    body: ActivateAccountRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Activate a new user account using the invite token received during onboarding.
+    No authentication required — the invite_token itself is the secret.
+    """
+    from sqlalchemy import text
+    import logging
+
+    logger = logging.getLogger("mezzofy.auth")
+
+    result = await db.execute(
+        text("SELECT id, email, department, is_active FROM users WHERE invite_token = :token AND deleted_at IS NULL"),
+        {"token": body.invite_token},
+    )
+    user = result.fetchone()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired invite token",
+        )
+
+    if user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Account already activated",
+        )
+
+    violations = validate_password_complexity(body.new_password)
+    if violations:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "Password does not meet complexity requirements.", "violations": violations},
+        )
+
+    new_hash = hash_password(body.new_password)
+    await db.execute(
+        text("UPDATE users SET is_active = TRUE, password_hash = :hash, invite_token = NULL WHERE id = :id"),
+        {"hash": new_hash, "id": user.id},
+    )
+
+    await db.execute(
+        text("""
+            INSERT INTO audit_log (user_id, action, resource, details, success)
+            VALUES (:uid, 'activate_account', :resource, :details, TRUE)
+        """),
+        {
+            "uid": str(user.id),
+            "resource": f"users/{user.id}",
+            "details": f'{{"email": "{user.email}"}}',
+        },
+    )
+    await db.commit()
+
+    return {"activated": True, "email": user.email, "department": user.department}

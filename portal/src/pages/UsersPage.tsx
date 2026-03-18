@@ -23,6 +23,7 @@ export default function UsersPage() {
   const [editUser, setEditUser] = useState<User | null>(null)
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
   const [newForm, setNewForm] = useState({ email: '', name: '', department: 'sales', role: 'sales_rep' })
+  const [lastInviteToken, setLastInviteToken] = useState<string | null>(null)
 
   const { data } = useQuery({
     queryKey: ['users'],
@@ -32,10 +33,14 @@ export default function UsersPage() {
 
   const createMutation = useMutation({
     mutationFn: () => portalApi.createUser(newForm),
-    onSuccess: () => {
+    onSuccess: (response) => {
       qc.invalidateQueries({ queryKey: ['users'] })
       setShowNewModal(false)
       setNewForm({ email: '', name: '', department: 'sales', role: 'sales_rep' })
+      const token = response?.data?.invite_token
+      if (token) {
+        setLastInviteToken(token)
+      }
     },
   })
 
@@ -72,6 +77,27 @@ export default function UsersPage() {
           + New User
         </button>
       </div>
+
+      {lastInviteToken && (
+        <div
+          className="flex items-center justify-between px-4 py-3 rounded-lg border text-sm"
+          style={{ background: 'rgba(249, 115, 22, 0.1)', borderColor: '#f97316' }}
+        >
+          <div>
+            <span className="text-gray-300">Invite token created: </span>
+            <code className="text-white font-mono px-2 py-0.5 rounded" style={{ background: '#1E2A3A' }}>
+              {lastInviteToken}
+            </code>
+            <span className="text-gray-400 ml-2 text-xs">Share this with the user if the invite email was not delivered.</span>
+          </div>
+          <button
+            onClick={() => setLastInviteToken(null)}
+            className="text-gray-400 hover:text-white ml-4"
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       <div className="rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
         <table className="w-full text-xs">

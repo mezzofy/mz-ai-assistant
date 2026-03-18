@@ -198,11 +198,16 @@ export default function DashboardPage() {
         <div className="rounded-xl border p-5" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
           <h2 className="text-sm font-semibold text-gray-300 mb-4">System Vitals</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            <RadialGauge
-              value={vitals.cpu.percent}
-              label={`CPU  \u00b7  Load ${vitals.cpu.load_avg_1m.toFixed(2)}`}
-              color={vitals.cpu.percent > 80 ? '#EF4444' : '#f97316'}
-            />
+            <div className="flex flex-col items-center">
+              <RadialGauge
+                value={vitals.cpu.percent}
+                label="CPU Load"
+                color={vitals.cpu.percent > 80 ? '#EF4444' : '#f97316'}
+              />
+              <div className="text-xs -mt-6" style={{ color: '#7A8FA6' }}>
+                avg {vitals.cpu.load_avg_1m.toFixed(2)}
+              </div>
+            </div>
             <div>
               <div className="text-xs text-gray-400 mb-2">Memory</div>
               <div className="text-xl font-bold text-white mb-1">{vitals.memory.percent.toFixed(1)}%</div>
