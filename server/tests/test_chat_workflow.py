@@ -629,3 +629,53 @@ class TestManagementAgentUnit:
             f"Real date '{today}' not found in KPI prompt"
         assert not any("{Current Date}" in p for p in captured), \
             "Literal '{Current Date}' placeholder found — date injection failed"
+
+
+# ── BUG-019 regression: _is_scheduler_request keyword coverage ────────────────
+
+class TestSchedulerKeywords:
+    """
+    BUG-019 regression — "Run the daily sales inbox lead scan now" was NOT matched
+    by _SCHEDULER_KEYWORDS, falling through to SalesAgent → _prospecting_workflow.
+
+    Verifies the new "scan now", "run now", "run the daily" etc. keywords catch
+    "run [job name] now" patterns and route to the scheduler agent.
+    """
+
+    def _is_scheduler(self, message: str) -> bool:
+        from app.api.chat import _is_scheduler_request
+        return _is_scheduler_request(message)
+
+    def test_run_daily_sales_inbox_lead_scan_now_is_scheduler(self):
+        """The exact phrase from the bug report must be detected as a scheduler request."""
+        assert self._is_scheduler("Run the daily sales inbox lead scan now") is True
+
+    def test_scan_now_is_scheduler(self):
+        assert self._is_scheduler("run the lead scan now") is True
+
+    def test_run_now_is_scheduler(self):
+        assert self._is_scheduler("run now please") is True
+
+    def test_trigger_now_is_scheduler(self):
+        assert self._is_scheduler("trigger now") is True
+
+    def test_run_the_daily_is_scheduler(self):
+        assert self._is_scheduler("run the daily report") is True
+
+    def test_report_now_is_scheduler(self):
+        assert self._is_scheduler("generate the report now") is True
+
+    def test_existing_keywords_still_work(self):
+        """Regression: existing scheduler keywords must still match."""
+        assert self._is_scheduler("show my schedule") is True
+        assert self._is_scheduler("list my scheduled jobs") is True
+        assert self._is_scheduler("delete schedule for daily report") is True
+
+    def test_calendar_meeting_not_scheduler(self):
+        """Calendar signals override scheduler keywords — must NOT be flagged."""
+        assert self._is_scheduler("schedule a meeting with the sales team") is False
+        assert self._is_scheduler("run now — I need to book a lunch slot") is False
+
+    def test_generic_lead_message_not_scheduler(self):
+        """Plain lead prospecting message must NOT match scheduler keywords."""
+        assert self._is_scheduler("find me new leads in Singapore F&B") is False

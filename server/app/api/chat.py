@@ -117,6 +117,10 @@ _SCHEDULER_KEYWORDS = {
     "pause schedule", "resume schedule",
     "run schedule", "trigger schedule",
     "list jobs", "show jobs", "my jobs",
+    # catch "run/trigger [job name] now" patterns
+    "scan now", "report now", "run now", "trigger now",
+    "run the job", "trigger the job", "trigger my job",
+    "run the daily", "trigger the daily",
 }
 
 _CALENDAR_SIGNALS = {
