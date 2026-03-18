@@ -33,6 +33,7 @@ from app.context.artifact_manager import (
     list_artifacts,
     register_artifact,
     sync_user_artifacts,
+    sync_dept_artifacts,
     get_user_artifacts_dir,
     get_dept_artifacts_dir,
     get_company_artifacts_dir,
@@ -274,9 +275,11 @@ async def list_files(
     if scope == "department" and dept and _is_management(current_user):
         effective_dept = dept
 
-    # Auto-sync orphaned disk files into DB (personal scope only)
+    # Auto-sync orphaned disk files into DB
     if scope == "personal" and not folder_id:
         await sync_user_artifacts(db, uid, user_dept, email)
+    elif scope == "department" and not folder_id:
+        await sync_dept_artifacts(db, uid, effective_dept)
 
     artifacts = await list_artifacts(
         db=db,
