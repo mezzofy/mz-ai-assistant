@@ -373,6 +373,35 @@ async def _deliver_results_async(result: dict, deliver_to: dict, config: dict):
         except Exception as e:
             logger.warning(f"Push delivery failed: {e}")
 
+    if deliver_to.get("shared_folder"):
+        try:
+            sf = deliver_to["shared_folder"]
+            department = sf.get("department", "")
+            template = sf.get("filename_template", "output")
+            ext = sf.get("file_extension", "txt")
+            run_date = datetime.now(timezone.utc).strftime("%d%m%y")
+            filename = template.replace("DDMMYY", run_date) + f".{ext}"
+            from app.context.artifact_manager import get_dept_artifacts_dir, register_artifact
+            from app.core.database import AsyncSessionLocal
+            dept_dir = get_dept_artifacts_dir(department)
+            file_path = dept_dir / filename
+            file_path.write_text(content or "", encoding="utf-8")
+            async with AsyncSessionLocal() as db:
+                await register_artifact(
+                    db=db,
+                    user_id="scheduler",
+                    session_id=None,
+                    filename=filename,
+                    file_path=str(file_path),
+                    file_type=ext,
+                    scope="department",
+                    department=department,
+                )
+                await db.commit()
+            logger.info(f"Shared folder delivery: wrote {filename} to {dept_dir}")
+        except Exception as e:
+            logger.warning(f"Shared folder delivery failed: {e}")
+
 
 async def _mark_event_completed(event_id: str, result_data: dict):
     """Update webhook_events record to completed status."""

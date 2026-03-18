@@ -36,6 +36,14 @@ function renderDelivery(deliver_to: ScheduledJob['deliver_to'], colors: ReturnTy
     const extra = deliver_to.email.length - 1;
     rows.push(`→ Email: ${deliver_to.email[0]}${extra > 0 ? ` +${extra} more` : ''}`);
   }
+  if (deliver_to.shared_folder) {
+    const {department, filename_template, file_extension = 'txt'} = deliver_to.shared_folder;
+    const deptLabel = department.charAt(0).toUpperCase() + department.slice(1);
+    rows.push(`→ ${deptLabel} Shared Folder > ${filename_template}.${file_extension}`);
+  }
+  if (rows.length === 0) {
+    rows.push('→ No delivery configured');
+  }
   return rows.map((r, i) => (
     <Text key={i} style={[styles.deliveryText, {color: colors.textMuted}]}>{r}</Text>
   ));

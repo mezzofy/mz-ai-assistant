@@ -59,7 +59,8 @@
       "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/APP/src /c/Mezzofy/workspace/mz-ai-assistant/APP/android/app/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.kt\" -o -name \"*.java\" \\\\\\) 2>/dev/null | head -50)",
       "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android'; .\\\\gradlew.bat assembleRelease 2>&1 | Out-String\" 2>&1)",
       "Bash(powershell.exe -Command \"Set-Location 'C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\APP\\\\android'; .\\\\gradlew.bat assembleRelease 2>&1 | Select-String -Pattern 'FAILED|error:|Error|BUILD' | Out-String\" 2>&1)",
-      "Bash(find \"C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\server\" -type f \\\\\\( -name \"*.py\" -path \"*models*\" -o -name \"*migration*\" \\\\\\) 2>/dev/null | grep -i \"schedul\\\\|job\" | head -20)"
+      "Bash(find \"C:\\\\Mezzofy\\\\workspace\\\\mz-ai-assistant\\\\server\" -type f \\\\\\( -name \"*.py\" -path \"*models*\" -o -name \"*migration*\" \\\\\\) 2>/dev/null | grep -i \"schedul\\\\|job\" | head -20)",
+      "Bash(find /c/Mezzofy/workspace/mz-ai-assistant/APP/src -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))"
     ]
   }
 }

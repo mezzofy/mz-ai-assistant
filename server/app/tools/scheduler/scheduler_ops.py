@@ -69,6 +69,21 @@ class SchedulerOps(BaseTool):
                                 "Leave empty if no delivery needed."
                             ),
                         },
+                        "deliver_to_shared_folder_dept": {
+                            "type": "string",
+                            "description": (
+                                "Optional: Department name for shared folder delivery "
+                                "(e.g. 'sales'). Saves output to the department's shared folder."
+                            ),
+                        },
+                        "deliver_to_filename_template": {
+                            "type": "string",
+                            "description": (
+                                "Optional: Filename template (without extension) for shared "
+                                "folder delivery (e.g. 'Leads_DDMMYY'). "
+                                "DDMMYY is replaced with the actual run date."
+                            ),
+                        },
                         "workflow_name": {
                             "type": "string",
                             "description": (
@@ -138,6 +153,8 @@ class SchedulerOps(BaseTool):
         message: str,
         cron: str,
         deliver_to_channel: str = "",
+        deliver_to_shared_folder_dept: str = "",
+        deliver_to_filename_template: str = "",
         workflow_name: str = "",
     ) -> dict:
         from app.core.user_context import get_user_id
@@ -170,6 +187,12 @@ class SchedulerOps(BaseTool):
         deliver_to = {}
         if deliver_to_channel and deliver_to_channel.strip():
             deliver_to["teams_channel"] = deliver_to_channel.strip()
+        if deliver_to_shared_folder_dept and deliver_to_shared_folder_dept.strip():
+            deliver_to["shared_folder"] = {
+                "department": deliver_to_shared_folder_dept.strip(),
+                "filename_template": deliver_to_filename_template.strip() or "output",
+                "file_extension": "txt",
+            }
 
         from app.webhooks.scheduler import compute_next_run
 

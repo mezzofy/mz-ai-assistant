@@ -11,6 +11,11 @@ export interface ScheduledJob {
     teams_channel?: string;
     email?: string[];
     push_user_id?: string;
+    shared_folder?: {
+      department: string;
+      filename_template: string;
+      file_extension?: string;
+    };
   };
   is_active: boolean;
   next_run: string | null;   // ISO datetime

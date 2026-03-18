@@ -60,11 +60,19 @@ class ScheduleDTO(BaseModel):
         return v
 
 
+class SharedFolderDTO(BaseModel):
+    """Shared folder delivery target for job results."""
+    department: str           # e.g. "sales"
+    filename_template: str    # e.g. "Leads_DDMMYY" (no extension)
+    file_extension: str = "txt"
+
+
 class DeliverToDTO(BaseModel):
     """Delivery targets for job results."""
     teams_channel: Optional[str] = None
     email: Optional[list[str]] = None
     push_user_id: Optional[str] = None
+    shared_folder: Optional[SharedFolderDTO] = None
 
 
 class CreateJobRequest(BaseModel):
