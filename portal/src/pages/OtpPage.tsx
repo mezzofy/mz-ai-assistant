@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { authApi } from '../api/auth'
+import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
 
 export default function OtpPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const email = (location.state as { email?: string } | null)?.email || ''
+  const email = (location.state as { email?: string; otp_token?: string } | null)?.email || ''
+  const otp_token = (location.state as { email?: string; otp_token?: string } | null)?.otp_token || ''
   const setAuth = useAuthStore((s) => s.setAuth)
 
   const [digits, setDigits] = useState(['', '', '', '', '', ''])
@@ -45,12 +47,10 @@ export default function OtpPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await authApi.verifyOtp(email, code)
-      const { access_token } = res.data
+      const res = await authApi.verifyOtp(otp_token, code)
+      const { access_token, user_info } = res.data
 
-      // Verify this is an admin
-      const meRes = await authApi.getMe()
-      if (meRes.data.role !== 'admin') {
+      if (user_info?.role !== 'admin') {
         setError('Access denied: admin role required')
         setDigits(['', '', '', '', '', ''])
         setLoading(false)
@@ -58,10 +58,10 @@ export default function OtpPage() {
       }
 
       setAuth(access_token, {
-        user_id: meRes.data.user_id,
-        email: meRes.data.email,
-        name: meRes.data.name,
-        role: meRes.data.role,
+        user_id: user_info.id,
+        email: user_info.email,
+        name: user_info.name,
+        role: user_info.role,
       })
       navigate('/mission-control/dashboard')
     } catch (err: unknown) {
@@ -77,7 +77,7 @@ export default function OtpPage() {
   const handleResend = async () => {
     if (countdown > 0) return
     try {
-      await authApi.login(email, '')
+      await client.post('/auth/resend-otp', { otp_token })
       setCountdown(60)
     } catch {
       // ignore

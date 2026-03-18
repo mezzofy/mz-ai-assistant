@@ -4,8 +4,8 @@ export const authApi = {
   login: (email: string, password: string) =>
     client.post('/auth/login', { email, password }),
 
-  verifyOtp: (email: string, otp: string) =>
-    client.post('/auth/verify-otp', { email, otp }),
+  verifyOtp: (otp_token: string, code: string) =>
+    client.post('/auth/verify-otp', { otp_token, code }),
 
   getMe: () =>
     client.get('/api/admin-portal/auth/me'),

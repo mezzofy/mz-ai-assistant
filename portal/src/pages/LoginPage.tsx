@@ -14,8 +14,9 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      await authApi.login(email, password)
-      navigate('/mission-control/otp', { state: { email } })
+      const res = await authApi.login(email, password)
+      const { otp_token } = res.data
+      navigate('/mission-control/otp', { state: { email, otp_token } })
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }
       setError(axiosErr.response?.data?.detail || 'Login failed')
