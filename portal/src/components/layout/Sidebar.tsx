@@ -1,7 +1,7 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, LogOut } from 'lucide-react'
+import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut } from 'lucide-react'
 import clsx from 'clsx'
 
 const NAV_ITEMS = [
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { path: '/mission-control/agents', label: 'Agents', icon: Bot },
   { path: '/mission-control/files', label: 'Files', icon: FolderOpen },
   { path: '/mission-control/users', label: 'Users', icon: Users },
+  { path: '/mission-control/crm', label: 'CRM', icon: TrendingUp },
 ]
 
 export default function Sidebar() {

@@ -21,6 +21,8 @@ from app.core.auth import blacklist_all_user_tokens, hash_password
 
 logger = logging.getLogger("mezzofy.admin_portal")
 
+_KNOWLEDGE_BASE = Path(__file__).parent.parent.parent / "knowledge"
+
 router = APIRouter()
 
 AdminUser = Depends(require_role("admin"))
@@ -514,7 +516,7 @@ async def get_agent_rag_memory(
     current_user: dict = AdminUser,
 ):
     """List RAG knowledge files for an agent."""
-    kb_dir = Path("knowledge") / agent_name
+    kb_dir = _KNOWLEDGE_BASE / agent_name
     if not kb_dir.exists():
         return {"agent": agent_name, "files": [], "total": 0}
 
@@ -539,12 +541,15 @@ async def upload_agent_rag_memory(
 ):
     """Upload a RAG knowledge file for an agent."""
     safe_filename = Path(file.filename or "upload").name
-    kb_dir = Path("knowledge") / agent_name
-    kb_dir.mkdir(parents=True, exist_ok=True)
-
+    kb_dir = _KNOWLEDGE_BASE / agent_name
     save_path = kb_dir / safe_filename
     content = await file.read()
-    save_path.write_bytes(content)
+
+    try:
+        kb_dir.mkdir(parents=True, exist_ok=True)
+        save_path.write_bytes(content)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")
 
     stat = save_path.stat()
     return {
@@ -562,7 +567,7 @@ async def delete_agent_rag_memory(
 ):
     """Delete a RAG knowledge file for an agent."""
     safe_filename = Path(filename).name
-    file_path = Path("knowledge") / agent_name / safe_filename
+    file_path = _KNOWLEDGE_BASE / agent_name / safe_filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -1178,7 +1183,7 @@ async def list_tasks(
             "error": r.error,
             "triggered_by_email": r.triggered_by_email,
             "triggered_by_name": r.triggered_by_name,
-            "details": r.details,
+            "details": r.details if isinstance(r.details, (dict, list, type(None))) else None,
         })
 
     return {
@@ -1381,3 +1386,112 @@ async def delete_user(
     )
     await db.commit()
     return {"deleted": True, "user_id": user_id, "email": user.email}
+
+
+# ── CRM ──────────────────────────────────────────────────────────────────────
+
+@router.get("/crm/leads")
+async def get_crm_leads(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    search: Optional[str] = Query(None),
+    assigned_to: Optional[str] = Query(None),
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Paginated list of CRM leads with assignee info."""
+    offset = (page - 1) * per_page
+    filters = ["TRUE"]
+    params: dict = {"limit": per_page, "offset": offset}
+
+    if status_filter:
+        filters.append("sl.status = :status")
+        params["status"] = status_filter
+    if search:
+        filters.append("sl.company_name ILIKE :search")
+        params["search"] = f"%{search}%"
+    if assigned_to:
+        filters.append("sl.assigned_to = :assigned_to")
+        params["assigned_to"] = assigned_to
+
+    where = " AND ".join(filters)
+
+    result = await db.execute(
+        text(f"""
+            SELECT
+                sl.id, sl.company_name, sl.contact_name, sl.contact_email,
+                sl.contact_phone, sl.industry, sl.location, sl.source,
+                sl.status, sl.notes, sl.created_at, sl.updated_at,
+                sl.follow_up_date, sl.last_contacted, sl.source_ref,
+                u.name AS assigned_to_name, u.email AS assigned_to_email
+            FROM sales_leads sl
+            LEFT JOIN users u ON u.id::text = sl.assigned_to
+            WHERE {where}
+            ORDER BY sl.created_at DESC
+            LIMIT :limit OFFSET :offset
+        """),
+        params,
+    )
+    rows = result.fetchall()
+
+    count_result = await db.execute(
+        text(f"SELECT COUNT(*) FROM sales_leads sl WHERE {where}"),
+        {k: v for k, v in params.items() if k not in ("limit", "offset")},
+    )
+    total = count_result.scalar() or 0
+
+    leads = []
+    for r in rows:
+        leads.append({
+            "id": str(r.id),
+            "company_name": r.company_name,
+            "contact_name": r.contact_name,
+            "contact_email": r.contact_email,
+            "contact_phone": r.contact_phone,
+            "industry": r.industry,
+            "location": r.location,
+            "source": r.source,
+            "status": r.status,
+            "notes": r.notes,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            "follow_up_date": r.follow_up_date.isoformat() if r.follow_up_date else None,
+            "last_contacted": r.last_contacted.isoformat() if r.last_contacted else None,
+            "source_ref": r.source_ref,
+            "assigned_to_name": r.assigned_to_name,
+            "assigned_to_email": r.assigned_to_email,
+        })
+
+    return {
+        "leads": leads,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page,
+    }
+
+
+@router.get("/crm/pipeline")
+async def get_crm_pipeline(
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregate lead counts by status for pipeline view."""
+    result = await db.execute(
+        text("""
+            SELECT status, COUNT(*) AS count
+            FROM sales_leads
+            GROUP BY status
+            ORDER BY count DESC
+        """)
+    )
+    rows = result.fetchall()
+
+    pipeline = [{"status": r.status, "count": r.count} for r in rows]
+    total = sum(item["count"] for item in pipeline)
+
+    return {
+        "pipeline": pipeline,
+        "total": total,
+    }

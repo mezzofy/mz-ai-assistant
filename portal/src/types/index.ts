@@ -111,6 +111,26 @@ export interface AgentTask {
   details: Record<string, unknown> | null
 }
 
+export interface Lead {
+  id: string
+  company_name: string
+  contact_name: string
+  contact_email: string
+  contact_phone: string | null
+  industry: string | null
+  location: string | null
+  source: string
+  status: string
+  notes: string | null
+  created_at: string
+  updated_at: string | null
+  follow_up_date: string | null
+  last_contacted: string | null
+  source_ref: string | null
+  assigned_to_name: string | null
+  assigned_to_email: string | null
+}
+
 export interface AuthState {
   access_token: string | null
   user: { user_id: string; email: string; name: string; role: string } | null

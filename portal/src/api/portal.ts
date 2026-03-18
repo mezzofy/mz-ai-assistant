@@ -50,6 +50,11 @@ export const portalApi = {
   },
   deleteFile: (id: string) => client.delete(`/api/admin-portal/files/${id}`),
 
+  // CRM
+  getCrmLeads: (page = 1, status?: string, search?: string) =>
+    client.get('/api/admin-portal/crm/leads', { params: { page, per_page: 20, ...(status ? { status } : {}), ...(search ? { search } : {}) } }),
+  getCrmPipeline: () => client.get('/api/admin-portal/crm/pipeline'),
+
   // Users
   getUsers: () => client.get('/api/admin-portal/users'),
   getUser: (id: string) => client.get(`/api/admin-portal/users/${id}`),

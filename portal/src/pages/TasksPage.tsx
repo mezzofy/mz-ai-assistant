@@ -8,7 +8,7 @@ export default function TasksPage() {
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>('')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['tasks', page, statusFilter],
     queryFn: () => portalApi.getTasks(page, statusFilter || undefined).then(r => r.data),
     refetchInterval: 10000,
@@ -31,9 +31,14 @@ export default function TasksPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          Tasks
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Tasks
+          </h1>
+          <span className="text-sm" style={{ color: '#6B7280' }}>
+            {data?.total !== undefined ? `${data.total} total` : ''}
+          </span>
+        </div>
         <div className="flex gap-2">
           {['', 'running', 'completed', 'failed'].map((s) => (
             <button
@@ -50,6 +55,13 @@ export default function TasksPage() {
           ))}
         </div>
       </div>
+
+      {error && (
+        <div className="px-4 py-3 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+          Failed to load tasks: {(error as { message?: string }).message || 'Unknown error'}
+          <span className="ml-2 text-xs opacity-60">(Check server logs for details)</span>
+        </div>
+      )}
 
       <div className="rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
         <table className="w-full text-xs">

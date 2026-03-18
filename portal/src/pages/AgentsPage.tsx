@@ -8,6 +8,7 @@ export default function AgentsPage() {
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null)
   const [memoryData, setMemoryData] = useState<Record<string, { filename: string; size_bytes: number }[]>>({})
   const [uploadingFor, setUploadingFor] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const { data } = useQuery({
@@ -38,11 +39,13 @@ export default function AgentsPage() {
 
   const handleUpload = async (dept: string, file: File) => {
     setUploadingFor(dept)
+    setUploadError(null)
     try {
       await portalApi.uploadAgentMemory(dept, file)
       await refreshMemory(dept)
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string }
+      setUploadError(e.response?.data?.detail || e.message || 'Upload failed')
     } finally {
       setUploadingFor(null)
     }
@@ -52,8 +55,9 @@ export default function AgentsPage() {
     try {
       await portalApi.deleteAgentMemory(dept, filename)
       await refreshMemory(dept)
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string }
+      setUploadError(e.response?.data?.detail || e.message || 'Delete failed')
     }
   }
 
@@ -62,6 +66,13 @@ export default function AgentsPage() {
       <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
         Agents
       </h1>
+
+      {uploadError && (
+        <div className="px-4 py-2 rounded-lg text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+          {uploadError}
+          <button onClick={() => setUploadError(null)} className="ml-2 text-xs opacity-60 hover:opacity-100">&#10005;</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {agents.map((agent) => (

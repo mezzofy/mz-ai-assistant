@@ -12,6 +12,7 @@ import AgentsPage from './pages/AgentsPage'
 import FilesPage from './pages/FilesPage'
 import TasksPage from './pages/TasksPage'
 import UsersPage from './pages/UsersPage'
+import CRMPage from './pages/CRMPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="agents" element={<AgentsPage />} />
             <Route path="files" element={<FilesPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="crm" element={<CRMPage />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/mission-control/login" replace />} />
