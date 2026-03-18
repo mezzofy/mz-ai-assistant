@@ -60,6 +60,27 @@
 
 ---
 
+## Recently Completed (2026-03-18)
+
+- ✅ **Mission Control Portal v1.33.0 — DEPLOYED to EC2** (commit ae04c18)
+  - Created: `server/app/api/admin_portal.py` — 20 endpoints under `/api/admin-portal/*`
+    - Auth: `GET /api/admin-portal/auth/me`
+    - Dashboard: sessions (30s poll), LLM usage w/ budget gauges, system vitals (psutil), agent status
+    - Scheduler: list jobs, run history, manual trigger → Celery, toggle active
+    - Agents: registry + RAG memory file listing per department
+    - Files: paginated list + delete (physical + DB)
+    - Users: list, create w/ invite email, get, update, soft-delete + token blacklist
+  - Updated: `server/app/main.py` — router registered at `/api/admin-portal`
+  - Updated: `server/scripts/migrate.py` — `users.invite_token VARCHAR(64)` + `users.deleted_at TIMESTAMPTZ`
+  - Updated: `server/config/config.example.yaml` — `admin_portal:` block with LLM budgets
+  - Updated: `server/requirements.txt` — psutil==5.9.8
+  - Updated: `server/config/nginx.conf` — `/mission-control` static + `/api/admin-portal/` proxy
+  - Created: `server/tests/test_admin_portal.py` — 8 unit tests
+  - Created: `portal/` — full React+TS+Vite portal app (20 source files, 289KB build)
+    - Pages: Login, OTP, Dashboard (pixel art agent office canvas), Scheduler, Agents, Files, Users
+    - Dark theme: bg #0A0E1A · accent #6C63FF · teal #00D4AA
+    - Auth: reuses `/auth/*`; Zustand in-memory only; `AdminRoute` guard
+
 ## Recently Completed (2026-03-06)
 
 - ✅ **HRAgent added (v1.1)** — Backend + Docs: 6th department agent (`hr`)
