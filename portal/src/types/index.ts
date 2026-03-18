@@ -96,6 +96,21 @@ export interface Agent {
   rag_memory_count: number
 }
 
+export interface AgentTask {
+  id: string
+  title: string | null
+  status: string
+  department: string | null
+  created_at: string
+  started_at: string | null
+  completed_at: string | null
+  duration_ms: number | null
+  error: string | null
+  triggered_by_email: string | null
+  triggered_by_name: string | null
+  details: Record<string, unknown> | null
+}
+
 export interface AuthState {
   access_token: string | null
   user: { user_id: string; email: string; name: string; role: string } | null

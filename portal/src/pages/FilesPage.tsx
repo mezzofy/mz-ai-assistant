@@ -57,7 +57,20 @@ export default function FilesPage() {
     },
   })
 
-  const folders: FolderGroup[] = folderData?.folders || []
+  const DEPT_ORDER = ['company', 'management', 'finance', 'hr', 'sales', 'marketing', 'support']
+
+  const folders: FolderGroup[] = (folderData?.folders || [])
+    .filter((g: FolderGroup) => g.scope !== 'personal')
+    .sort((a: FolderGroup, b: FolderGroup) => {
+      if (a.scope === 'company' && b.scope !== 'company') return -1
+      if (b.scope === 'company' && a.scope !== 'company') return 1
+      const ai = DEPT_ORDER.indexOf((a.department || '').toLowerCase())
+      const bi = DEPT_ORDER.indexOf((b.department || '').toLowerCase())
+      if (ai === -1 && bi === -1) return 0
+      if (ai === -1) return 1
+      if (bi === -1) return -1
+      return ai - bi
+    })
 
   const toggleFolder = (key: string) => {
     setExpandedFolders((prev) => {

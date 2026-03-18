@@ -1115,6 +1115,228 @@ async def update_user(
     return {"updated": True, "user_id": user_id}
 
 
+# ── Tasks ─────────────────────────────────────────────────────────────────────
+
+@router.get("/tasks")
+async def list_tasks(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Paginated list of agent tasks with triggering user info."""
+    offset = (page - 1) * per_page
+    where_clause = ""
+    params: dict = {"limit": per_page, "offset": offset}
+
+    if status_filter:
+        where_clause = "WHERE t.status = :status"
+        params["status"] = status_filter
+
+    result = await db.execute(
+        text(f"""
+            SELECT
+                t.id, t.title, t.status, t.department,
+                t.created_at, t.started_at, t.completed_at,
+                EXTRACT(EPOCH FROM (t.completed_at - t.started_at)) * 1000 AS duration_ms,
+                t.error, t.details,
+                u.email AS triggered_by_email,
+                u.name AS triggered_by_name
+            FROM agent_tasks t
+            LEFT JOIN users u ON u.id = t.user_id
+            {where_clause}
+            ORDER BY t.created_at DESC
+            LIMIT :limit OFFSET :offset
+        """),
+        params,
+    )
+    rows = result.fetchall()
+
+    count_params = {}
+    count_where = ""
+    if status_filter:
+        count_where = "WHERE status = :status"
+        count_params["status"] = status_filter
+    count_result = await db.execute(
+        text(f"SELECT COUNT(*) FROM agent_tasks {count_where}"),
+        count_params,
+    )
+    total = count_result.scalar() or 0
+
+    tasks = []
+    for r in rows:
+        tasks.append({
+            "id": str(r.id),
+            "title": r.title,
+            "status": r.status,
+            "department": r.department,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "started_at": r.started_at.isoformat() if r.started_at else None,
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+            "duration_ms": round(r.duration_ms, 1) if r.duration_ms else None,
+            "error": r.error,
+            "triggered_by_email": r.triggered_by_email,
+            "triggered_by_name": r.triggered_by_name,
+            "details": r.details,
+        })
+
+    return {
+        "tasks": tasks,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page,
+    }
+
+
+@router.post("/tasks/{task_id}/kill")
+async def kill_task(
+    task_id: str,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel a running agent task."""
+    result = await db.execute(
+        text("SELECT id, status FROM agent_tasks WHERE id = :id"),
+        {"id": task_id},
+    )
+    task = result.fetchone()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    if task.status != "running":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Task is not running (status: {task.status})",
+        )
+
+    await db.execute(
+        text("""
+            UPDATE agent_tasks
+            SET status = 'cancelled', completed_at = NOW(), error = 'Cancelled by admin'
+            WHERE id = :id
+        """),
+        {"id": task_id},
+    )
+
+    await db.execute(
+        text("""
+            INSERT INTO audit_log (user_id, action, resource, details, success)
+            VALUES (:uid, 'admin_kill_task', :resource, :details, TRUE)
+        """),
+        {
+            "uid": current_user.get("user_id"),
+            "resource": f"agent_tasks/{task_id}",
+            "details": f'{{"task_id": "{task_id}", "admin": "{current_user.get("email")}"}}'
+        },
+    )
+    await db.commit()
+    return {"killed": True, "task_id": task_id}
+
+
+# ── Scheduler — Update Job ───────────────────────────────────────────────────
+
+class UpdateJobRequest(BaseModel):
+    name: Optional[str] = None
+    schedule: Optional[str] = None
+    agent: Optional[str] = None
+    workflow_name: Optional[str] = None
+    deliver_to: Optional[dict] = None
+
+
+@router.put("/scheduler/jobs/{job_id}")
+async def update_job(
+    job_id: str,
+    body: UpdateJobRequest,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a scheduled job's fields."""
+    result = await db.execute(
+        text("""
+            SELECT sj.id, sj.name, sj.schedule, sj.agent, sj.workflow_name,
+                   sj.deliver_to, sj.is_active, sj.last_run, sj.next_run,
+                   sj.created_at, u.email AS user_email, u.name AS user_name
+            FROM scheduled_jobs sj
+            JOIN users u ON u.id = sj.user_id
+            WHERE sj.id = :id
+        """),
+        {"id": job_id},
+    )
+    job = result.fetchone()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    import json as _json
+
+    updates: dict = {}
+    if body.name is not None:
+        updates["name"] = body.name.strip()
+    if body.agent is not None:
+        updates["agent"] = body.agent.strip()
+    if body.workflow_name is not None:
+        updates["workflow_name"] = body.workflow_name.strip()
+    if body.schedule is not None:
+        from app.webhooks.scheduler import compute_next_run
+        updates["schedule"] = body.schedule.strip()
+        updates["next_run"] = compute_next_run(body.schedule.strip())
+    if body.deliver_to is not None:
+        updates["deliver_to"] = _json.dumps(body.deliver_to)
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    set_clauses = ", ".join(f"{k} = :{k}" for k in updates)
+    updates["id"] = job_id
+    await db.execute(
+        text(f"UPDATE scheduled_jobs SET {set_clauses}, updated_at = NOW() WHERE id = :id"),
+        updates,
+    )
+
+    await db.execute(
+        text("""
+            INSERT INTO audit_log (user_id, action, resource, details, success)
+            VALUES (:uid, 'admin_update_job', :resource, :details, TRUE)
+        """),
+        {
+            "uid": current_user.get("user_id"),
+            "resource": f"scheduled_jobs/{job_id}",
+            "details": _json.dumps({"job_id": job_id, "updated_fields": list(body.model_dump(exclude_none=True).keys())}),
+        },
+    )
+    await db.commit()
+
+    # Re-fetch updated job for response
+    updated_result = await db.execute(
+        text("""
+            SELECT sj.id, sj.name, sj.schedule, sj.deliver_to,
+                   sj.is_active, sj.last_run, sj.next_run,
+                   sj.agent, sj.workflow_name, sj.created_at,
+                   u.email AS user_email, u.name AS user_name
+            FROM scheduled_jobs sj
+            JOIN users u ON u.id = sj.user_id
+            WHERE sj.id = :id
+        """),
+        {"id": job_id},
+    )
+    updated = updated_result.fetchone()
+    return {
+        "id": str(updated.id),
+        "name": updated.name,
+        "schedule": updated.schedule,
+        "deliver_to": updated.deliver_to,
+        "is_active": updated.is_active,
+        "last_run": updated.last_run.isoformat() if updated.last_run else None,
+        "next_run": updated.next_run.isoformat() if updated.next_run else None,
+        "agent": updated.agent,
+        "workflow_name": updated.workflow_name,
+        "created_at": updated.created_at.isoformat() if updated.created_at else None,
+        "user_email": updated.user_email,
+        "user_name": updated.user_name,
+    }
+
+
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: str,

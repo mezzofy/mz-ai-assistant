@@ -13,6 +13,8 @@ export const portalApi = {
   getJobHistory: (jobId: string) => client.get(`/api/admin-portal/scheduler/jobs/${jobId}/history`),
   triggerJob: (jobId: string) => client.post(`/api/admin-portal/scheduler/jobs/${jobId}/trigger`),
   toggleJob: (jobId: string) => client.patch(`/api/admin-portal/scheduler/jobs/${jobId}/toggle`),
+  updateJob: (jobId: string, data: Record<string, unknown>) =>
+    client.put(`/api/admin-portal/scheduler/jobs/${jobId}`, data),
 
   // Agents
   getAgents: () => client.get('/api/admin-portal/agents'),
@@ -26,6 +28,12 @@ export const portalApi = {
   },
   deleteAgentMemory: (agent: string, filename: string) =>
     client.delete(`/api/admin-portal/agents/${agent}/rag-memory/${encodeURIComponent(filename)}`),
+
+  // Tasks
+  getTasks: (page = 1, status?: string) =>
+    client.get('/api/admin-portal/tasks', { params: { page, per_page: 20, ...(status ? { status } : {}) } }),
+  killTask: (taskId: string) =>
+    client.post(`/api/admin-portal/tasks/${taskId}/kill`),
 
   // Files
   getFiles: (params?: { user_id?: string; type?: string; page?: number }) =>

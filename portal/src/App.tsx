@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage'
 import SchedulerPage from './pages/SchedulerPage'
 import AgentsPage from './pages/AgentsPage'
 import FilesPage from './pages/FilesPage'
+import TasksPage from './pages/TasksPage'
 import UsersPage from './pages/UsersPage'
 
 const queryClient = new QueryClient({
@@ -36,6 +37,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="/mission-control/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="tasks" element={<TasksPage />} />
             <Route path="scheduler" element={<SchedulerPage />} />
             <Route path="agents" element={<AgentsPage />} />
             <Route path="files" element={<FilesPage />} />

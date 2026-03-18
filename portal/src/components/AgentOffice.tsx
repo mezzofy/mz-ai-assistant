@@ -131,7 +131,7 @@ function drawSprite(
 
   // Completed-today teal label below name area
   if (tasksToday > 0) {
-    const labelY = cy + 48
+    const labelY = cy + 72
     ctx.font = '9px monospace'
     ctx.fillStyle = '#00D4AA'
     ctx.textAlign = 'center'
@@ -174,10 +174,10 @@ export default function AgentOffice({ agents }: Props) {
         hour: '2-digit', minute: '2-digit', second: '2-digit',
         day: '2-digit', month: 'short', year: 'numeric'
       })
-      ctx.font = '10px monospace'
+      ctx.font = '15px monospace'
       ctx.fillStyle = '#7A8FA6'
       ctx.textAlign = 'right'
-      ctx.fillText(hkt, W - 10, 18)
+      ctx.fillText(hkt + ' HKT', W - 10, 20)
       ctx.textAlign = 'left'
 
       // Draw each agent (all 9, even if not in API response)

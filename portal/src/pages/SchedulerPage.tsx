@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import type { ScheduledJob } from '../types'
@@ -7,6 +7,8 @@ export default function SchedulerPage() {
   const qc = useQueryClient()
   const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null)
   const [toast, setToast] = useState('')
+  const [editMode, setEditMode] = useState(false)
+  const [editForm, setEditForm] = useState<{ name: string; schedule: string; agent: string; workflow_name: string }>({ name: '', schedule: '', agent: '', workflow_name: '' })
 
   const { data } = useQuery({
     queryKey: ['scheduler-jobs'],
@@ -32,6 +34,27 @@ export default function SchedulerPage() {
     mutationFn: (jobId: string) => portalApi.toggleJob(jobId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['scheduler-jobs'] }),
   })
+
+  const updateJobMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, string> }) =>
+      portalApi.updateJob(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scheduler-jobs'] })
+      setEditMode(false)
+    },
+  })
+
+  useEffect(() => {
+    if (selectedJob) {
+      setEditForm({
+        name: selectedJob.name,
+        schedule: selectedJob.schedule,
+        agent: selectedJob.agent || '',
+        workflow_name: selectedJob.workflow_name || '',
+      })
+      setEditMode(false)
+    }
+  }, [selectedJob])
 
   const jobs: ScheduledJob[] = data?.jobs || []
 
@@ -130,36 +153,159 @@ export default function SchedulerPage() {
           </div>
         </div>
 
-        {/* Run history */}
-        <div className="lg:col-span-2 rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
-          <div className="p-4 border-b text-sm font-medium text-gray-300" style={{ borderColor: '#1E2A3A' }}>
-            {selectedJob ? `History: ${selectedJob.name}` : 'Select a job to view history'}
-          </div>
-          <div className="p-4 space-y-2 overflow-y-auto max-h-96">
-            {history?.history?.map((run: { id: string; status: string; started_at?: string; duration_ms?: number }) => (
-              <div key={run.id} className="flex items-start gap-3 text-xs">
-                <span
-                  className="w-2 h-2 rounded-full mt-1 flex-shrink-0"
-                  style={{ background: run.status === 'completed' ? '#00D4AA' : run.status === 'running' ? '#f97316' : '#EF4444' }}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between">
-                    <span className="text-gray-300">
-                      {run.started_at ? new Date(run.started_at).toLocaleString() : '—'}
-                    </span>
-                    {run.duration_ms && (
-                      <span style={{ color: '#6B7280' }}>{(run.duration_ms / 1000).toFixed(1)}s</span>
-                    )}
+        {/* Job Detail + Edit + History */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Job Detail Card */}
+          <div className="rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+            <div className="p-4 border-b flex items-center justify-between text-sm font-medium text-gray-300" style={{ borderColor: '#1E2A3A' }}>
+              <span>{selectedJob ? selectedJob.name : 'Select a job'}</span>
+              {selectedJob && !editMode && (
+                <button
+                  onClick={() => setEditMode(true)}
+                  className="px-3 py-1 rounded-lg text-xs transition-all"
+                  style={{ background: '#1E2A3A', color: '#f97316' }}
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            {selectedJob && (
+              <div className="p-4 space-y-3 text-xs">
+                {editMode ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-gray-400 mb-1">Name</label>
+                      <input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                        style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Schedule (cron)</label>
+                      <input
+                        value={editForm.schedule}
+                        onChange={(e) => setEditForm(f => ({ ...f, schedule: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none font-mono"
+                        style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Agent</label>
+                      <input
+                        value={editForm.agent}
+                        onChange={(e) => setEditForm(f => ({ ...f, agent: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                        style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Workflow Name</label>
+                      <input
+                        value={editForm.workflow_name}
+                        onChange={(e) => setEditForm(f => ({ ...f, workflow_name: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                        style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => updateJobMutation.mutate({ id: selectedJob.id, data: editForm })}
+                        disabled={updateJobMutation.isPending}
+                        className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+                        style={{ background: '#f97316' }}
+                      >
+                        {updateJobMutation.isPending ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={() => setEditMode(false)}
+                        className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ color: run.status === 'completed' ? '#00D4AA' : run.status === 'running' ? '#f97316' : '#EF4444' }}>
-                    {run.status}
+                ) : (
+                  <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                    <div>
+                      <span className="text-gray-500">Schedule</span>
+                      <div className="text-gray-200 font-mono">{selectedJob.schedule}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Agent</span>
+                      <div className="text-gray-200">{selectedJob.agent || '\u2014'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Workflow</span>
+                      <div className="text-gray-200">{selectedJob.workflow_name || '\u2014'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Owner</span>
+                      <div className="text-gray-200">{selectedJob.user_email}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Next Run</span>
+                      <div className="text-gray-200">{selectedJob.next_run ? new Date(selectedJob.next_run).toLocaleString() : '\u2014'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Last Run</span>
+                      <div className="text-gray-200">{selectedJob.last_run ? new Date(selectedJob.last_run).toLocaleString() : '\u2014'}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Status</span>
+                      <div>
+                        <span
+                          className="px-2 py-0.5 rounded-full"
+                          style={{
+                            background: selectedJob.is_active ? 'rgba(0, 212, 170, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                            color: selectedJob.is_active ? '#00D4AA' : '#6B7280',
+                          }}
+                        >
+                          {selectedJob.is_active ? 'Active' : 'Paused'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Run History */}
+          <div className="rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+            <div className="p-4 border-b text-sm font-medium text-gray-300" style={{ borderColor: '#1E2A3A' }}>
+              Run History
+            </div>
+            <div className="p-4 space-y-2 overflow-y-auto max-h-64">
+              {history?.history?.map((run: { id: string; status: string; started_at?: string; duration_ms?: number }) => (
+                <div key={run.id} className="flex items-start gap-3 text-xs">
+                  <span
+                    className="w-2 h-2 rounded-full mt-1 flex-shrink-0"
+                    style={{ background: run.status === 'completed' ? '#00D4AA' : run.status === 'running' ? '#f97316' : '#EF4444' }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">
+                        {run.started_at ? new Date(run.started_at).toLocaleString() : '\u2014'}
+                      </span>
+                      {run.duration_ms && (
+                        <span style={{ color: '#6B7280' }}>{(run.duration_ms / 1000).toFixed(1)}s</span>
+                      )}
+                    </div>
+                    <div style={{ color: run.status === 'completed' ? '#00D4AA' : run.status === 'running' ? '#f97316' : '#EF4444' }}>
+                      {run.status}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            {selectedJob && !history?.history?.length && (
-              <p className="text-xs text-center py-8" style={{ color: '#6B7280' }}>No run history</p>
-            )}
+              ))}
+              {selectedJob && !history?.history?.length && (
+                <p className="text-xs text-center py-8" style={{ color: '#6B7280' }}>No run history</p>
+              )}
+              {!selectedJob && (
+                <p className="text-xs text-center py-8" style={{ color: '#6B7280' }}>Select a job to view history</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
