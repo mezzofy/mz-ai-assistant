@@ -10,7 +10,7 @@ function Avatar({ name }: { name: string }) {
   return (
     <div
       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-      style={{ background: '#1E2A3A', color: '#6C63FF' }}
+      style={{ background: '#1E2A3A', color: '#f97316' }}
     >
       {name?.charAt(0)?.toUpperCase() || '?'}
     </div>
@@ -67,7 +67,7 @@ export default function UsersPage() {
         <button
           onClick={() => setShowNewModal(true)}
           className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
-          style={{ background: '#6C63FF' }}
+          style={{ background: '#f97316' }}
         >
           + New User
         </button>
@@ -127,7 +127,7 @@ export default function UsersPage() {
                     <button
                       onClick={() => setEditUser(user)}
                       className="px-2 py-1 rounded text-xs transition-colors"
-                      style={{ color: '#6C63FF' }}
+                      style={{ color: '#f97316' }}
                     >
                       ✏
                     </button>
@@ -208,7 +208,7 @@ export default function UsersPage() {
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ background: '#6C63FF' }}
+                style={{ background: '#f97316' }}
               >
                 {createMutation.isPending ? 'Sending...' : 'Send Invite'}
               </button>
@@ -250,7 +250,7 @@ export default function UsersPage() {
                 <button
                   onClick={() => setEditUser((u) => u ? { ...u, is_active: !u.is_active } : u)}
                   className="relative w-10 h-5 rounded-full transition-colors"
-                  style={{ background: editUser.is_active ? '#6C63FF' : '#374151' }}
+                  style={{ background: editUser.is_active ? '#f97316' : '#374151' }}
                 >
                   <span
                     className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
@@ -270,7 +270,7 @@ export default function UsersPage() {
                 })}
                 disabled={updateMutation.isPending}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ background: '#6C63FF' }}
+                style={{ background: '#f97316' }}
               >
                 Save
               </button>

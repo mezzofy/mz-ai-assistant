@@ -1,13 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
-import type { FileRecord } from '../types'
+import type { FileRecord, FolderGroup } from '../types'
 
 const FILE_ICONS: Record<string, string> = {
-  pdf: '📄', xlsx: '📊', xls: '📊', csv: '📊',
-  docx: '📝', doc: '📝', pptx: '📽', ppt: '📽',
-  image: '🖼', png: '🖼', jpg: '🖼', jpeg: '🖼',
-  mp4: '🎬', mp3: '🎵', default: '📁',
+  pdf: '\uD83D\uDCC4', xlsx: '\uD83D\uDCCA', xls: '\uD83D\uDCCA', csv: '\uD83D\uDCCA',
+  docx: '\uD83D\uDCDD', doc: '\uD83D\uDCDD', pptx: '\uD83D\uDCBD', ppt: '\uD83D\uDCBD',
+  image: '\uD83D\uDDBC', png: '\uD83D\uDDBC', jpg: '\uD83D\uDDBC', jpeg: '\uD83D\uDDBC',
+  mp4: '\uD83C\uDFAC', mp3: '\uD83C\uDFB5', default: '\uD83D\uDCC1',
 }
 
 function fileIcon(type: string) {
@@ -15,32 +15,81 @@ function fileIcon(type: string) {
 }
 
 function formatBytes(bytes: number | null) {
-  if (!bytes) return '—'
+  if (!bytes) return '\u2014'
   if (bytes < 1024) return `${bytes}B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`
 }
 
+function folderKey(g: FolderGroup) {
+  return `${g.scope}:${g.department || 'none'}:${g.owner_email || 'none'}`
+}
+
 export default function FilesPage() {
   const qc = useQueryClient()
-  const [page, setPage] = useState(1)
-  const [fileType, setFileType] = useState('')
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [confirmDelete, setConfirmDelete] = useState<FileRecord | null>(null)
+  const [renamingFile, setRenamingFile] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [uploadDept, setUploadDept] = useState('')
+  const [uploadScope, setUploadScope] = useState('shared')
+  const [showUpload, setShowUpload] = useState(false)
+  const uploadRef = useRef<HTMLInputElement>(null)
 
-  const { data } = useQuery({
-    queryKey: ['files', page, fileType],
-    queryFn: () => portalApi.getFiles({ page, type: fileType || undefined }).then((r) => r.data),
+  const { data: folderData } = useQuery({
+    queryKey: ['folder-tree'],
+    queryFn: () => portalApi.getFolderTree().then((r) => r.data),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => portalApi.deleteFile(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['files'] })
+      qc.invalidateQueries({ queryKey: ['folder-tree'] })
       setConfirmDelete(null)
     },
   })
 
-  const files: FileRecord[] = data?.files || []
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => portalApi.renameFile(id, name),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['folder-tree'] })
+      setRenamingFile(null)
+    },
+  })
+
+  const folders: FolderGroup[] = folderData?.folders || []
+
+  const toggleFolder = (key: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const handleRename = (file: FileRecord) => {
+    setRenamingFile(file.id)
+    setRenameValue(file.filename)
+  }
+
+  const submitRename = (id: string) => {
+    if (renameValue.trim()) {
+      renameMutation.mutate({ id, name: renameValue.trim() })
+    } else {
+      setRenamingFile(null)
+    }
+  }
+
+  const handleUploadFile = async (file: File) => {
+    try {
+      await portalApi.uploadFile(file, uploadDept || undefined, uploadScope)
+      qc.invalidateQueries({ queryKey: ['folder-tree'] })
+      setShowUpload(false)
+    } catch {
+      // ignore
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -48,117 +97,177 @@ export default function FilesPage() {
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
           Files
         </h1>
-        <div className="flex gap-2">
-          <select
-            value={fileType}
-            onChange={(e) => { setFileType(e.target.value); setPage(1) }}
-            className="px-3 py-1.5 rounded-lg text-sm border outline-none"
-            style={{ background: '#111827', borderColor: '#1E2A3A', color: '#E5E7EB' }}
-          >
-            <option value="">All types</option>
-            <option value="pdf">PDF</option>
-            <option value="xlsx">Excel</option>
-            <option value="docx">Word</option>
-            <option value="image">Image</option>
-            <option value="csv">CSV</option>
-          </select>
-        </div>
+        <button
+          onClick={() => setShowUpload(true)}
+          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+          style={{ background: '#f97316' }}
+        >
+          + Upload File
+        </button>
       </div>
 
+      {/* Folder Tree */}
       <div className="rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
-        <table className="w-full text-xs">
-          <thead>
-            <tr
-              className="border-b text-left"
-              style={{ color: '#6B7280', borderColor: '#1E2A3A' }}
-            >
-              <th className="px-4 py-3">File</th>
-              <th className="py-3">Owner</th>
-              <th className="py-3">Scope</th>
-              <th className="py-3">Size</th>
-              <th className="py-3">Uploaded</th>
-              <th className="py-3 pr-4">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {files.map((f) => (
-              <tr key={f.id} className="border-t" style={{ borderColor: '#1E2A3A' }}>
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span>{fileIcon(f.file_type)}</span>
-                    <span className="text-gray-200 truncate max-w-[200px]">{f.filename}</span>
-                  </div>
-                </td>
-                <td className="py-2.5 text-gray-400">{f.owner_email || '—'}</td>
-                <td className="py-2.5">
-                  <span
-                    className="px-2 py-0.5 rounded text-xs"
-                    style={{ background: '#1E2A3A', color: '#9CA3AF' }}
-                  >
-                    {f.scope}
-                  </span>
-                </td>
-                <td className="py-2.5 text-gray-400 font-mono">{formatBytes(f.size_bytes)}</td>
-                <td className="py-2.5 text-gray-400">
-                  {f.created_at ? new Date(f.created_at).toLocaleDateString() : '—'}
-                </td>
-                <td className="py-2.5 pr-4">
-                  <div className="flex gap-2">
-                    <a
-                      href={f.download_url}
-                      className="px-2 py-1 rounded text-xs transition-colors"
-                      style={{ color: '#6C63FF' }}
-                    >
-                      ⬇
-                    </a>
-                    <button
-                      onClick={() => setConfirmDelete(f)}
-                      className="px-2 py-1 rounded text-xs transition-colors hover:bg-red-500/10"
-                      style={{ color: '#EF4444' }}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {files.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-12 text-center" style={{ color: '#6B7280' }}>
-                  No files
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        {folders.length === 0 && (
+          <div className="py-12 text-center text-xs" style={{ color: '#6B7280' }}>No files</div>
+        )}
+        {folders.map((group) => {
+          const key = folderKey(group)
+          const isOpen = expandedFolders.has(key)
+          const folderLabel = [
+            group.scope,
+            group.department && `/ ${group.department}`,
+            group.owner_email && `(${group.owner_email})`,
+          ].filter(Boolean).join(' ')
 
-        {/* Pagination */}
-        {data?.pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t" style={{ borderColor: '#1E2A3A' }}>
-            <div className="text-xs" style={{ color: '#6B7280' }}>
-              {data.total} files · Page {page} of {data.pages}
-            </div>
-            <div className="flex gap-2">
+          return (
+            <div key={key}>
+              {/* Folder header */}
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-1 rounded text-xs transition-colors disabled:opacity-40"
-                style={{ background: '#1E2A3A', color: '#E5E7EB' }}
+                onClick={() => toggleFolder(key)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm border-b hover:bg-white/5 transition-colors"
+                style={{ borderColor: '#1E2A3A', color: '#E5E7EB' }}
               >
-                ‹ Prev
+                <div className="flex items-center gap-2">
+                  <span style={{ color: '#f97316' }}>{isOpen ? '\u25BC' : '\u25B6'}</span>
+                  <span>{folderLabel}</span>
+                  <span className="text-xs" style={{ color: '#6B7280' }}>
+                    ({group.files.length} files)
+                  </span>
+                </div>
               </button>
+
+              {/* Files in folder */}
+              {isOpen && (
+                <div>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      {group.files.map((f) => (
+                        <tr key={f.id} className="border-t" style={{ borderColor: '#1E2A3A' }}>
+                          <td className="px-6 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <span>{fileIcon(f.file_type)}</span>
+                              {renamingFile === f.id ? (
+                                <input
+                                  value={renameValue}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onBlur={() => submitRename(f.id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') submitRename(f.id)
+                                    if (e.key === 'Escape') setRenamingFile(null)
+                                  }}
+                                  autoFocus
+                                  className="px-1 py-0.5 rounded text-sm text-white border outline-none"
+                                  style={{ background: '#1E2A3A', borderColor: '#374151', width: '200px' }}
+                                />
+                              ) : (
+                                <span className="text-gray-200 truncate max-w-[200px]">{f.filename}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 text-gray-400 font-mono">{formatBytes(f.size_bytes)}</td>
+                          <td className="py-2.5 text-gray-400">
+                            {f.created_at ? new Date(f.created_at).toLocaleDateString() : '\u2014'}
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            <div className="flex gap-2">
+                              <a
+                                href={f.download_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-1 rounded text-xs transition-colors"
+                                style={{ color: '#f97316' }}
+                              >
+                                Download
+                              </a>
+                              <button
+                                onClick={() => handleRename(f)}
+                                className="px-2 py-1 rounded text-xs transition-colors"
+                                style={{ color: '#4DA6FF' }}
+                              >
+                                Rename
+                              </button>
+                              <button
+                                onClick={() => setConfirmDelete(f)}
+                                className="px-2 py-1 rounded text-xs transition-colors hover:bg-red-500/10"
+                                style={{ color: '#EF4444' }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Upload Modal */}
+      {showUpload && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-full max-w-sm p-6 rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+            <h3 className="text-base font-semibold text-white mb-4">Upload File</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Department (optional)</label>
+                <input
+                  type="text"
+                  value={uploadDept}
+                  onChange={(e) => setUploadDept(e.target.value)}
+                  placeholder="e.g. finance"
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Scope</label>
+                <select
+                  value={uploadScope}
+                  onChange={(e) => setUploadScope(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                >
+                  <option value="shared">shared</option>
+                  <option value="personal">personal</option>
+                  <option value="department">department</option>
+                </select>
+              </div>
+              <div>
+                <input
+                  type="file"
+                  ref={uploadRef}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleUploadFile(file)
+                    e.target.value = ''
+                  }}
+                />
+                <button
+                  onClick={() => uploadRef.current?.click()}
+                  className="w-full py-2 rounded-lg text-sm font-medium text-white transition-all"
+                  style={{ background: '#f97316' }}
+                >
+                  Choose File & Upload
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-end mt-4">
               <button
-                onClick={() => setPage((p) => Math.min(data.pages, p + 1))}
-                disabled={page >= data.pages}
-                className="px-3 py-1 rounded text-xs transition-colors disabled:opacity-40"
-                style={{ background: '#1E2A3A', color: '#E5E7EB' }}
+                onClick={() => setShowUpload(false)}
+                className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors"
               >
-                Next ›
+                Cancel
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Delete Modal */}
       {confirmDelete && (

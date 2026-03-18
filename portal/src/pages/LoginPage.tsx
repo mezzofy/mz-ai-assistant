@@ -35,7 +35,7 @@ export default function LoginPage() {
         className="absolute inset-0 opacity-10"
         style={{
           backgroundImage:
-            'linear-gradient(#6C63FF 1px, transparent 1px), linear-gradient(90deg, #6C63FF 1px, transparent 1px)',
+            'linear-gradient(#f97316 1px, transparent 1px), linear-gradient(90deg, #f97316 1px, transparent 1px)',
           backgroundSize: '40px 40px',
         }}
       />
@@ -43,7 +43,7 @@ export default function LoginPage() {
       {/* Glow effect */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full opacity-10 blur-3xl"
-        style={{ background: '#6C63FF' }}
+        style={{ background: '#f97316' }}
       />
 
       {/* Card */}
@@ -54,7 +54,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold mx-auto mb-4"
-            style={{ background: '#6C63FF' }}
+            style={{ background: '#f97316' }}
           >
             MC
           </div>
@@ -102,7 +102,7 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50"
-            style={{ background: loading ? '#4B5563' : '#6C63FF' }}
+            style={{ background: loading ? '#4B5563' : '#f97316' }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

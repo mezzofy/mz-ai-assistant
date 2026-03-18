@@ -6,13 +6,30 @@ interface Props {
 }
 
 const AGENT_POSITIONS: Record<string, { x: number; y: number }> = {
-  management: { x: 370, y: 80 },
-  finance: { x: 100, y: 200 },
-  sales: { x: 220, y: 260 },
-  marketing: { x: 400, y: 260 },
-  support: { x: 560, y: 200 },
-  hr: { x: 660, y: 280 },
+  management: { x: 400, y: 70 },
+  finance:    { x: 80,  y: 180 },
+  sales:      { x: 200, y: 260 },
+  hr:         { x: 320, y: 320 },
+  marketing:  { x: 480, y: 320 },
+  support:    { x: 600, y: 260 },
+  research:   { x: 720, y: 180 },
+  developer:  { x: 680, y: 320 },
+  scheduler:  { x: 120, y: 310 },
 }
+
+const DEPT_COLORS: Record<string, string> = {
+  finance:    '#FFB84D',
+  sales:      '#00D4AA',
+  marketing:  '#C77DFF',
+  support:    '#4DA6FF',
+  management: '#FF6B8A',
+  hr:         '#DB2777',
+  research:   '#4DA6FF',
+  developer:  '#00D4AA',
+  scheduler:  '#FFB84D',
+}
+
+const ALL_DEPTS = Object.keys(AGENT_POSITIONS)
 
 function drawSprite(
   ctx: CanvasRenderingContext2D,
@@ -20,7 +37,9 @@ function drawSprite(
   x: number,
   y: number,
   isBusy: boolean,
-  bobOffset: number
+  bobOffset: number,
+  tasksToday: number,
+  activeTasks: number
 ) {
   const cy = y + bobOffset
   const scale = dept === 'management' ? 1.5 : 1
@@ -37,6 +56,9 @@ function drawSprite(
     marketing: '#78350F',
     support: '#164E63',
     hr: '#4C1D95',
+    research: '#1E3A5F',
+    developer: '#064E3B',
+    scheduler: '#78350F',
   }
   ctx.fillStyle = bodyColors[dept] || '#374151'
   ctx.fillRect(x - 6 * scale, cy + 2 * scale, 12 * scale, 10 * scale)
@@ -47,43 +69,57 @@ function drawSprite(
 
   // Department-specific accessory
   if (dept === 'management') {
-    // Glasses
-    ctx.fillStyle = '#6C63FF'
+    ctx.fillStyle = '#f97316'
     ctx.fillRect(x - 5 * scale, cy - 4 * scale, 3 * scale, 2 * scale)
     ctx.fillRect(x + 2 * scale, cy - 4 * scale, 3 * scale, 2 * scale)
-    // Purple tie
     ctx.fillStyle = '#7C3AED'
     ctx.fillRect(x - 1 * scale, cy + 2 * scale, 2 * scale, 6 * scale)
   } else if (dept === 'finance') {
-    // Green visor
     ctx.fillStyle = '#059669'
     ctx.fillRect(x - 5 * scale, cy - 7 * scale, 10 * scale, 3 * scale)
   } else if (dept === 'sales') {
-    // Headset
     ctx.fillStyle = '#60A5FA'
     ctx.fillRect(x - 5 * scale, cy - 5 * scale, 2 * scale, 4 * scale)
     ctx.fillRect(x + 3 * scale, cy - 5 * scale, 2 * scale, 4 * scale)
   } else if (dept === 'marketing') {
-    // Orange beret
     ctx.fillStyle = '#F97316'
     ctx.fillRect(x - 5 * scale, cy - 8 * scale, 10 * scale, 3 * scale)
     ctx.fillRect(x + 3 * scale, cy - 7 * scale, 4 * scale, 2 * scale)
   } else if (dept === 'support') {
-    // Teal headset
     ctx.fillStyle = '#0D9488'
     ctx.fillRect(x - 5 * scale, cy - 4 * scale, 2 * scale, 5 * scale)
     ctx.fillRect(x + 3 * scale, cy - 4 * scale, 2 * scale, 5 * scale)
   } else if (dept === 'hr') {
-    // Pink folder
     ctx.fillStyle = '#DB2777'
     ctx.fillRect(x + 6 * scale, cy + 3 * scale, 6 * scale, 7 * scale)
+  } else if (dept === 'research') {
+    ctx.fillStyle = '#4DA6FF'
+    ctx.fillRect(x - 5 * scale, cy - 7 * scale, 10 * scale, 2 * scale)
+  } else if (dept === 'developer') {
+    ctx.fillStyle = '#00D4AA'
+    ctx.fillRect(x - 5 * scale, cy - 5 * scale, 10 * scale, 2 * scale)
+  } else if (dept === 'scheduler') {
+    ctx.fillStyle = '#FFB84D'
+    ctx.fillRect(x - 5 * scale, cy - 7 * scale, 10 * scale, 3 * scale)
   }
 
-  // Busy speech bubble
-  if (isBusy) {
+  // Activity bubble with task count (orange circle above head)
+  if (isBusy && activeTasks > 0) {
+    const badgeX = x + 8 * scale
+    const badgeY = cy - 16 * scale
+    ctx.beginPath()
+    ctx.arc(badgeX, badgeY, 8, 0, Math.PI * 2)
+    ctx.fillStyle = '#f97316'
+    ctx.fill()
+    ctx.fillStyle = 'white'
+    ctx.font = 'bold 9px monospace'
+    ctx.textAlign = 'center'
+    ctx.fillText(String(activeTasks), badgeX, badgeY + 3)
+    ctx.textAlign = 'left'
+  } else if (isBusy) {
     const bubbleX = x + 10 * scale
     const bubbleY = cy - 16 * scale
-    ctx.fillStyle = '#6C63FF'
+    ctx.fillStyle = '#f97316'
     ctx.beginPath()
     // @ts-ignore - roundRect may not be in all TS lib versions
     ctx.roundRect(bubbleX, bubbleY, 24, 14, 4)
@@ -91,6 +127,16 @@ function drawSprite(
     ctx.fillStyle = 'white'
     ctx.font = '8px monospace'
     ctx.fillText('...', bubbleX + 6, bubbleY + 10)
+  }
+
+  // Completed-today teal label below name area
+  if (tasksToday > 0) {
+    const labelY = cy + 48
+    ctx.font = '9px monospace'
+    ctx.fillStyle = '#00D4AA'
+    ctx.textAlign = 'center'
+    ctx.fillText(`\u2713${tasksToday}`, x, labelY)
+    ctx.textAlign = 'left'
   }
 }
 
@@ -103,6 +149,10 @@ export default function AgentOffice({ agents }: Props) {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    // Build lookup from API agents
+    const agentMap: Record<string, AgentStatus> = {}
+    agents.forEach((a) => { agentMap[a.department] = a })
 
     const render = (timestamp: number) => {
       const W = canvas.width
@@ -118,24 +168,42 @@ export default function AgentOffice({ agents }: Props) {
         }
       }
 
-      // Draw each agent
-      agents.forEach((agent) => {
-        const pos = AGENT_POSITIONS[agent.department]
+      // HKT clock — top-right
+      const hkt = new Date().toLocaleString('en-HK', {
+        timeZone: 'Asia/Hong_Kong',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        day: '2-digit', month: 'short', year: 'numeric'
+      })
+      ctx.font = '10px monospace'
+      ctx.fillStyle = '#7A8FA6'
+      ctx.textAlign = 'right'
+      ctx.fillText(hkt, W - 10, 18)
+      ctx.textAlign = 'left'
+
+      // Draw each agent (all 9, even if not in API response)
+      ALL_DEPTS.forEach((dept) => {
+        const pos = AGENT_POSITIONS[dept]
         if (!pos) return
+        const agent = agentMap[dept]
+        const isBusy = agent?.is_busy || false
+        const tasksToday = agent?.tasks_today || 0
+        const activeTasks = isBusy ? 1 : 0
         const bobOffset = Math.sin(timestamp / 2000 + pos.x) * 2
-        drawSprite(ctx, agent.department, pos.x, pos.y, agent.is_busy, Math.round(bobOffset))
+        drawSprite(ctx, dept, pos.x, pos.y, isBusy, Math.round(bobOffset), tasksToday, activeTasks)
       })
 
       // Labels
       ctx.font = '10px Inter, sans-serif'
-      agents.forEach((agent) => {
-        const pos = AGENT_POSITIONS[agent.department]
+      ALL_DEPTS.forEach((dept) => {
+        const pos = AGENT_POSITIONS[dept]
         if (!pos) return
-        const label = agent.name
+        const agent = agentMap[dept]
+        const label = agent?.name || dept.charAt(0).toUpperCase() + dept.slice(1)
+        const deptColor = DEPT_COLORS[dept] || '#9CA3AF'
         const labelWidth = ctx.measureText(label).width
         ctx.fillStyle = 'rgba(0,0,0,0.6)'
         ctx.fillRect(pos.x - labelWidth / 2 - 4, pos.y + 26, labelWidth + 8, 14)
-        ctx.fillStyle = agent.is_busy ? '#00D4AA' : '#9CA3AF'
+        ctx.fillStyle = agent?.is_busy ? deptColor : '#9CA3AF'
         ctx.fillText(label, pos.x - labelWidth / 2, pos.y + 37)
       })
 
@@ -150,9 +218,9 @@ export default function AgentOffice({ agents }: Props) {
     <canvas
       ref={canvasRef}
       width={800}
-      height={360}
+      height={420}
       className="w-full rounded-lg"
-      style={{ imageRendering: 'pixelated', maxHeight: '360px' }}
+      style={{ imageRendering: 'pixelated', maxHeight: '420px' }}
     />
   )
 }

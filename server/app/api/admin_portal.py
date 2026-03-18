@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 import psutil
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -531,6 +531,45 @@ async def get_agent_rag_memory(
     return {"agent": agent_name, "files": files, "total": len(files)}
 
 
+@router.post("/agents/{agent_name}/rag-memory/upload")
+async def upload_agent_rag_memory(
+    agent_name: str,
+    file: UploadFile = File(...),
+    current_user: dict = AdminUser,
+):
+    """Upload a RAG knowledge file for an agent."""
+    safe_filename = Path(file.filename or "upload").name
+    kb_dir = Path("knowledge") / agent_name
+    kb_dir.mkdir(parents=True, exist_ok=True)
+
+    save_path = kb_dir / safe_filename
+    content = await file.read()
+    save_path.write_bytes(content)
+
+    stat = save_path.stat()
+    return {
+        "filename": safe_filename,
+        "size_bytes": stat.st_size,
+        "last_modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+    }
+
+
+@router.delete("/agents/{agent_name}/rag-memory/{filename}")
+async def delete_agent_rag_memory(
+    agent_name: str,
+    filename: str,
+    current_user: dict = AdminUser,
+):
+    """Delete a RAG knowledge file for an agent."""
+    safe_filename = Path(filename).name
+    file_path = Path("knowledge") / agent_name / safe_filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    file_path.unlink()
+    return {"deleted": True, "filename": safe_filename}
+
+
 # ── Files ─────────────────────────────────────────────────────────────────────
 
 @router.get("/files")
@@ -647,6 +686,192 @@ async def delete_file(
     )
     await db.commit()
     return {"deleted": True, "file_id": file_id}
+
+
+class RenameFileRequest(BaseModel):
+    new_filename: str
+
+
+@router.patch("/files/{file_id}/rename")
+async def rename_file(
+    file_id: str,
+    body: RenameFileRequest,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a file record and its physical file."""
+    result = await db.execute(
+        text("SELECT id, filename, file_path FROM artifacts WHERE id = :id"),
+        {"id": file_id},
+    )
+    artifact = result.fetchone()
+    if not artifact:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    safe_new_name = Path(body.new_filename).name
+
+    # Rename physical file if it exists
+    if artifact.file_path:
+        old_path = Path(artifact.file_path)
+        if old_path.exists():
+            new_path = old_path.parent / safe_new_name
+            old_path.rename(new_path)
+            await db.execute(
+                text("UPDATE artifacts SET filename = :fname, file_path = :fpath WHERE id = :id"),
+                {"fname": safe_new_name, "fpath": str(new_path), "id": file_id},
+            )
+        else:
+            await db.execute(
+                text("UPDATE artifacts SET filename = :fname WHERE id = :id"),
+                {"fname": safe_new_name, "id": file_id},
+            )
+    else:
+        await db.execute(
+            text("UPDATE artifacts SET filename = :fname WHERE id = :id"),
+            {"fname": safe_new_name, "id": file_id},
+        )
+
+    await db.execute(
+        text("""
+            INSERT INTO audit_log (user_id, action, resource, details, success)
+            VALUES (:uid, 'admin_rename_file', :resource, :details, TRUE)
+        """),
+        {
+            "uid": current_user.get("user_id"),
+            "resource": f"artifacts/{file_id}",
+            "details": f'{{"file_id": "{file_id}", "old_filename": "{artifact.filename}", "new_filename": "{safe_new_name}"}}'
+        },
+    )
+    await db.commit()
+    return {"id": file_id, "filename": safe_new_name}
+
+
+@router.post("/files/upload")
+async def admin_upload_file(
+    file: UploadFile = File(...),
+    department: Optional[str] = Form(None),
+    scope: Optional[str] = Form("shared"),
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin upload a file to any department folder."""
+    from app.context.artifact_manager import get_dept_artifacts_dir, get_company_artifacts_dir, get_artifacts_dir
+
+    dept = department or "general"
+    safe_filename = Path(file.filename or "upload").name
+
+    if scope == "company":
+        upload_dir = get_company_artifacts_dir()
+    else:
+        upload_dir = get_dept_artifacts_dir(dept)
+
+    content = await file.read()
+    save_path = upload_dir / safe_filename
+    save_path.write_bytes(content)
+
+    artifact_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    content_type = file.content_type or ""
+    file_type = content_type.split("/")[-1].split(";")[0] or "file"
+
+    await db.execute(
+        text("""
+            INSERT INTO artifacts
+              (id, user_id, filename, file_path, file_type, scope, department, size_bytes, created_at)
+            VALUES
+              (:id, :uid, :fname, :fpath, :ftype, :scope, :dept, :size, :now)
+        """),
+        {
+            "id": artifact_id,
+            "uid": current_user.get("user_id"),
+            "fname": safe_filename,
+            "fpath": str(save_path),
+            "ftype": file_type,
+            "scope": scope,
+            "dept": dept,
+            "size": len(content),
+            "now": now,
+        },
+    )
+    await db.execute(
+        text("""
+            INSERT INTO audit_log (user_id, action, resource, details, success)
+            VALUES (:uid, 'admin_upload_file', :resource, :details, TRUE)
+        """),
+        {
+            "uid": current_user.get("user_id"),
+            "resource": f"artifacts/{artifact_id}",
+            "details": f'{{"filename": "{safe_filename}", "department": "{dept}", "scope": "{scope}"}}'
+        },
+    )
+    await db.commit()
+
+    return {
+        "id": artifact_id,
+        "filename": safe_filename,
+        "file_type": file_type,
+        "scope": scope,
+        "department": dept,
+        "owner_email": current_user.get("email"),
+        "size_bytes": len(content),
+        "created_at": now.isoformat(),
+        "download_url": f"/files/{artifact_id}",
+    }
+
+
+@router.get("/files/folder-tree")
+async def get_folder_tree(
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all files grouped by scope and department."""
+    result = await db.execute(
+        text("""
+            SELECT
+                a.id, a.filename, a.file_type, a.scope, a.department,
+                a.file_path, a.created_at, a.size_bytes,
+                u.email AS owner_email
+            FROM artifacts a
+            LEFT JOIN users u ON u.id = a.user_id
+            ORDER BY a.scope, a.department, a.created_at DESC
+        """)
+    )
+    rows = result.fetchall()
+
+    # Group by (scope, department)
+    from collections import defaultdict
+    groups = defaultdict(lambda: {"scope": "", "department": "", "owner_email": None, "files": []})
+
+    for r in rows:
+        scope = r.scope or "personal"
+        dept = r.department or "general"
+        key = f"{scope}:{dept}"
+        grp = groups[key]
+        grp["scope"] = scope
+        grp["department"] = dept
+        if not grp["owner_email"] and r.owner_email:
+            grp["owner_email"] = r.owner_email
+
+        size = r.size_bytes
+        if not size and r.file_path:
+            try:
+                size = Path(r.file_path).stat().st_size
+            except Exception:
+                size = None
+
+        grp["files"].append({
+            "id": str(r.id),
+            "filename": r.filename,
+            "file_type": r.file_type,
+            "scope": scope,
+            "department": dept,
+            "owner_email": r.owner_email,
+            "size_bytes": size,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "download_url": f"/files/{r.id}",
+        })
+
+    return {"folders": list(groups.values())}
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────

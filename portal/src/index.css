@@ -5,11 +5,15 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0A0E1A;
-  --surface: #111827;
-  --surface-2: #1E2A3A;
-  --accent: #6C63FF;
+  --bg: #0A1628;
+  --surface: #0F1F35;
+  --surface-2: #1A2F4D;
+  --border: #1E3A5F;
+  --accent: #f97316;
+  --accent-glow: rgba(249,115,22,0.15);
   --teal: #00D4AA;
+  --text: #E8F0F8;
+  --text-muted: #7A8FA6;
 }
 
 * { box-sizing: border-box; }

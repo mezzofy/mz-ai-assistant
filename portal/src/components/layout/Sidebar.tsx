@@ -1,14 +1,15 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
+import { LayoutDashboard, CalendarClock, Bot, FolderOpen, Users, LogOut } from 'lucide-react'
 import clsx from 'clsx'
 
 const NAV_ITEMS = [
-  { path: '/mission-control/dashboard', label: 'Dashboard', icon: '⬡' },
-  { path: '/mission-control/scheduler', label: 'Scheduler', icon: '⏱' },
-  { path: '/mission-control/agents', label: 'Agents', icon: '🤖' },
-  { path: '/mission-control/files', label: 'Files', icon: '📁' },
-  { path: '/mission-control/users', label: 'Users', icon: '👥' },
+  { path: '/mission-control/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/mission-control/scheduler', label: 'Scheduler', icon: CalendarClock },
+  { path: '/mission-control/agents', label: 'Agents', icon: Bot },
+  { path: '/mission-control/files', label: 'Files', icon: FolderOpen },
+  { path: '/mission-control/users', label: 'Users', icon: Users },
 ]
 
 export default function Sidebar() {
@@ -17,14 +18,14 @@ export default function Sidebar() {
   return (
     <aside
       className="w-56 flex flex-col border-r"
-      style={{ background: '#111827', borderColor: '#1E2A3A' }}
+      style={{ background: '#111827', borderColor: '#1E3A5F' }}
     >
       {/* Logo */}
-      <div className="px-5 py-5 border-b" style={{ borderColor: '#1E2A3A' }}>
+      <div className="px-5 py-5 border-b" style={{ borderColor: '#1E3A5F' }}>
         <div className="flex items-center gap-2">
           <div
             className="w-7 h-7 rounded flex items-center justify-center text-xs font-bold"
-            style={{ background: '#6C63FF' }}
+            style={{ background: '#f97316' }}
           >
             MC
           </div>
@@ -54,22 +55,22 @@ export default function Sidebar() {
               )
             }
             style={({ isActive }) =>
-              isActive ? { background: 'rgba(108, 99, 255, 0.15)', color: '#A5B4FC' } : {}
+              isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
             }
           >
-            <span className="text-base">{item.icon}</span>
+            <item.icon size={16} />
             {item.label}
           </NavLink>
         ))}
       </nav>
 
       {/* Logout */}
-      <div className="p-3 border-t" style={{ borderColor: '#1E2A3A' }}>
+      <div className="p-3 border-t" style={{ borderColor: '#1E3A5F' }}>
         <button
           onClick={() => clearAuth()}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-all"
         >
-          <span>⬡</span> Sign Out
+          <LogOut size={16} /> Sign Out
         </button>
       </div>
     </aside>

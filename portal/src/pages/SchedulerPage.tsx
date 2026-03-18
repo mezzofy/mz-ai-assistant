@@ -75,7 +75,7 @@ export default function SchedulerPage() {
                     className="border-t cursor-pointer hover:bg-white/5 transition-colors"
                     style={{
                       borderColor: '#1E2A3A',
-                      background: selectedJob?.id === job.id ? 'rgba(108, 99, 255, 0.08)' : undefined,
+                      background: selectedJob?.id === job.id ? 'rgba(249, 115, 22, 0.08)' : undefined,
                     }}
                     onClick={() => setSelectedJob(job)}
                   >
@@ -101,7 +101,7 @@ export default function SchedulerPage() {
                         <button
                           onClick={(e) => { e.stopPropagation(); triggerMutation.mutate(job.id) }}
                           className="px-2 py-1 rounded text-xs transition-colors hover:bg-indigo-500/20"
-                          style={{ color: '#6C63FF' }}
+                          style={{ color: '#f97316' }}
                           title="Run now"
                         >
                           ▶
@@ -140,7 +140,7 @@ export default function SchedulerPage() {
               <div key={run.id} className="flex items-start gap-3 text-xs">
                 <span
                   className="w-2 h-2 rounded-full mt-1 flex-shrink-0"
-                  style={{ background: run.status === 'completed' ? '#00D4AA' : run.status === 'running' ? '#6C63FF' : '#EF4444' }}
+                  style={{ background: run.status === 'completed' ? '#00D4AA' : run.status === 'running' ? '#f97316' : '#EF4444' }}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between">
@@ -151,7 +151,7 @@ export default function SchedulerPage() {
                       <span style={{ color: '#6B7280' }}>{(run.duration_ms / 1000).toFixed(1)}s</span>
                     )}
                   </div>
-                  <div style={{ color: run.status === 'completed' ? '#00D4AA' : run.status === 'running' ? '#6C63FF' : '#EF4444' }}>
+                  <div style={{ color: run.status === 'completed' ? '#00D4AA' : run.status === 'running' ? '#f97316' : '#EF4444' }}>
                     {run.status}
                   </div>
                 </div>

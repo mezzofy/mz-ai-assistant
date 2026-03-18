@@ -18,9 +18,28 @@ export const portalApi = {
   getAgents: () => client.get('/api/admin-portal/agents'),
   getAgentMemory: (agent: string) => client.get(`/api/admin-portal/agents/${agent}/rag-memory`),
 
+  // RAG memory
+  uploadAgentMemory: (agent: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return client.post(`/api/admin-portal/agents/${agent}/rag-memory/upload`, form)
+  },
+  deleteAgentMemory: (agent: string, filename: string) =>
+    client.delete(`/api/admin-portal/agents/${agent}/rag-memory/${encodeURIComponent(filename)}`),
+
   // Files
   getFiles: (params?: { user_id?: string; type?: string; page?: number }) =>
     client.get('/api/admin-portal/files', { params }),
+  getFolderTree: () => client.get('/api/admin-portal/files/folder-tree'),
+  renameFile: (id: string, newFilename: string) =>
+    client.patch(`/api/admin-portal/files/${id}/rename`, { new_filename: newFilename }),
+  uploadFile: (file: File, department?: string, scope?: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (department) form.append('department', department)
+    form.append('scope', scope || 'shared')
+    return client.post('/api/admin-portal/files/upload', form)
+  },
   deleteFile: (id: string) => client.delete(`/api/admin-portal/files/${id}`),
 
   // Users

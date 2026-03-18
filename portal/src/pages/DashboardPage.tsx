@@ -87,7 +87,7 @@ export default function DashboardPage() {
   const { data: agentStatusData } = useQuery({
     queryKey: ['agent-status'],
     queryFn: () => portalApi.getAgentStatus().then((r) => r.data),
-    refetchInterval: 20000,
+    refetchInterval: 8000,
   })
 
   const agentList: AgentStatus[] = agentStatusData?.agents || []
@@ -100,7 +100,18 @@ export default function DashboardPage() {
         Mission Control
       </h1>
 
-      {/* Row 1: Sessions + LLM Gauges */}
+      {/* Agent Office Pixel Art — FIRST */}
+      <div className="rounded-xl border p-5" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+        <h2 className="text-sm font-semibold text-gray-300 mb-4">
+          Agent Office
+          <span className="ml-2 text-xs font-normal" style={{ color: '#6B7280' }}>
+            {agentList.filter((a) => a.is_busy).length} active
+          </span>
+        </h2>
+        <AgentOffice agents={agentList} />
+      </div>
+
+      {/* Row 2: Sessions + LLM Gauges */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Session Monitor */}
         <div className="lg:col-span-2 rounded-xl border p-5" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
@@ -122,10 +133,10 @@ export default function DashboardPage() {
                   <tr key={s.session_id} className="border-t" style={{ borderColor: '#1E2A3A' }}>
                     <td className="py-2 text-gray-200">{s.user_name}</td>
                     <td className="py-2" style={{ color: '#6B7280' }}>{s.department}</td>
-                    <td className="py-2" style={{ color: '#6B7280' }}>{s.agent || '—'}</td>
+                    <td className="py-2" style={{ color: '#6B7280' }}>{s.agent || '\u2014'}</td>
                     <td className="py-2 text-gray-300">{s.message_count}</td>
                     <td className="py-2" style={{ color: '#6B7280' }}>
-                      {s.last_active ? new Date(s.last_active).toLocaleTimeString() : '—'}
+                      {s.last_active ? new Date(s.last_active).toLocaleTimeString() : '\u2014'}
                     </td>
                     <td className="py-2">
                       <span
@@ -163,7 +174,7 @@ export default function DashboardPage() {
                   onClick={() => setLlmPeriod(p)}
                   className="px-2 py-0.5 rounded text-xs transition-all"
                   style={{
-                    background: llmPeriod === p ? '#6C63FF' : '#1E2A3A',
+                    background: llmPeriod === p ? '#f97316' : '#1E2A3A',
                     color: llmPeriod === p ? 'white' : '#6B7280',
                   }}
                 >
@@ -182,15 +193,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Row 2: System Vitals */}
+      {/* Row 3: System Vitals */}
       {vitals && (
         <div className="rounded-xl border p-5" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
           <h2 className="text-sm font-semibold text-gray-300 mb-4">System Vitals</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             <RadialGauge
               value={vitals.cpu.percent}
-              label={`CPU  ·  Load ${vitals.cpu.load_avg_1m.toFixed(2)}`}
-              color={vitals.cpu.percent > 80 ? '#EF4444' : '#6C63FF'}
+              label={`CPU  \u00b7  Load ${vitals.cpu.load_avg_1m.toFixed(2)}`}
+              color={vitals.cpu.percent > 80 ? '#EF4444' : '#f97316'}
             />
             <div>
               <div className="text-xs text-gray-400 mb-2">Memory</div>
@@ -244,17 +255,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      {/* Row 3: Agent Office Pixel Art */}
-      <div className="rounded-xl border p-5" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
-        <h2 className="text-sm font-semibold text-gray-300 mb-4">
-          Agent Office
-          <span className="ml-2 text-xs font-normal" style={{ color: '#6B7280' }}>
-            {agentList.filter((a) => a.is_busy).length} active
-          </span>
-        </h2>
-        <AgentOffice agents={agentList} />
-      </div>
     </div>
   )
 }

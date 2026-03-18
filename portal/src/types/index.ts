@@ -80,6 +80,13 @@ export interface FileRecord {
   download_url: string
 }
 
+export interface FolderGroup {
+  scope: string
+  department: string | null
+  owner_email: string | null
+  files: FileRecord[]
+}
+
 export interface Agent {
   name: string
   department: string

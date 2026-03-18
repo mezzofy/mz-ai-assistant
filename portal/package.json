@@ -16,6 +16,7 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
     "recharts": "^2.10.0",
+    "lucide-react": "^0.400.0",
     "zustand": "^4.4.0"
   },
   "devDependencies": {

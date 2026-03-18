@@ -16,7 +16,7 @@ export default function Topbar() {
         <div className="text-sm text-gray-300">{user?.email}</div>
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-          style={{ background: '#6C63FF' }}
+          style={{ background: '#f97316' }}
         >
           {user?.name?.charAt(0)?.toUpperCase() || 'A'}
         </div>

@@ -115,7 +115,7 @@ export default function OtpPage() {
               onKeyDown={(e) => handleKey(i, e)}
               disabled={loading}
               className="w-11 h-12 text-center text-lg font-mono font-bold text-white border rounded-lg outline-none transition-colors focus:border-indigo-500"
-              style={{ background: '#1E2A3A', borderColor: d ? '#6C63FF' : '#374151' }}
+              style={{ background: '#1E2A3A', borderColor: d ? '#f97316' : '#374151' }}
             />
           ))}
         </div>
@@ -135,7 +135,7 @@ export default function OtpPage() {
             onClick={handleResend}
             disabled={countdown > 0}
             className="text-sm transition-colors disabled:opacity-40"
-            style={{ color: countdown > 0 ? '#6B7280' : '#6C63FF' }}
+            style={{ color: countdown > 0 ? '#6B7280' : '#f97316' }}
           >
             {countdown > 0 ? `Resend in ${countdown}s` : 'Resend OTP'}
           </button>
