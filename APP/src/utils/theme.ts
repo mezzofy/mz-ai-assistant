@@ -22,6 +22,11 @@ export const BRAND = {
     marketing: '#C77DFF',
     support: '#4DA6FF',
     management: '#FF6B8A',
+    hr: '#DB2777',
+    legal: '#F59E0B',
+    research: '#4DA6FF',
+    developer: '#00D4AA',
+    scheduler: '#FFB84D',
   } as Record<string, string>,
 };
 
@@ -51,6 +56,11 @@ export const LIGHT_THEME: ThemeColors = {
     marketing: '#C77DFF',
     support: '#4DA6FF',
     management: '#FF6B8A',
+    hr: '#DB2777',
+    legal: '#F59E0B',
+    research: '#4DA6FF',
+    developer: '#00D4AA',
+    scheduler: '#FFB84D',
   } as Record<string, string>,
 };
 

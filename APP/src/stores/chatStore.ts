@@ -95,15 +95,46 @@ type ChatState = {
 const getTimeStr = () =>
   new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 
-const WELCOME_MSG: Message = {
-  id: 1,
-  role: 'assistant',
-  text: 'Good morning! How can I help the team today?',
-  time: getTimeStr(),
+const PERSONA_GREETINGS: Record<string, string> = {
+  management: "Hi, I'm Max, your AI management orchestrator. I coordinate across all departments, aggregate KPIs, and keep operations running smoothly.",
+  finance:    "Hi, I'm Fiona, your AI finance analyst. I handle P&L reports, budget tracking, cash flow analysis, and financial forecasting.",
+  sales:      "Hi, I'm Sam, your AI sales partner. I track pipelines, rep performance, customer acquisition metrics, and revenue targets.",
+  marketing:  "Hi, I'm Maya, your AI marketing strategist. I manage campaign analytics, brand insights, and customer engagement reports.",
+  support:    "Hi, I'm Suki, your AI customer support specialist. I analyse tickets, draft responses, and surface support trends.",
+  hr:         "Hi, I'm Hana, your AI HR specialist. I help with onboarding workflows, people analytics, and HR policy guidance.",
+  legal:      "Hi, I'm Leo, your AI legal counsel. I review contracts, advise on compliance, and cover jurisdictions across Singapore, HK, Malaysia, and the GCC.",
+  research:   "Hi, I'm Rex, your AI research agent. I perform deep web research, competitive analysis, and market intelligence on any topic.",
+  developer:  "Hi, I'm Dev, your AI developer agent. I assist with code generation, debugging, architecture decisions, and technical documentation.",
+  scheduler:  "Hi, I'm Sched, your AI scheduling agent. I manage automated jobs, task pipelines, and system workflows.",
+};
+
+const GENERIC_GREETING = "Hi, I'm your Mezzofy AI assistant, here to help your team work smarter.";
+
+const buildWelcomeMsg = (): Message => {
+  // Determine time-of-day greeting using HKT (UTC+8)
+  const nowUtcMs = Date.now();
+  const hktOffsetMs = 8 * 60 * 60 * 1000;
+  const hktHour = new Date(nowUtcMs + hktOffsetMs).getUTCHours();
+  const timeGreeting =
+    hktHour < 12 ? 'Good morning'
+    : hktHour < 18 ? 'Good afternoon'
+    : 'Good evening';
+
+  // Get department from auth store (lazy import avoids circular dependency)
+  const {useAuthStore} = require('./authStore');
+  const dept: string | undefined = useAuthStore.getState().user?.department?.toLowerCase();
+  const personaIntro = (dept && PERSONA_GREETINGS[dept]) ?? GENERIC_GREETING;
+
+  return {
+    id: 1,
+    role: 'assistant',
+    text: `${timeGreeting}! ${personaIntro} What can I help you with today?`,
+    time: getTimeStr(),
+  };
 };
 
 export const useChatStore = create<ChatState>((set, get) => ({
-  messages: [WELCOME_MSG],
+  messages: [buildWelcomeMsg()],
   sessionId: null,
   isTyping: false,
   error: null,
@@ -398,7 +429,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   resetChat: () =>
     set({
-      messages: [{...WELCOME_MSG, id: Date.now(), time: getTimeStr()}],
+      messages: [buildWelcomeMsg()],
       sessionId: null,
       isTyping: false,
       error: null,
