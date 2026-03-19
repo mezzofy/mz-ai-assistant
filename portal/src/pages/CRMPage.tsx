@@ -75,7 +75,7 @@ export default function CRMPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<typeof newForm> }) => portalApi.updateLead(id, data as Record<string, unknown>),
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => portalApi.updateLead(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['crm-leads'] })
       qc.invalidateQueries({ queryKey: ['crm-countries'] })
