@@ -1,7 +1,24 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-19
 **Project:** mz-ai-assistant
-**Session:** 24 (FEAT: add `country` filter to GET /crm/leads)
+**Session:** 25 (FEAT: add GET /crm/countries, POST /crm/leads, PATCH /crm/leads/{lead_id})
+
+## Completed This Session (Session 25)
+- ✅ Added `GET /crm/countries` endpoint before `GET /crm/leads` (line ~1453)
+  - File: `server/app/api/admin_portal.py`
+  - Returns `{"countries": [...]}` — distinct non-null locations from `sales_leads` ordered alphabetically
+- ✅ Added `POST /crm/leads` endpoint after `GET /crm/leads` (line ~1557)
+  - Validates `company_name` required (400 if missing)
+  - Generates UUID id + utcnow() created_at
+  - Defaults: `source = "manual"`, `status = "new"`
+  - Returns `{"id": lead_id, "created": True}`
+- ✅ Added `PATCH /crm/leads/{lead_id}` endpoint after `POST /crm/leads` (line ~1600)
+  - Allowlist of 10 editable fields; 400 if no valid fields supplied
+  - Dynamic SET clause; 404 if rowcount == 0
+  - Returns `{"updated": True}`
+- ✅ Final CRM endpoint order verified: GET /crm/countries → GET /crm/leads → POST /crm/leads → PATCH /crm/leads/{lead_id} → GET /crm/pipeline
+
+## Previous Session (24): FEAT: add `country` filter to GET /crm/leads
 
 ## Completed This Session (Session 24)
 - ✅ Added `country: Optional[str] = Query(None)` parameter to `get_crm_leads` (line 1460)

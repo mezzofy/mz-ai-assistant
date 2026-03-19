@@ -71,6 +71,9 @@ export const portalApi = {
   getCrmLeads: (page = 1, status?: string, search?: string, country?: string) =>
     client.get('/api/admin-portal/crm/leads', { params: { page, per_page: 20, ...(status ? { status } : {}), ...(search ? { search } : {}), ...(country ? { country } : {}) } }),
   getCrmPipeline: () => client.get('/api/admin-portal/crm/pipeline'),
+  getCrmCountries: () => client.get('/api/admin-portal/crm/countries'),
+  createLead: (data: Record<string, unknown>) => client.post('/api/admin-portal/crm/leads', data),
+  updateLead: (id: string, data: Record<string, unknown>) => client.patch(`/api/admin-portal/crm/leads/${id}`, data),
 
   // Users
   getUsers: () => client.get('/api/admin-portal/users'),

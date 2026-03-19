@@ -44,7 +44,7 @@ export default function TasksPage() {
             <button
               key={s}
               onClick={() => { setStatusFilter(s); setPage(1) }}
-              className="px-3 py-1.5 rounded-lg text-xs transition-all"
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
               style={{
                 background: statusFilter === s ? '#f97316' : '#1E2A3A',
                 color: statusFilter === s ? 'white' : '#6B7280',

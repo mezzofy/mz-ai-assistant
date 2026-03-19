@@ -1,29 +1,35 @@
 # Context Checkpoint: Frontend Agent
 **Date:** 2026-03-19
-**Session:** 2 of 2
-**Context:** ~20% at checkpoint
+**Session:** 3 of 3
+**Context:** ~25% at checkpoint
 **Reason:** All assigned tasks complete
 
 ## Completed This Session
 
-- ✅ Task 1a — `FilesPage.tsx`: Fixed table header to match Users style — changed `<table>` from `text-sm` to `text-xs`, changed `<tr>` from inline border+background style to `className="border-b text-left"` with color/borderColor style, changed all `<th>` elements to minimal classes (`px-4 py-3` / `py-3` / `py-3 pr-4`) with color inherited from `<tr>`.
-- ✅ Task 1b — `FilesPage.tsx`: Removed `FILE_ICONS` constant and `fileIcon()` function entirely. Added `FileTypeAvatar` component (orange circle avatar showing first 3 chars of file type). Replaced `<span>{fileIcon(f.file_type)}</span>` with `<FileTypeAvatar type={f.file_type} />` in table body.
-- ✅ Task 2a — `CRMPage.tsx`: Added `country` and `countryInput` state variables. Updated leads `queryKey` and `queryFn` to include `country`. Updated `handleSearch` to call `setCountry(countryInput)`. Added country text input between company search input and Search button. Updated Clear button condition to include `country`, and Clear `onClick` to also reset `setCountry('')` and `setCountryInput('')`.
-- ✅ Task 2a also — `portal.ts`: Added `country?: string` param to `getCrmLeads`, spreads `{ country }` into params when truthy.
-- ✅ Task 3a — `TasksPage.tsx`: Fixed `statusColor` function — replaced invalid CSS property `bg` with `background` in all three return objects.
+- ✅ Task 1a — `FilesPage.tsx`: Restructured header into two rows. Row 1: title + inline count + Upload button (justify-between). Row 2: search input + conditional Clear button. Count shows results count when searching, total file count otherwise.
+- ✅ Task 1b — `FilesPage.tsx`: Removed old standalone "File Count" div (was below the header, showed count with quotes around search query).
+- ✅ Task 2a — `CRMPage.tsx`: Replaced flat header (h1 + span) with grouped div (h1 + span side by side) + "+ New Lead" button on right.
+- ✅ Task 2b — `CRMPage.tsx`: Added `useMutation`, `useQueryClient` to react-query import. Added `showNewModal`, `editLead`, `newForm` state. Added `qc = useQueryClient()`. Added `crm-countries` query pulling from `portalApi.getCrmCountries()`. Added `createMutation` and `updateMutation`. Replaced country text input with `<select>` auto-populated from `countries` array.
+- ✅ Task 2c — `CRMPage.tsx`: Added Actions column header after Created column. Changed `colSpan={8}` to `colSpan={9}` in both empty-state rows.
+- ✅ Task 2d — `CRMPage.tsx`: Added edit button td in each row. Added "New Lead" modal and "Edit Lead" modal before closing `</div>`.
+- ✅ Task 3 — `UsersPage.tsx`: Wrapped `<h1>` in `<div className="flex items-center gap-3">` with an inline count span showing `${users.length} users` when count > 0.
+- ✅ Task 4 — `TasksPage.tsx`: Resized filter buttons from `px-3 py-1.5 rounded-lg text-xs` to `px-4 py-2 rounded-lg text-sm font-medium`.
+- ✅ Task 5 — `portal.ts`: Added `getCrmCountries`, `createLead`, `updateLead` functions in the CRM section after `getCrmPipeline`.
 
 ## Files Modified
 
-- `portal/src/pages/FilesPage.tsx` — Replaced FILE_ICONS/fileIcon with FileTypeAvatar component; fixed table header styling to match Users pattern
-- `portal/src/pages/TasksPage.tsx` — Fixed `statusColor` function: `bg` → `background`
-- `portal/src/pages/CRMPage.tsx` — Added country filter state, query integration, input field, and Clear button update
-- `portal/src/api/portal.ts` — Added `country` optional param to `getCrmLeads`
+- `portal/src/pages/FilesPage.tsx` — Two-row header layout; removed standalone file count div
+- `portal/src/pages/CRMPage.tsx` — Header with New Lead button; countries dropdown; Actions column; New/Edit modals; mutations; useQueryClient
+- `portal/src/pages/UsersPage.tsx` — Inline user count next to page title
+- `portal/src/pages/TasksPage.tsx` — Larger filter buttons (px-4 py-2 text-sm font-medium)
+- `portal/src/api/portal.ts` — Three new CRM API functions: getCrmCountries, createLead, updateLead
 
 ## Decisions Made
 
-- `FileTypeAvatar` placed before `formatBytes` (top of file, after imports/types) to keep utility functions grouped.
-- Country input uses `width: '180px'` fixed width (not `flex-1`) to avoid displacing the company search input.
-- Inherited color on `<th>` elements from `<tr>` style (matches Users pattern exactly — no per-th `style={{ color }}` needed).
+- `FilesPage` count uses short format ("5 results" / "12 files") without quoting the search term — cleaner inline appearance.
+- `UsersPage` count only renders when `users.length > 0` — avoids showing "0 users" on initial load.
+- `CRMPage` mutations cast form data to `Record<string, unknown>` to satisfy portal.ts type signatures.
+- Both CRM modals placed after the Pagination block, before the component's closing `</div>`.
 
 ## Status
 

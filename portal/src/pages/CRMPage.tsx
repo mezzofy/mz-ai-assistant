@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import type { Lead } from '../types'
 
@@ -30,6 +30,14 @@ export default function CRMPage() {
   const [searchInput, setSearchInput] = useState('')
   const [country, setCountry] = useState('')
   const [countryInput, setCountryInput] = useState('')
+  const [showNewModal, setShowNewModal] = useState(false)
+  const [editLead, setEditLead] = useState<Lead | null>(null)
+  const [newForm, setNewForm] = useState({
+    company_name: '', contact_name: '', contact_email: '',
+    contact_phone: '', industry: '', location: '', source: 'manual', status: 'new', notes: '',
+  })
+
+  const qc = useQueryClient()
 
   const { data: pipelineData } = useQuery({
     queryKey: ['crm-pipeline'],
@@ -41,6 +49,32 @@ export default function CRMPage() {
     queryKey: ['crm-leads', page, statusFilter, search, country],
     queryFn: () => portalApi.getCrmLeads(page, statusFilter || undefined, search || undefined, country || undefined).then(r => r.data),
     refetchInterval: 30000,
+  })
+
+  const { data: countriesData } = useQuery({
+    queryKey: ['crm-countries'],
+    queryFn: () => portalApi.getCrmCountries().then(r => r.data),
+  })
+  const countries: string[] = countriesData?.countries || []
+
+  const createMutation = useMutation({
+    mutationFn: (data: typeof newForm) => portalApi.createLead(data as Record<string, unknown>),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-leads'] })
+      qc.invalidateQueries({ queryKey: ['crm-countries'] })
+      qc.invalidateQueries({ queryKey: ['crm-pipeline'] })
+      setShowNewModal(false)
+      setNewForm({ company_name: '', contact_name: '', contact_email: '', contact_phone: '', industry: '', location: '', source: 'manual', status: 'new', notes: '' })
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<typeof newForm> }) => portalApi.updateLead(id, data as Record<string, unknown>),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-leads'] })
+      qc.invalidateQueries({ queryKey: ['crm-countries'] })
+      setEditLead(null)
+    },
   })
 
   const leads: Lead[] = data?.leads || []
@@ -57,12 +91,21 @@ export default function CRMPage() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          Leads
-        </h1>
-        <span className="text-sm" style={{ color: '#6B7280' }}>
-          {data?.total !== undefined ? `${data.total} leads` : ''}
-        </span>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Leads
+          </h1>
+          <span className="text-sm" style={{ color: '#6B7280' }}>
+            {data?.total !== undefined ? `${data.total} leads` : ''}
+          </span>
+        </div>
+        <button
+          onClick={() => setShowNewModal(true)}
+          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+          style={{ background: '#f97316' }}
+        >
+          + New Lead
+        </button>
       </div>
 
       {/* Pipeline summary */}
@@ -100,14 +143,17 @@ export default function CRMPage() {
           className="px-3 py-2 rounded-lg text-sm text-white border outline-none flex-1"
           style={{ background: '#111827', borderColor: '#1E2A3A' }}
         />
-        <input
-          type="text"
-          placeholder="Filter by country..."
+        <select
           value={countryInput}
           onChange={e => setCountryInput(e.target.value)}
           className="px-3 py-2 rounded-lg text-sm text-white border outline-none"
           style={{ background: '#111827', borderColor: '#1E2A3A', width: '180px' }}
-        />
+        >
+          <option value="">All Countries</option>
+          {countries.map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
         <button
           type="submit"
           className="px-4 py-2 rounded-lg text-sm font-medium text-white"
@@ -145,12 +191,13 @@ export default function CRMPage() {
               <th className="py-3">Status</th>
               <th className="py-3">Assigned To</th>
               <th className="py-3">Follow-up</th>
-              <th className="py-3 pr-4">Created</th>
+              <th className="py-3">Created</th>
+              <th className="py-3 pr-4">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={8} className="py-12 text-center" style={{ color: '#6B7280' }}>Loading...</td></tr>
+              <tr><td colSpan={9} className="py-12 text-center" style={{ color: '#6B7280' }}>Loading...</td></tr>
             )}
             {leads.map((lead) => (
               <tr key={lead.id} className="border-t hover:bg-white/5 transition-colors" style={{ borderColor: '#1E2A3A' }}>
@@ -181,13 +228,26 @@ export default function CRMPage() {
                 <td className="py-2.5 text-gray-400">
                   {lead.follow_up_date ? new Date(lead.follow_up_date).toLocaleDateString() : '—'}
                 </td>
-                <td className="py-2.5 pr-4 text-gray-400">
+                <td className="py-2.5 text-gray-400">
                   {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
+                </td>
+                <td className="py-2.5 pr-4">
+                  <button
+                    onClick={() => setEditLead(lead)}
+                    title="Edit"
+                    className="p-1.5 rounded transition-colors hover:bg-orange-500/10"
+                    style={{ color: '#f97316' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
                 </td>
               </tr>
             ))}
             {!isLoading && leads.length === 0 && !error && (
-              <tr><td colSpan={8} className="py-12 text-center" style={{ color: '#6B7280' }}>No leads found</td></tr>
+              <tr><td colSpan={9} className="py-12 text-center" style={{ color: '#6B7280' }}>No leads found</td></tr>
             )}
           </tbody>
         </table>
@@ -206,6 +266,173 @@ export default function CRMPage() {
               className="px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: '#1E2A3A', color: '#E5E7EB' }}>
               Next →
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* New Lead Modal */}
+      {showNewModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-full max-w-lg p-6 rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+            <h3 className="text-base font-semibold text-white mb-5">New Lead</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {([
+                { label: 'Company Name *', key: 'company_name', type: 'text' },
+                { label: 'Contact Name', key: 'contact_name', type: 'text' },
+                { label: 'Contact Email', key: 'contact_email', type: 'email' },
+                { label: 'Contact Phone', key: 'contact_phone', type: 'text' },
+                { label: 'Industry', key: 'industry', type: 'text' },
+                { label: 'Location / Country', key: 'location', type: 'text' },
+              ] as { label: string; key: keyof typeof newForm; type: string }[]).map(({ label, key, type }) => (
+                <div key={key}>
+                  <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                  <input
+                    type={type}
+                    value={newForm[key]}
+                    onChange={e => setNewForm(f => ({ ...f, [key]: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                  />
+                </div>
+              ))}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Source</label>
+                <select
+                  value={newForm.source}
+                  onChange={e => setNewForm(f => ({ ...f, source: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                >
+                  {['manual', 'linkedin', 'website', 'referral', 'event', 'email', 'web'].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Status</label>
+                <select
+                  value={newForm.status}
+                  onChange={e => setNewForm(f => ({ ...f, status: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                >
+                  {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-400 mb-1">Notes</label>
+                <textarea
+                  value={newForm.notes}
+                  onChange={e => setNewForm(f => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none resize-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowNewModal(false)} className="px-4 py-2 rounded-lg text-sm text-gray-400">Cancel</button>
+              <button
+                onClick={() => createMutation.mutate(newForm)}
+                disabled={createMutation.isPending || !newForm.company_name.trim()}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                style={{ background: '#f97316' }}
+              >
+                {createMutation.isPending ? 'Creating...' : 'Create Lead'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Lead Modal */}
+      {editLead && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-full max-w-lg p-6 rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+            <h3 className="text-base font-semibold text-white mb-5">Edit Lead</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {([
+                { label: 'Company Name', key: 'company_name', type: 'text' },
+                { label: 'Contact Name', key: 'contact_name', type: 'text' },
+                { label: 'Contact Email', key: 'contact_email', type: 'email' },
+                { label: 'Contact Phone', key: 'contact_phone', type: 'text' },
+                { label: 'Industry', key: 'industry', type: 'text' },
+                { label: 'Location / Country', key: 'location', type: 'text' },
+              ] as { label: string; key: keyof Lead; type: string }[]).map(({ label, key, type }) => (
+                <div key={key}>
+                  <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                  <input
+                    type={type}
+                    value={(editLead[key] as string) || ''}
+                    onChange={e => setEditLead(l => l ? { ...l, [key]: e.target.value } : l)}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                  />
+                </div>
+              ))}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Source</label>
+                <select
+                  value={editLead.source || 'manual'}
+                  onChange={e => setEditLead(l => l ? { ...l, source: e.target.value } : l)}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                >
+                  {['manual', 'linkedin', 'website', 'referral', 'event', 'email', 'web'].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Status</label>
+                <select
+                  value={editLead.status}
+                  onChange={e => setEditLead(l => l ? { ...l, status: e.target.value } : l)}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                >
+                  {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs text-gray-400 mb-1">Notes</label>
+                <textarea
+                  value={editLead.notes || ''}
+                  onChange={e => setEditLead(l => l ? { ...l, notes: e.target.value } : l)}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none resize-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setEditLead(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400">Cancel</button>
+              <button
+                onClick={() => updateMutation.mutate({
+                  id: editLead.id,
+                  data: {
+                    company_name: editLead.company_name,
+                    contact_name: editLead.contact_name,
+                    contact_email: editLead.contact_email,
+                    contact_phone: editLead.contact_phone || undefined,
+                    industry: editLead.industry || undefined,
+                    location: editLead.location || undefined,
+                    source: editLead.source,
+                    status: editLead.status,
+                    notes: editLead.notes || undefined,
+                  },
+                })}
+                disabled={updateMutation.isPending}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                style={{ background: '#f97316' }}
+              >
+                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}

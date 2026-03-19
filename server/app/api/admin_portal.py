@@ -1450,6 +1450,24 @@ async def delete_user(
 
 # ── CRM ──────────────────────────────────────────────────────────────────────
 
+@router.get("/crm/countries")
+async def get_crm_countries(
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get distinct non-null locations from sales_leads for country filter dropdown."""
+    result = await db.execute(
+        text("""
+            SELECT DISTINCT location
+            FROM sales_leads
+            WHERE location IS NOT NULL AND location != ''
+            ORDER BY location
+        """)
+    )
+    rows = result.fetchall()
+    return {"countries": [r.location for r in rows]}
+
+
 @router.get("/crm/leads")
 async def get_crm_leads(
     page: int = Query(1, ge=1),
@@ -1534,6 +1552,78 @@ async def get_crm_leads(
         "per_page": per_page,
         "total_pages": (total + per_page - 1) // per_page,
     }
+
+
+@router.post("/crm/leads")
+async def create_crm_lead(
+    body: dict,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new CRM lead."""
+    import uuid as _uuid
+    from datetime import datetime as _dt
+    lead_id = str(_uuid.uuid4())
+    now = _dt.utcnow()
+
+    company_name = (body.get("company_name") or "").strip()
+    if not company_name:
+        raise HTTPException(status_code=400, detail="company_name is required")
+
+    await db.execute(
+        text("""
+            INSERT INTO sales_leads
+                (id, company_name, contact_name, contact_email, contact_phone,
+                 industry, location, source, status, notes, created_at)
+            VALUES
+                (:id, :company_name, :contact_name, :contact_email, :contact_phone,
+                 :industry, :location, :source, :status, :notes, :created_at)
+        """),
+        {
+            "id": lead_id,
+            "company_name": company_name,
+            "contact_name": body.get("contact_name"),
+            "contact_email": body.get("contact_email"),
+            "contact_phone": body.get("contact_phone"),
+            "industry": body.get("industry"),
+            "location": body.get("location"),
+            "source": body.get("source") or "manual",
+            "status": body.get("status") or "new",
+            "notes": body.get("notes"),
+            "created_at": now,
+        },
+    )
+    await db.commit()
+    return {"id": lead_id, "created": True}
+
+
+@router.patch("/crm/leads/{lead_id}")
+async def update_crm_lead(
+    lead_id: str,
+    body: dict,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update editable fields of a CRM lead."""
+    allowed = {
+        "company_name", "contact_name", "contact_email", "contact_phone",
+        "industry", "location", "source", "status", "notes", "follow_up_date",
+    }
+    updates = {k: v for k, v in body.items() if k in allowed}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    set_clause = ", ".join(f"{k} = :{k}" for k in updates)
+    updates["lead_id"] = lead_id
+
+    result = await db.execute(
+        text(f"UPDATE sales_leads SET {set_clause} WHERE id::text = :lead_id"),
+        updates,
+    )
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    await db.commit()
+    return {"updated": True}
 
 
 @router.get("/crm/pipeline")

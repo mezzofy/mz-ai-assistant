@@ -113,18 +113,17 @@ export default function FilesPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-white flex-shrink-0" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          Files
-        </h1>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search files..."
-          className="flex-1 px-3 py-1.5 rounded-lg text-sm text-white border outline-none transition-colors focus:border-orange-500"
-          style={{ background: '#1E2A3A', borderColor: '#374151' }}
-        />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white flex-shrink-0" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Files
+          </h1>
+          <span className="text-sm" style={{ color: '#6B7280' }}>
+            {searchQuery.trim()
+              ? `${displayed.length} result${displayed.length !== 1 ? 's' : ''}`
+              : `${allFiles.length} file${allFiles.length !== 1 ? 's' : ''}`}
+          </span>
+        </div>
         <button
           onClick={() => setShowUpload(true)}
           className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all flex-shrink-0"
@@ -134,11 +133,26 @@ export default function FilesPage() {
         </button>
       </div>
 
-      {/* File Count */}
-      <div className="text-xs" style={{ color: '#6B7280' }}>
-        {searchQuery.trim()
-          ? `${displayed.length} result${displayed.length !== 1 ? 's' : ''} for "${searchQuery}"`
-          : `${allFiles.length} file${allFiles.length !== 1 ? 's' : ''} total`}
+      {/* Search bar */}
+      <div className="flex gap-3">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search files..."
+          className="flex-1 px-3 py-2 rounded-lg text-sm text-white border outline-none transition-colors focus:border-orange-500"
+          style={{ background: '#111827', borderColor: '#1E2A3A' }}
+        />
+        {searchQuery.trim() && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: '#1E2A3A', color: '#6B7280' }}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Files Table */}
