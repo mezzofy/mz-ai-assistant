@@ -71,7 +71,16 @@
       "Bash(__NEW_LINE_9b45aded907f2d85__ cp:*)",
       "Bash(cp \"$SRC/server/config/config.example.yaml\" \"$DST/server/config/config.example.yaml\")",
       "Bash(cp \"$SRC/server/config/nginx.conf\" \"$DST/server/config/nginx.conf\")",
-      "Bash(cd /c/Mezzofy/workspace/mz-ai-assistant/portal echo \"=== Build check ===\" npm run build)"
+      "Bash(cd /c/Mezzofy/workspace/mz-ai-assistant/portal echo \"=== Build check ===\" npm run build)",
+      "Bash(for dir:*)",
+      "Bash(do)",
+      "Bash(touch \"C:/Mezzofy/workspace/mz-ai-assistant/server/knowledge/$dir/.gitkeep\")",
+      "Bash(done)",
+      "Bash(python -c \":*)",
+      "Bash(for f:*)",
+      "Bash(do python:*)",
+      "Bash(echo \"OK: $f\")",
+      "Bash(echo \"FAIL: $f\")"
     ]
   }
 }
