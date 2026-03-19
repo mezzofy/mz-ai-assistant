@@ -12,6 +12,7 @@ interface Message {
   content: string
   timestamp: Date
   isLoading?: boolean
+  isBackground?: boolean
 }
 
 const PERSONAS: Record<string, string> = {
@@ -54,7 +55,7 @@ const GREETINGS: Record<string, string> = {
 }
 
 const POLL_INTERVAL_MS = 4000
-const MAX_POLLS = 30 // 30 × 4s = 120s timeout
+const MAX_POLLS = 15 // 15 × 4s = 60s, then background task card
 
 function extractTaskResult(task: ActiveTask): string {
   const r = task.result
@@ -73,6 +74,7 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollCountRef = useRef<number>(0)
+  const backgroundTaskIdRef = useRef<string | null>(null)
 
   const persona = PERSONAS[dept] || dept
   const deptColor = DEPT_COLORS[dept] || '#f97316'
@@ -107,15 +109,18 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
     pollIntervalRef.current = setInterval(async () => {
       pollCountRef.current += 1
 
-      // Timeout after MAX_POLLS
-      if (pollCountRef.current > MAX_POLLS) {
+      // Background task card after MAX_POLLS (60s)
+      if (pollCountRef.current >= MAX_POLLS) {
         stopPolling()
         setSending(false)
+        const taskId = backgroundTaskIdRef.current || 'unknown'
+        const bgContent =
+          `⚙️ Running in background\nTask ID: ${taskId}\nThis task is still running. The agent will update you when it's done.`
         setMessages(prev => {
           const withoutLoading = prev.filter(m => !m.isLoading)
           return [
             ...withoutLoading,
-            { role: 'agent', content: 'Response timed out. Please try again.', timestamp: new Date() },
+            { role: 'agent', content: bgContent, timestamp: new Date(), isBackground: true },
           ]
         })
         return
@@ -168,6 +173,8 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
         data.status === 'queued' || data.status === 'pending' || data.task_id !== undefined
 
       if (isQueued) {
+        // Capture task_id for the background task card
+        backgroundTaskIdRef.current = (data.task_id as string) || null
         // Add loading bubble and start polling
         setMessages(prev => [
           ...prev,
@@ -272,15 +279,24 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
                 className="max-w-xs px-3 py-2 rounded-xl text-sm leading-relaxed"
                 style={msg.role === 'user'
                   ? { background: '#f97316', color: '#fff', borderBottomRightRadius: '4px' }
-                  : msg.isLoading
+                  : msg.isBackground
                     ? {
-                        background: '#1E2A3A',
-                        color: '#6B7280',
+                        background: '#1A2535',
+                        color: '#94A3B8',
                         borderBottomLeftRadius: '4px',
-                        border: `1px solid ${deptColor}20`,
-                        fontStyle: 'italic',
+                        border: '1px solid #334155',
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'inherit',
                       }
-                    : { background: '#1E2A3A', color: '#E5E7EB', borderBottomLeftRadius: '4px', border: `1px solid ${deptColor}20` }
+                    : msg.isLoading
+                      ? {
+                          background: '#1E2A3A',
+                          color: '#6B7280',
+                          borderBottomLeftRadius: '4px',
+                          border: `1px solid ${deptColor}20`,
+                          fontStyle: 'italic',
+                        }
+                      : { background: '#1E2A3A', color: '#E5E7EB', borderBottomLeftRadius: '4px', border: `1px solid ${deptColor}20` }
                 }
               >
                 {msg.isLoading ? (
@@ -288,6 +304,8 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
                     <span className="animate-pulse">⏳</span>
                     {' '}{msg.content}
                   </span>
+                ) : msg.isBackground ? (
+                  <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                 ) : (
                   msg.content
                 )}
