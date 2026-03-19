@@ -83,21 +83,6 @@ function drawSprite(
   const cy = y + bobOffset
   const scale = dept === 'management' ? 2.0 : 1.5
 
-  // Computer monitor — only at home desk (not in task room)
-  if (!atTable) {
-    ctx.fillStyle = '#0D1F35'
-    ctx.fillRect(x - 10 * scale, cy - 30 * scale, 20 * scale, 13 * scale)
-    ctx.fillStyle = '#0A2E1A'
-    ctx.fillRect(x - 9 * scale, cy - 29 * scale, 18 * scale, 11 * scale)
-    ctx.fillStyle = '#00D4AA'
-    ctx.fillRect(x - 7 * scale, cy - 27 * scale, 11 * scale, 1 * scale)
-    ctx.fillRect(x - 7 * scale, cy - 25 * scale, 8 * scale, 1 * scale)
-    ctx.fillRect(x - 7 * scale, cy - 23 * scale, 10 * scale, 1 * scale)
-    ctx.fillStyle = '#374151'
-    ctx.fillRect(x - 2 * scale, cy - 17 * scale, 4 * scale, 4 * scale)
-    ctx.fillRect(x - 5 * scale, cy - 14 * scale, 10 * scale, 2 * scale)
-  }
-
   // Desk — warm wood brown (visible against dark floor)
   ctx.fillStyle = atTable ? '#6B4E1A' : '#8B6530'
   ctx.fillRect(x - 16 * scale, cy + 12 * scale, 32 * scale, 7 * scale)
