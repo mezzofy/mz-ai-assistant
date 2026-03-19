@@ -98,9 +98,12 @@ function drawSprite(
     ctx.fillRect(x - 5 * scale, cy - 14 * scale, 10 * scale, 2 * scale)
   }
 
-  // Desk
-  ctx.fillStyle = atTable ? '#6B4E1A' : '#1E3A5F'
-  ctx.fillRect(x - 14 * scale, cy + 12 * scale, 28 * scale, 6 * scale)
+  // Desk — warm wood brown (visible against dark floor)
+  ctx.fillStyle = atTable ? '#6B4E1A' : '#8B6530'
+  ctx.fillRect(x - 16 * scale, cy + 12 * scale, 32 * scale, 7 * scale)
+  // Desk edge highlight
+  ctx.fillStyle = atTable ? '#9A6E2A' : '#A07840'
+  ctx.fillRect(x - 16 * scale, cy + 12 * scale, 32 * scale, 2 * scale)
 
   // Body
   const bodyColors: Record<string, string> = {
@@ -175,24 +178,37 @@ function drawTaskRoom(ctx: CanvasRenderingContext2D, W: number, H: number, busyC
   ctx.fillStyle = '#E8DCC8'
   ctx.fillRect(ROOM_X, 0, 5, H)
 
-  // Room header band
-  ctx.fillStyle = 'rgba(30,20,10,0.4)'
-  ctx.fillRect(ROOM_X + 5, 0, W - ROOM_X - 5, 55)
+  // Room header band — white so black text is readable
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'
+  ctx.fillRect(ROOM_X + 5, 0, W - ROOM_X - 5, 56)
 
-  // "TASK ROOM" label
+  // "TASK ROOM" label — black, centered
+  const roomCenterX = ROOM_X + (W - ROOM_X) / 2
   ctx.font = 'bold 13px monospace'
-  ctx.fillStyle = '#E8DCC8'
+  ctx.fillStyle = '#1A1200'
   ctx.textAlign = 'center'
-  ctx.fillText('TASK ROOM', ROOM_X + (W - ROOM_X) / 2, 22)
+  ctx.fillText('TASK ROOM', roomCenterX, 18)
   ctx.textAlign = 'left'
 
   // Busy indicator dot
   if (busyCount > 0) {
     ctx.beginPath()
-    ctx.arc(ROOM_X + 20, 16, 5, 0, Math.PI * 2)
+    ctx.arc(ROOM_X + 20, 14, 5, 0, Math.PI * 2)
     ctx.fillStyle = '#f97316'
     ctx.fill()
   }
+
+  // HKT Clock — centered in header, black text
+  const hkt = new Date().toLocaleString('en-HK', {
+    timeZone: 'Asia/Hong_Kong',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    day: '2-digit', month: 'short', year: 'numeric',
+  })
+  ctx.font = '10px monospace'
+  ctx.fillStyle = '#3A2C10'
+  ctx.textAlign = 'center'
+  ctx.fillText(hkt + ' HKT', roomCenterX, 38)
+  ctx.textAlign = 'left'
 
   // Meeting table (dark wood)
   const TX = ROOM_X + 22, TY = 155, TW = 272, TH = 98
@@ -248,13 +264,13 @@ function drawLabel(
   const persona = PERSONAS[dept] || dept
   const deptText = dept.toUpperCase()
 
-  ctx.font = '9px monospace'
+  ctx.font = 'bold 11px monospace'
   const dw = ctx.measureText(deptText).width
-  ctx.font = 'bold 10px Inter, sans-serif'
+  ctx.font = 'bold 12px sans-serif'
   const pw = ctx.measureText(persona).width
 
-  const boxW = Math.max(dw, pw) + 18
-  const boxH = 30
+  const boxW = Math.max(dw, pw) + 22
+  const boxH = 34
   const boxX = x - boxW / 2
   const boxY = y + 18 * scale
 
@@ -266,14 +282,14 @@ function drawLabel(
   ctx.fill()
   ctx.stroke()
 
-  ctx.font = '9px monospace'
+  ctx.font = 'bold 11px monospace'
   ctx.fillStyle = deptColor
   ctx.textAlign = 'center'
-  ctx.fillText(deptText, x, boxY + 12)
+  ctx.fillText(deptText, x, boxY + 13)
 
-  ctx.font = 'bold 10px Inter, sans-serif'
+  ctx.font = 'bold 12px sans-serif'
   ctx.fillStyle = '#FFFFFF'
-  ctx.fillText(persona, x, boxY + 25)
+  ctx.fillText(persona, x, boxY + 28)
   ctx.textAlign = 'left'
 }
 
@@ -418,18 +434,6 @@ export default function AgentOffice({ agents, onAgentClick }: Props) {
       const busyDepts = ALL_DEPTS.filter((d) => agentMap[d]?.is_busy)
       drawTaskRoom(ctx, W, H, busyDepts.length)
 
-      // ── HKT Clock (inside task room header) ───────────────────────────────
-      const hkt = new Date().toLocaleString('en-HK', {
-        timeZone: 'Asia/Hong_Kong',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        day: '2-digit', month: 'short', year: 'numeric',
-      })
-      ctx.font = '10px monospace'
-      ctx.fillStyle = '#A09080'
-      ctx.textAlign = 'right'
-      ctx.fillText(hkt + ' HKT', W - 8, 46)
-      ctx.textAlign = 'left'
-
       // ── Update animated positions (lerp) ──────────────────────────────────
       ALL_DEPTS.forEach((dept) => {
         const isBusy = agentMap[dept]?.is_busy || false
@@ -449,15 +453,13 @@ export default function AgentOffice({ agents, onAgentClick }: Props) {
         cur.y += (ty - cur.y) * 0.07
       })
 
-      // ── Draw all sprites ──────────────────────────────────────────────────
+      // ── Pass 1: Draw all sprites and bubbles ──────────────────────────────
       ALL_DEPTS.forEach((dept) => {
         const cur = animPosRef.current[dept]
         const home = HOME_POSITIONS[dept]
         const isBusy = agentMap[dept]?.is_busy || false
         const scale = dept === 'management' ? 2.0 : 1.5
-        const deptColor = DEPT_COLORS[dept] || '#9CA3AF'
 
-        // Determine if agent is at table, walking, or at desk
         const target = isBusy
           ? TABLE_SEATS[busyDepts.indexOf(dept) % TABLE_SEATS.length]
           : home
@@ -465,21 +467,36 @@ export default function AgentOffice({ agents, onAgentClick }: Props) {
         const isWalking = distToTarget > 8
         const atTable = cur.x > ROOM_X - 30
 
-        // Bob animation (gentle sway when at desk/table, faster when walking)
         const bobSpeed = isWalking ? 600 : 2000
         const bobAmp = isWalking ? 3 : 2
         const bobOffset = Math.round(Math.sin(timestamp / bobSpeed + home.x) * bobAmp)
 
         drawSprite(ctx, dept, cur.x, cur.y, isBusy, bobOffset, atTable)
 
-        // Status / walking bubble
         if (atTable && isBusy) {
           drawStatusBubble(ctx, cur.x, cur.y, agentMap[dept]?.current_task || null)
         } else if (isWalking) {
           drawWalkingBubble(ctx, cur.x, cur.y, scale)
         }
+      })
 
-        // Label (dept + persona box) — drawn BELOW sprite
+      // ── Pass 2: Draw all labels on top of sprites ─────────────────────────
+      ALL_DEPTS.forEach((dept) => {
+        const cur = animPosRef.current[dept]
+        const home = HOME_POSITIONS[dept]
+        const isBusy = agentMap[dept]?.is_busy || false
+        const deptColor = DEPT_COLORS[dept] || '#9CA3AF'
+        const scale = dept === 'management' ? 2.0 : 1.5
+
+        const target = isBusy
+          ? TABLE_SEATS[busyDepts.indexOf(dept) % TABLE_SEATS.length]
+          : home
+        const distToTarget = Math.hypot(cur.x - target.x, cur.y - target.y)
+        const isWalking = distToTarget > 8
+        const bobSpeed = isWalking ? 600 : 2000
+        const bobAmp = isWalking ? 3 : 2
+        const bobOffset = Math.round(Math.sin(timestamp / bobSpeed + home.x) * bobAmp)
+
         drawLabel(ctx, dept, cur.x, cur.y + bobOffset, deptColor, scale)
       })
 
