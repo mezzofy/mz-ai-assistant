@@ -1,5 +1,33 @@
 # Context Checkpoint: Frontend Agent
 **Date:** 2026-03-20
+**Session:** 8
+
+## Completed This Session (Session 8)
+
+- Added `ActiveTask` interface to `portal/src/types/index.ts` — covers `status`, `result` (object or string), `error`, `session_id`, etc.
+- Added `getActiveTasks(sessionId)` to `portal/src/api/portal.ts` — calls `GET /tasks/active?session_id=<id>`
+- Updated `AgentChatDialog.tsx` with full async polling logic:
+  - `isLoading?: boolean` added to `Message` interface (loading bubble variant)
+  - 200 sync path unchanged: renders `reply` / `response` / `message` directly
+  - 202 async path (status queued/pending or `task_id` present): shows ⏳ loading bubble, polls every 4 s via `setInterval`, clears on completion/failure/timeout/unmount
+  - `extractTaskResult()` helper: tries `result.response` → `result.reply` → string → JSON fallback
+  - Timeout: 30 polls × 4 s = 120 s, then "Response timed out" error message
+  - `pollIntervalRef` + `pollCountRef` used for interval management (no stale closure issues)
+  - Send disabled while polling; dots-only spinner hidden when loading bubble is present
+- TypeScript: `npx tsc --noEmit` — 0 errors
+- Git commit: `03002e3` on branch `eric-design`
+
+## /tasks/active Response Format Notes
+The `ActiveTask` type was defined broadly — `result` typed as `{ response?: string; reply?: string; [key: string]: unknown } | string | null`. This covers all observed backend patterns without requiring a strict match. If the endpoint returns a different shape, `extractTaskResult` falls back to `JSON.stringify(r)`.
+
+## Files Modified (Session 8)
+- `portal/src/types/index.ts` (modified — `ActiveTask` interface added at end of file)
+- `portal/src/api/portal.ts` (modified — `getActiveTasks` method added after `sendAgentMessage`)
+- `portal/src/components/AgentChatDialog.tsx` (modified — polling logic, loading bubble, cleanup)
+
+---
+
+**Date:** 2026-03-20
 **Session:** 7
 
 ## Completed This Session (Session 7)
