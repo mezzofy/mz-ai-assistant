@@ -259,6 +259,7 @@ function drawLabel(
   const boxX = x - boxW / 2
   const boxY = y + 18 * scale
 
+  ctx.beginPath()
   ctx.fillStyle = 'rgba(235,235,240,0.92)'
   ctx.strokeStyle = deptColor
   ctx.lineWidth = 1.5
