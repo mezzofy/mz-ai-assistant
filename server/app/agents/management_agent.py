@@ -55,6 +55,11 @@ class ManagementAgent(BaseAgent):
         event = task.get("event", "")
         message = task.get("message", "").lower()
 
+        # v2.0: Cross-department orchestration — check BEFORE any single-agent routing
+        # Only active when AgentRegistry is loaded (agents table must exist)
+        if self._is_cross_department_task(task):
+            return await self.plan_and_orchestrate(task)
+
         # Scheduler: weekly KPI report
         if source == "scheduler" and "kpi_report" in event:
             return await self._weekly_kpi_workflow(task)
@@ -304,6 +309,202 @@ class ManagementAgent(BaseAgent):
             f"- Sent {sent_count} intro emails"
         )
         return self._ok(content=summary, tools_called=tools_called)
+
+    # ── v2.0: Orchestration ────────────────────────────────────────────────────
+
+    def _is_cross_department_task(self, task: dict) -> bool:
+        """
+        Return True if the task requires skills from more than one agent.
+
+        Heuristics:
+        - Explicit multi-department keywords: "and sales", "and finance", etc.
+        - Comparison keywords: "compare", "vs", "versus", "across departments"
+        - Cross-department phrases that signal multiple specialists needed
+        - AgentRegistry must be loaded — if not, returns False (safe fallback)
+        """
+        from app.agents.agent_registry import agent_registry as _registry
+        if not _registry.is_loaded():
+            return False  # Registry not available — fall through to existing logic
+
+        message = task.get("message", "").lower()
+        _CROSS_DEPT_KEYWORDS = {
+            "compare", "versus", " vs ", "across departments", "all departments",
+            "cross-department", "cross department",
+            "and sales", "and finance", "and marketing", "and support", "and hr",
+            "sales and", "finance and", "marketing and", "support and", "hr and",
+            "both departments", "multiple departments", "every department",
+        }
+        return any(kw in message for kw in _CROSS_DEPT_KEYWORDS)
+
+    async def plan_and_orchestrate(self, task: dict) -> dict:
+        """
+        Orchestrate a multi-agent task plan.
+
+        Step 1 — Plan decomposition: LLM breaks down the task into sub-tasks,
+                  each assigned to the most capable specialist agent.
+        Step 2 — Log the plan in agent_task_log.
+        Step 3 — Execute plan: parallel steps fire-and-forget; sequential
+                  steps are awaited before the next step runs.
+        Step 4 — Synthesise: collect all sub-task result_summaries via LLM.
+        Step 5 — Deliver: Teams #management + email to requestor.
+
+        Returns the synthesised executive summary.
+        """
+        from app.agents.agent_registry import agent_registry as _registry
+        message = task.get("message", "")
+        user_id = task.get("user_id", "")
+
+        # ── Step 1: LLM decomposes task ───────────────────────────────────────
+        active_agents = _registry.all_active()
+        agent_summary = [
+            {"id": a["id"], "department": a["department"],
+             "skills": a.get("skills", [])}
+            for a in active_agents
+        ]
+
+        today = date.today().strftime("%Y-%m-%d")
+        decompose_prompt = (
+            f"You are the Management Agent (orchestrator) for Mezzofy.\n"
+            f"Today is {today}.\n\n"
+            f"Break down this task into sub-tasks, each assigned to exactly one "
+            f"specialist agent. Return ONLY valid JSON — an array of objects:\n"
+            f'[{{"step": 1, "agent_id": "agent_sales", "task_description": "...", '
+            f'"depends_on_step": null}}, ...]\n\n'
+            f"Available agents:\n{agent_summary}\n\n"
+            f"Task: {message}"
+        )
+
+        plan_json = []
+        try:
+            llm_result = await llm_mod.get().chat(
+                messages=[{"role": "user", "content": decompose_prompt}],
+                task_context=task,
+            )
+            import json as _json
+            raw = llm_result.get("content", "[]")
+            # Extract JSON array from the response
+            start = raw.find("[")
+            end = raw.rfind("]") + 1
+            if start >= 0 and end > start:
+                plan_json = _json.loads(raw[start:end])
+        except Exception as e:
+            logger.warning(f"plan_and_orchestrate: LLM decomposition failed: {e}")
+            # Fallback: return as KPI dashboard workflow
+            return await self._kpi_dashboard_workflow(task)
+
+        if not plan_json or not isinstance(plan_json, list):
+            logger.info("plan_and_orchestrate: empty plan, falling back to KPI workflow")
+            return await self._kpi_dashboard_workflow(task)
+
+        # ── Step 2: Log the plan ──────────────────────────────────────────────
+        orchestration_task_id = await self.log_task_start(task)
+        if orchestration_task_id:
+            try:
+                import json as _json2
+                from app.core.database import AsyncSessionLocal
+                from sqlalchemy import text
+                async with AsyncSessionLocal() as db:
+                    await db.execute(
+                        text("""
+                            UPDATE agent_task_log
+                            SET task_plan = :plan::jsonb
+                            WHERE id = :id
+                        """),
+                        {"plan": _json2.dumps(plan_json), "id": orchestration_task_id},
+                    )
+                    await db.commit()
+            except Exception as e:
+                logger.warning(f"plan_and_orchestrate: failed to save task_plan: {e}")
+
+        # ── Step 3: Execute plan ──────────────────────────────────────────────
+        step_results: dict[int, dict] = {}
+        for step in sorted(plan_json, key=lambda s: s.get("step", 0)):
+            step_num = step.get("step", 0)
+            target_agent_id = step.get("agent_id", "")
+            task_desc = step.get("task_description", message)
+            depends_on = step.get("depends_on_step")
+
+            # Build sub-task
+            sub_task = {
+                **{k: v for k, v in task.items()
+                   if k not in ("_config", "_progress_callback")},
+                "message": task_desc,
+                "source": "agent_delegation",
+                "_requesting_agent_id": "agent_management",
+                "_parent_task_id": orchestration_task_id,
+            }
+
+            if depends_on is not None:
+                # Sequential — await the dependency's delegation result
+                prior = step_results.get(depends_on, {})
+                prior_summary = prior.get("result_summary", "")
+                if prior_summary:
+                    sub_task["message"] = (
+                        f"{task_desc}\n\nContext from prior step: {prior_summary[:500]}"
+                    )
+                delegation = await self.delegate_task(
+                    target_agent_id, sub_task, orchestration_task_id
+                )
+                if delegation.get("task_id"):
+                    awaited = await self.await_delegation(
+                        delegation["task_id"], timeout_seconds=180
+                    )
+                    step_results[step_num] = awaited
+            else:
+                # Parallel — fire and forget (no await)
+                delegation = await self.delegate_task(
+                    target_agent_id, sub_task, orchestration_task_id
+                )
+                step_results[step_num] = {"task_id": delegation.get("task_id", ""), "status": "queued"}
+
+        # ── Step 4: Synthesise results ────────────────────────────────────────
+        completed_summaries = [
+            f"Step {k}: {v.get('result_summary', '(in progress)')}"
+            for k, v in sorted(step_results.items())
+            if v.get("result_summary")
+        ]
+        synthesis_content = ""
+        if completed_summaries:
+            synthesis_prompt = (
+                f"You are the COO of Mezzofy. Synthesise these sub-task results "
+                f"into a single executive summary (max 500 words):\n\n"
+                + "\n".join(completed_summaries)
+            )
+            try:
+                synth_result = await llm_mod.get().chat(
+                    messages=[{"role": "user", "content": synthesis_prompt}],
+                    task_context=task,
+                )
+                synthesis_content = synth_result.get("content", "")
+            except Exception as e:
+                logger.warning(f"plan_and_orchestrate: synthesis LLM failed: {e}")
+                synthesis_content = "\n".join(completed_summaries)
+        else:
+            synthesis_content = (
+                f"Orchestration plan dispatched to {len(plan_json)} specialist agents. "
+                f"Results will be delivered when sub-tasks complete."
+            )
+
+        # ── Step 5: Deliver ───────────────────────────────────────────────────
+        try:
+            await self._deliver_to_teams(
+                channel="#management",
+                message=f"🤖 Orchestrated Task Complete\n\n{synthesis_content[:500]}",
+            )
+        except Exception as e:
+            logger.warning(f"plan_and_orchestrate: Teams delivery failed: {e}")
+
+        # Update log: completed
+        if orchestration_task_id:
+            await self.log_task_complete(
+                orchestration_task_id,
+                {"content": synthesis_content, "artifacts": []},
+            )
+
+        return self._ok(
+            content=synthesis_content,
+            tools_called=["plan_and_orchestrate", "delegate_task"],
+        )
 
     def _extract_date_range(self, message: str) -> str:
         msg = message.lower()

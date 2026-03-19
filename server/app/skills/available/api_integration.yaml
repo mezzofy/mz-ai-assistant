@@ -1,0 +1,28 @@
+name: "api_integration"
+version: "1.0.0"
+description: "HTTP client, OpenAPI spec parsing, and integration code scaffolding"
+agent: "developer"
+
+capabilities:
+  - fetch_api_spec
+  - generate_integration
+  - generate_tests
+
+tools:
+  - name: "fetch_api_spec"
+    description: "Fetch an OpenAPI/Swagger spec from a URL"
+    parameters:
+      url: { type: "string", required: true }
+
+  - name: "generate_integration"
+    description: "Generate FastAPI endpoint, Celery task, or tool class for an API"
+    parameters:
+      api_description: { type: "string", required: true }
+      integration_type: { type: "string", required: false }
+      spec_context: { type: "string", required: false }
+
+  - name: "generate_tests"
+    description: "Generate pytest tests for a given code module"
+    parameters:
+      code: { type: "string", required: true }
+      language: { type: "string", required: false }

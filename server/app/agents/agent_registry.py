@@ -1,8 +1,13 @@
 """
-AgentRegistry — Maps department names to agent classes.
+AgentRegistry — Maps department names to agent classes + DB-backed agent records.
 
-Used by the Router (Phase 5) to select the appropriate agent
-for incoming tasks based on department and access rights.
+Two layers:
+  1. AgentRegistry class — DB-backed singleton. Loaded at app startup via
+     AgentRegistry.load(). Provides lookup by ID, department, and skill.
+     Used by ManagementAgent for orchestration and by BaseAgent for delegation.
+
+  2. Module-level functions (backward-compat) — get_agent_for_task(), AGENT_MAP.
+     Used by Router, Celery tasks, and all code written before v2.0.
 
 Routing model:
   1. Department → Agent is always 1:1 (primary routing, no exceptions).
@@ -12,7 +17,9 @@ Routing model:
      which handles general requests via its fallback _general_response() path.
 """
 
+import json
 import logging
+from typing import Optional
 
 from app.agents.finance_agent import FinanceAgent
 from app.agents.hr_agent import HRAgent
@@ -25,6 +32,131 @@ from app.agents.developer_agent import DeveloperAgent
 from app.agents.scheduler_agent import SchedulerAgent
 
 logger = logging.getLogger("mezzofy.agents.registry")
+
+
+# ── DB-backed AgentRegistry class (v2.0) ──────────────────────────────────────
+
+class AgentRegistry:
+    """
+    Central registry for all active AI agents.
+
+    Loaded from the `agents` DB table at application startup via load().
+    Provides lookup by agent_id, department, and required skill.
+    Used by ManagementAgent for orchestration and by BaseAgent for delegation.
+
+    Usage:
+        # At startup (main.py lifespan):
+        await agent_registry.load()
+
+        # At runtime:
+        record = agent_registry.get("agent_sales")
+        agents = agent_registry.find_by_skill("code_generation")
+    """
+
+    def __init__(self):
+        # Keyed by agent_id string, e.g. "agent_sales"
+        self._agents: dict[str, dict] = {}
+        self._loaded: bool = False
+
+    async def load(self) -> None:
+        """
+        Load all agents from the `agents` DB table into memory.
+
+        Safe to call multiple times — overwrites the in-memory cache each time.
+        No-ops gracefully if the agents table does not yet exist (pre-migration).
+        """
+        try:
+            from app.core.database import AsyncSessionLocal
+            from sqlalchemy import text
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    text("SELECT * FROM agents WHERE is_active = TRUE ORDER BY id")
+                )
+                rows = result.fetchall()
+                self._agents = {}
+                for row in rows:
+                    row_dict = dict(row._mapping)
+                    # Parse JSONB fields (may arrive as str or already parsed)
+                    for field in ("skills", "tools_allowed"):
+                        val = row_dict.get(field, [])
+                        if isinstance(val, str):
+                            try:
+                                row_dict[field] = json.loads(val)
+                            except Exception:
+                                row_dict[field] = []
+                    self._agents[row_dict["id"]] = row_dict
+                self._loaded = True
+                logger.info(
+                    f"AgentRegistry loaded {len(self._agents)} agents: "
+                    f"{list(self._agents.keys())}"
+                )
+        except Exception as e:
+            # Table may not exist yet (pre-migration) — warn but don't crash
+            logger.warning(
+                f"AgentRegistry.load() failed — agents table may not exist yet. "
+                f"Delegation and orchestration will be unavailable. Error: {e}"
+            )
+            self._loaded = False
+
+    def get(self, agent_id: str) -> dict:
+        """Return agent record dict. Raises KeyError if not found."""
+        if agent_id not in self._agents:
+            raise KeyError(f"Agent '{agent_id}' not found in registry")
+        return self._agents[agent_id]
+
+    def get_by_department(self, department: str) -> Optional[dict]:
+        """Return agent record for the given department, or None."""
+        dept = department.lower()
+        for rec in self._agents.values():
+            if rec.get("department", "").lower() == dept:
+                return rec
+        return None
+
+    def find_by_skill(self, skill_name: str) -> list[dict]:
+        """Return all active agents that have skill_name in their skills list."""
+        return [
+            rec for rec in self._agents.values()
+            if skill_name in rec.get("skills", [])
+        ]
+
+    def find_capable_agent(self, task_type: str) -> Optional[dict]:
+        """
+        Find the best agent for a given task type.
+        Tries exact skill name match first, then department keyword match.
+        Returns agent record or None.
+        """
+        # 1. Exact skill name match
+        matches = self.find_by_skill(task_type)
+        if matches:
+            return matches[0]
+        # 2. Department keyword match (fallback)
+        task_lower = task_type.lower()
+        for rec in self._agents.values():
+            if task_lower in rec.get("department", "").lower():
+                return rec
+        return None
+
+    def all_active(self) -> list[dict]:
+        """Return all agents where is_active=True (all loaded records)."""
+        return list(self._agents.values())
+
+    def get_orchestrator(self) -> Optional[dict]:
+        """Return the agent where is_orchestrator=True (Management Agent)."""
+        for rec in self._agents.values():
+            if rec.get("is_orchestrator"):
+                return rec
+        return None
+
+    def is_loaded(self) -> bool:
+        """Return True if load() has been called successfully."""
+        return self._loaded
+
+
+# Module-level singleton — initialized at app startup
+agent_registry = AgentRegistry()
+
+
+# ── Department → Agent class mapping (backward-compat, v1.x) ─────────────────
 
 # Department → Agent class mapping
 AGENT_MAP = {

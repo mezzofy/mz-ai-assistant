@@ -1,0 +1,21 @@
+name: "job_monitoring"
+version: "1.0.0"
+description: "Health checks, failure detection, and run history analysis for scheduled jobs"
+agent: "scheduler"
+
+capabilities:
+  - health_report
+  - get_run_history
+
+tools:
+  - name: "health_report"
+    description: "Generate a health report for all scheduled jobs showing issues"
+    parameters:
+      user_id: { type: "string", required: true }
+
+  - name: "get_run_history"
+    description: "Return execution history from agent_task_log for scheduler jobs"
+    parameters:
+      user_id: { type: "string", required: true }
+      job_id: { type: "string", required: false }
+      limit: { type: "integer", required: false }

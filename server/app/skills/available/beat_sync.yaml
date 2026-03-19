@@ -1,0 +1,23 @@
+name: "beat_sync"
+version: "1.0.0"
+description: "Live Celery Beat schedule sync status and next_run recalculation"
+agent: "scheduler"
+
+capabilities:
+  - sync_status
+  - force_next_run_recalculation
+  - get_static_beat_jobs
+
+tools:
+  - name: "sync_status"
+    description: "Check Beat sync status — active jobs in DB and poll interval"
+    parameters: {}
+
+  - name: "force_next_run_recalculation"
+    description: "Recompute and update next_run for a specific scheduled job"
+    parameters:
+      job_id: { type: "string", required: true }
+
+  - name: "get_static_beat_jobs"
+    description: "Return built-in Celery Beat jobs defined in celery_app.py"
+    parameters: {}

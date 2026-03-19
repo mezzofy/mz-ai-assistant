@@ -712,6 +712,227 @@ async def _update_agent_task_step(agent_task_id: str, step_json: str, progress: 
         logger.warning(f"Failed to update agent_task step (id={agent_task_id}): {e}")
 
 
+# ── v2.0: Inter-agent delegation ──────────────────────────────────────────────
+
+# Maps agent_id strings to Python agent classes.
+# Used by process_delegated_agent_task and get_agent_by_id().
+_AGENT_ID_MAP: dict | None = None  # lazy-initialized
+
+
+def get_agent_by_id(agent_id: str):
+    """
+    Map an agent_id string to an instantiated Python agent class.
+
+    AGENT_ID_MAP covers all 9 agents (6 department + 3 special-purpose).
+    Raises ValueError if agent_id is not in the map.
+    """
+    global _AGENT_ID_MAP
+    if _AGENT_ID_MAP is None:
+        from app.agents.finance_agent import FinanceAgent
+        from app.agents.sales_agent import SalesAgent
+        from app.agents.marketing_agent import MarketingAgent
+        from app.agents.support_agent import SupportAgent
+        from app.agents.hr_agent import HRAgent
+        from app.agents.management_agent import ManagementAgent
+        from app.agents.research_agent import ResearchAgent
+        from app.agents.developer_agent import DeveloperAgent
+        from app.agents.scheduler_agent import SchedulerAgent
+        from app.core.config import get_config
+        _config = get_config()
+        _AGENT_ID_MAP = {
+            "agent_finance": FinanceAgent(_config),
+            "agent_sales": SalesAgent(_config),
+            "agent_marketing": MarketingAgent(_config),
+            "agent_support": SupportAgent(_config),
+            "agent_hr": HRAgent(_config),
+            "agent_management": ManagementAgent(_config),
+            "agent_research": ResearchAgent(_config),
+            "agent_developer": DeveloperAgent(_config),
+            "agent_scheduler": SchedulerAgent(_config),
+        }
+    if agent_id not in _AGENT_ID_MAP:
+        raise ValueError(
+            f"get_agent_by_id: unknown agent_id {agent_id!r}. "
+            f"Valid ids: {list(_AGENT_ID_MAP.keys())}"
+        )
+    return _AGENT_ID_MAP[agent_id]
+
+
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    name="app.tasks.tasks.process_delegated_agent_task",
+)
+def process_delegated_agent_task(
+    self,
+    task_data: dict,
+    agent_id: str,
+    parent_task_id: str,
+    requested_by_agent_id: str,
+):
+    """
+    Execute a sub-task delegated by another agent (typically ManagementAgent).
+
+    Same mechanics as process_agent_task but:
+    - Resolves agent by agent_id (not department)
+    - Updates agent_task_log with parent_task_id and requested_by_agent_id
+    - On completion: publishes result to Redis pub/sub channel
+      key = "agent_result:{parent_task_id}" so await_delegation() can pick it up
+    - On failure: retries up to 3 times (30s, 60s, 90s), then logs failed status
+
+    Args:
+        task_data:              Standard task dict (same shape as process_agent_task).
+        agent_id:               Target agent id string (e.g. "agent_finance").
+        parent_task_id:         UUID of the parent agent_task_log row.
+        requested_by_agent_id:  ID of the agent that delegated this task.
+    """
+    # Dispose engine pool (same Celery async pattern as all other tasks)
+    try:
+        from app.core.database import engine
+        engine.sync_engine.dispose()
+    except Exception:
+        pass
+
+    # Inject delegation context so log_task_start() records the chain
+    task_data["_requesting_agent_id"] = requested_by_agent_id
+    task_data["_parent_task_id"] = parent_task_id
+    task_data["source"] = task_data.get("source", "agent_delegation")
+
+    # agent_task_log row id from delegate_task() (may be pre-inserted as 'queued')
+    log_id = task_data.get("_agent_task_log_id", "")
+
+    try:
+        result = asyncio.run(
+            _run_delegated_agent_task(task_data, agent_id, parent_task_id, log_id)
+        )
+        logger.info(
+            f"process_delegated_agent_task completed: "
+            f"agent={agent_id!r} parent={parent_task_id!r}"
+        )
+        return result
+    except Exception as exc:
+        logger.error(
+            f"process_delegated_agent_task failed: agent={agent_id!r} error={exc}",
+            exc_info=True,
+        )
+        # Update log row to failed before retrying
+        try:
+            asyncio.run(_update_delegated_task_log(log_id, "failed", error=str(exc)))
+        except Exception:
+            pass
+        raise self.retry(exc=exc, countdown=30 * (self.request.retries + 1))
+
+
+async def _run_delegated_agent_task(
+    task_data: dict,
+    agent_id: str,
+    parent_task_id: str,
+    log_id: str,
+) -> dict:
+    """Async core for process_delegated_agent_task."""
+    from app.core.config import get_config
+    config = get_config()
+    task_data["_config"] = config
+    task_data.setdefault("permissions", ["all"])
+    task_data.setdefault("attachments", [])
+    task_data.setdefault("conversation_history", [])
+
+    # Restore user context
+    from app.core.user_context import set_user_context
+    _uid = task_data.get("user_id", "")
+    _dept = task_data.get("department", "general")
+    _email, _role = await _fetch_user_context(_uid)
+    set_user_context(dept=_dept, email=_email, role=_role, user_id=_uid)
+
+    # Update log: running
+    await _update_delegated_task_log(log_id, "running")
+
+    # Resolve the agent instance
+    agent = get_agent_by_id(agent_id)
+    import time
+    start_time = time.time()
+
+    try:
+        result = await agent.execute(task_data)
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        # Update log: completed
+        await _update_delegated_task_log(
+            log_id, "completed",
+            result_summary=result.get("content", "")[:2000],
+            duration_ms=duration_ms,
+        )
+
+        # Publish result to Redis so await_delegation() polling can pick it up
+        if parent_task_id:
+            try:
+                import json as _json
+                import redis.asyncio as aioredis
+                from app.core.config import get_config as _gc
+                _cfg = _gc()
+                _redis_url = _cfg.get("redis", {}).get("url", "redis://localhost:6379/0")
+                _redis = aioredis.from_url(_redis_url)
+                await _redis.publish(
+                    f"agent_result:{parent_task_id}",
+                    _json.dumps({
+                        "task_id": log_id,
+                        "agent_id": agent_id,
+                        "status": "completed",
+                        "result_summary": result.get("content", "")[:2000],
+                    }),
+                )
+                await _redis.aclose()
+            except Exception as redis_err:
+                logger.debug(f"Redis pub/sub publish failed (non-fatal): {redis_err}")
+
+        return result
+    except Exception as exc:
+        duration_ms = int((time.time() - start_time) * 1000)
+        await _update_delegated_task_log(
+            log_id, "failed", error=str(exc), duration_ms=duration_ms
+        )
+        raise
+
+
+async def _update_delegated_task_log(
+    log_id: str,
+    status: str,
+    result_summary: str = "",
+    error: str = "",
+    duration_ms: int = 0,
+) -> None:
+    """Update an agent_task_log row for a delegated sub-task."""
+    if not log_id:
+        return
+    try:
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import text
+        updates = {"status": status, "id": log_id}
+        set_clauses = ["status = :status"]
+        if status == "running":
+            set_clauses.append("started_at = NOW()")
+        if status in ("completed", "failed"):
+            set_clauses.append("completed_at = NOW()")
+        if result_summary:
+            set_clauses.append("result_summary = :result_summary")
+            updates["result_summary"] = result_summary
+        if error:
+            set_clauses.append("error_message = :error")
+            updates["error"] = error
+        if duration_ms:
+            set_clauses.append("duration_ms = :duration_ms")
+            updates["duration_ms"] = duration_ms
+
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                text(f"UPDATE agent_task_log SET {', '.join(set_clauses)} WHERE id = :id"),
+                updates,
+            )
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"_update_delegated_task_log failed (log_id={log_id!r}): {e}")
+
+
 # ── Health check task ──────────────────────────────────────────────────────────
 
 @celery_app.task(name="app.tasks.tasks.health_check")

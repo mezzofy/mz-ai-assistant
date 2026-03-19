@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Mezzofy AI Assistant — Database Migration Script
-Creates all 10 PostgreSQL tables with indexes.
+Creates all PostgreSQL tables with indexes (agents, agent_task_log added v2.0).
 Safe to re-run: uses CREATE TABLE IF NOT EXISTS + ADD COLUMN IF NOT EXISTS.
 Usage: python scripts/migrate.py
 """
@@ -456,6 +456,133 @@ def run_migrations(conn):
             WITH (lists = 10)
     """)
     print("  ✅ knowledge_vectors (pgvector RAG table)")
+
+    # ── 14. agents (first-class persistent agent entities) ───────
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agents (
+            id                   VARCHAR(32) PRIMARY KEY,
+            name                 VARCHAR(64) NOT NULL,
+            display_name         VARCHAR(64) NOT NULL,
+            department           VARCHAR(32) NOT NULL,
+            description          TEXT,
+            skills               JSONB NOT NULL DEFAULT '[]',
+            tools_allowed        JSONB NOT NULL DEFAULT '[]',
+            llm_model            VARCHAR(64) NOT NULL DEFAULT 'claude-haiku-4-5-20251001',
+            memory_namespace     VARCHAR(64) UNIQUE NOT NULL,
+            is_active            BOOLEAN NOT NULL DEFAULT TRUE,
+            can_be_spawned       BOOLEAN NOT NULL DEFAULT TRUE,
+            is_orchestrator      BOOLEAN NOT NULL DEFAULT FALSE,
+            max_concurrent_tasks INTEGER NOT NULL DEFAULT 2,
+            created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    print("  ✅ agents")
+
+    # Seed all 9 agents (idempotent — ON CONFLICT DO NOTHING)
+    cur.execute("""
+        INSERT INTO agents
+            (id, name, display_name, department, description,
+             skills, tools_allowed, llm_model, memory_namespace,
+             is_orchestrator, can_be_spawned)
+        VALUES
+          ('agent_management', 'Management Agent', 'Max (Management)', 'management',
+           'I oversee cross-department operations, break down complex tasks, delegate to specialist agents, and synthesise final results.',
+           '["data_analysis","web_research"]',
+           '["database_query","teams_post_message","outlook_send_email","pdf_generator"]',
+           'claude-sonnet-4-6', 'management', TRUE, FALSE),
+
+          ('agent_finance', 'Finance Agent', 'Fiona (Finance)', 'finance',
+           'I handle financial statements, P&L reports, budgets, invoices, and cost analysis.',
+           '["financial_reporting","data_analysis"]',
+           '["database_query","pdf_generator","csv_ops","outlook_send_email"]',
+           'claude-haiku-4-5-20251001', 'finance', FALSE, TRUE),
+
+          ('agent_sales', 'Sales Agent', 'Sam (Sales)', 'sales',
+           'I manage lead generation, CRM updates, pitch decks, and prospect outreach.',
+           '["linkedin_prospecting","email_outreach","pitch_deck_generation","web_research"]',
+           '["crm_query","crm_update","outlook_send_email","pptx_generator","linkedin_search"]',
+           'claude-sonnet-4-6', 'sales', FALSE, TRUE),
+
+          ('agent_marketing', 'Marketing Agent', 'Maya (Marketing)', 'marketing',
+           'I create website content, campaign copy, playbooks, and social media posts.',
+           '["content_generation","web_research"]',
+           '["pdf_generator","docx_ops","outlook_send_email","teams_post_message"]',
+           'claude-haiku-4-5-20251001', 'marketing', FALSE, TRUE),
+
+          ('agent_support', 'Support Agent', 'Suki (Support)', 'support',
+           'I analyse support tickets, surface patterns, draft customer replies, and recommend escalations.',
+           '["data_analysis","email_outreach"]',
+           '["database_query","outlook_send_email","teams_post_message"]',
+           'claude-haiku-4-5-20251001', 'support', FALSE, TRUE),
+
+          ('agent_hr', 'HR Agent', 'Hana (HR)', 'hr',
+           'I handle payroll queries, leave balances, headcount reports, onboarding checklists, and offboarding summaries.',
+           '["data_analysis","email_outreach"]',
+           '["database_query","outlook_send_email","pdf_generator"]',
+           'claude-haiku-4-5-20251001', 'hr', FALSE, TRUE),
+
+          ('agent_research', 'Research Agent', 'Rex (Research)', 'research',
+           'I am a dedicated research specialist. I perform deep web research, market intelligence, competitive analysis, and fact-finding for any agent or user.',
+           '["web_research","data_analysis","deep_research","source_verification"]',
+           '["browser_ops","scraping_ops","search_web","database_query","pdf_generator","csv_ops"]',
+           'claude-sonnet-4-6', 'research', FALSE, TRUE),
+
+          ('agent_developer', 'Developer Agent', 'Dev (Developer)', 'developer',
+           'I write, review, debug, and maintain code and system integrations. I run code safely in sandboxed environments.',
+           '["code_generation","code_review","code_execution","api_integration","test_generation"]',
+           '["bash_exec","file_ops","database_query","git_ops","http_client","pdf_generator","docx_ops"]',
+           'claude-sonnet-4-6', 'developer', FALSE, TRUE),
+
+          ('agent_scheduler', 'Scheduler Agent', 'Sched (Scheduler)', 'scheduler',
+           'I manage the full lifecycle of scheduled and automated tasks across all departments.',
+           '["schedule_management","cron_validation","job_monitoring","beat_sync"]',
+           '["database_query","celery_inspect","beat_schedule_ops","teams_post_message","outlook_send_email"]',
+           'claude-haiku-4-5-20251001', 'scheduler', FALSE, TRUE)
+
+        ON CONFLICT (id) DO NOTHING
+    """)
+    print("  ✅ agents (9 agents seeded)")
+
+    # ── 15. agent_task_log (inter-agent delegation chain tracking) ──
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent_task_log (
+            id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            agent_id               VARCHAR(32) NOT NULL REFERENCES agents(id),
+            parent_task_id         UUID REFERENCES agent_task_log(id),
+            requested_by_agent_id  VARCHAR(32) REFERENCES agents(id),
+            triggered_by_user_id   VARCHAR(64),
+            source                 VARCHAR(32) NOT NULL,
+            task_type              VARCHAR(64),
+            task_input             JSONB,
+            task_plan              JSONB,
+            status                 VARCHAR(16) NOT NULL DEFAULT 'queued',
+            result_summary         TEXT,
+            result_artifacts       JSONB DEFAULT '[]',
+            error_message          TEXT,
+            duration_ms            INTEGER,
+            queued_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            started_at             TIMESTAMPTZ,
+            completed_at           TIMESTAMPTZ
+        )
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_agent_task_log_agent_id
+            ON agent_task_log(agent_id)
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_agent_task_log_parent
+            ON agent_task_log(parent_task_id)
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_agent_task_log_user
+            ON agent_task_log(triggered_by_user_id)
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_agent_task_log_status
+            ON agent_task_log(status)
+    """)
+    print("  ✅ agent_task_log")
 
     # ── Optional: check support_tickets table presence ─────────
     cur.execute("""

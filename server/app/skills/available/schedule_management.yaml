@@ -1,0 +1,39 @@
+name: "schedule_management"
+version: "1.0.0"
+description: "CRUD on scheduled_jobs table plus live Celery Beat sync"
+agent: "scheduler"
+
+capabilities:
+  - create_job
+  - list_jobs
+  - delete_job
+  - trigger_now
+
+tools:
+  - name: "create_job"
+    description: "Create a new scheduled job and add to Celery Beat"
+    parameters:
+      user_id: { type: "string", required: true }
+      name: { type: "string", required: true }
+      agent: { type: "string", required: true }
+      message: { type: "string", required: true }
+      cron_expression: { type: "string", required: true }
+      deliver_to: { type: "object", required: true }
+      workflow_name: { type: "string", required: false }
+
+  - name: "list_jobs"
+    description: "List active scheduled jobs for a user"
+    parameters:
+      user_id: { type: "string", required: true }
+
+  - name: "delete_job"
+    description: "Deactivate a scheduled job and remove from Beat"
+    parameters:
+      job_id: { type: "string", required: true }
+      user_id: { type: "string", required: true }
+
+  - name: "trigger_now"
+    description: "Immediately fire a scheduled job outside its schedule"
+    parameters:
+      job_id: { type: "string", required: true }
+      user_id: { type: "string", required: true }

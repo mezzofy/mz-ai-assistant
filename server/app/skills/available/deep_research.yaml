@@ -1,0 +1,25 @@
+name: "deep_research"
+version: "1.0.0"
+description: "Multi-source research synthesis with citation tracking for Research Agent"
+agent: "research"
+
+dependencies:
+  - httpx>=0.25.0
+
+capabilities:
+  - synthesise
+  - extract_key_facts
+
+tools:
+  - name: "synthesise"
+    description: "Synthesise findings from multiple sources into a structured cited report"
+    parameters:
+      query: { type: "string", required: true }
+      sources: { type: "array", required: true }
+      max_sources: { type: "integer", required: false }
+
+  - name: "extract_key_facts"
+    description: "Extract the most important facts from a body of text"
+    parameters:
+      text: { type: "string", required: true }
+      topic: { type: "string", required: true }

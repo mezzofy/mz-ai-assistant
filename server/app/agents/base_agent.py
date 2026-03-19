@@ -11,15 +11,28 @@ Task sources:
   - "mobile"    — User-initiated via mobile app (REST/WebSocket)
   - "scheduler" — Celery Beat cron job (delivers to Teams + Outlook)
   - "webhook"   — External event from Mezzofy product (delivers to Teams + push)
+
+v2.0 additions:
+  - Agent identity: self.agent_id, self.agent_record (lazy-loaded from DB)
+  - Delegation: delegate_task(), await_delegation()
+  - Task logging: log_task_start/complete/failed() → agent_task_log table
+  - Knowledge: _load_knowledge() — namespace-scoped RAG file loading
+  - Skill introspection: requires_skill(), can_handle_with_delegation()
 """
 
 import logging
+import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Optional
 
 from app.skills import skill_registry
 
 logger = logging.getLogger("mezzofy.agents.base")
+
+# Path to knowledge base root (relative to server/ directory)
+_SERVER_ROOT = Path(__file__).parent.parent.parent  # server/
+KNOWLEDGE_BASE_PATH = _SERVER_ROOT / "knowledge"
 
 
 class BaseAgent(ABC):
@@ -33,6 +46,9 @@ class BaseAgent(ABC):
     def __init__(self, config: dict):
         self.config = config
         self._skills: dict = {}
+        # v2.0: persistent identity fields (populated lazily by load_agent_record())
+        self.agent_id: Optional[str] = None
+        self.agent_record: Optional[dict] = None
         logger.debug(f"{self.__class__.__name__} initialized")
 
     # ── Abstract interface ────────────────────────────────────────────────────
@@ -199,3 +215,349 @@ class BaseAgent(ABC):
             "artifacts": [],
             "tools_called": [],
         }
+
+    # ── v2.0: Agent identity ──────────────────────────────────────────────────
+
+    async def load_agent_record(self, agent_id: str) -> None:
+        """
+        Populate self.agent_id and self.agent_record from the agents DB table.
+
+        Called lazily before any operation that needs the agent's skill manifest
+        or memory namespace. Safe to call multiple times — cached after first load.
+        """
+        if self.agent_record is not None:
+            return  # Already loaded
+        try:
+            from app.agents.agent_registry import agent_registry
+            if agent_registry.is_loaded():
+                self.agent_record = agent_registry.get(agent_id)
+                self.agent_id = agent_id
+            else:
+                # Fallback: direct DB lookup
+                from app.core.database import AsyncSessionLocal
+                from sqlalchemy import text
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(
+                        text("SELECT * FROM agents WHERE id = :id"),
+                        {"id": agent_id},
+                    )
+                    row = result.fetchone()
+                    if row:
+                        import json as _json
+                        row_dict = dict(row._mapping)
+                        for field in ("skills", "tools_allowed"):
+                            val = row_dict.get(field, [])
+                            if isinstance(val, str):
+                                try:
+                                    row_dict[field] = _json.loads(val)
+                                except Exception:
+                                    row_dict[field] = []
+                        self.agent_record = row_dict
+                        self.agent_id = agent_id
+        except Exception as e:
+            logger.warning(
+                f"{self.__class__.__name__}.load_agent_record({agent_id!r}) failed: {e}"
+            )
+
+    # ── v2.0: Skill introspection ─────────────────────────────────────────────
+
+    def requires_skill(self, skill_name: str) -> bool:
+        """Return True if skill_name is in this agent's skills list (from DB record)."""
+        if self.agent_record is None:
+            return False
+        return skill_name in self.agent_record.get("skills", [])
+
+    def can_handle_with_delegation(
+        self, task: dict, agent_registry_instance
+    ) -> tuple[bool, list[str]]:
+        """
+        Check if this agent can handle a task, possibly by delegating parts.
+
+        Returns:
+            (can_handle: bool, delegation_needed_to: list[agent_id])
+        """
+        if self.can_handle(task):
+            return (True, [])
+
+        # Check if another agent can handle via skill matching
+        if agent_registry_instance and agent_registry_instance.is_loaded():
+            task_type = task.get("task_type", "")
+            if task_type:
+                capable = agent_registry_instance.find_capable_agent(task_type)
+                if capable:
+                    return (True, [capable["id"]])
+        return (False, [])
+
+    # ── v2.0: Task logging → agent_task_log ──────────────────────────────────
+
+    async def log_task_start(
+        self, task: dict, parent_task_id: Optional[str] = None
+    ) -> str:
+        """
+        Insert a new row into agent_task_log with status='running'.
+
+        Returns the new task UUID string, or empty string on failure.
+        """
+        try:
+            import uuid as _uuid
+            from app.core.database import AsyncSessionLocal
+            from sqlalchemy import text
+            task_id = str(_uuid.uuid4())
+            agent_id = self.agent_id or f"agent_{self.__class__.__name__.lower().replace('agent', '')}"
+            triggered_by = task.get("user_id", "")
+            source = task.get("source", "mobile")
+            task_type = task.get("task_type") or task.get("agent") or ""
+            async with AsyncSessionLocal() as db:
+                await db.execute(
+                    text("""
+                        INSERT INTO agent_task_log
+                            (id, agent_id, parent_task_id, requested_by_agent_id,
+                             triggered_by_user_id, source, task_type,
+                             task_input, status, started_at)
+                        VALUES
+                            (:id, :agent_id, :parent_task_id, :requested_by_agent_id,
+                             :triggered_by_user_id, :source, :task_type,
+                             :task_input::jsonb, 'running', NOW())
+                    """),
+                    {
+                        "id": task_id,
+                        "agent_id": agent_id,
+                        "parent_task_id": parent_task_id,
+                        "requested_by_agent_id": task.get("_requesting_agent_id"),
+                        "triggered_by_user_id": triggered_by,
+                        "source": source,
+                        "task_type": task_type,
+                        "task_input": __import__("json").dumps({
+                            k: v for k, v in task.items()
+                            if k not in ("_config", "_progress_callback") and isinstance(v, (str, int, float, bool, list, dict, type(None)))
+                        })[:4000],
+                    },
+                )
+                await db.commit()
+            return task_id
+        except Exception as e:
+            logger.warning(f"{self.__class__.__name__}.log_task_start failed: {e}")
+            return ""
+
+    async def log_task_complete(self, task_id: str, result: dict) -> None:
+        """Update agent_task_log row: status=completed, result_summary, duration_ms."""
+        if not task_id:
+            return
+        try:
+            from app.core.database import AsyncSessionLocal
+            from sqlalchemy import text
+            summary = result.get("content", "")[:2000]
+            async with AsyncSessionLocal() as db:
+                await db.execute(
+                    text("""
+                        UPDATE agent_task_log
+                        SET status = 'completed',
+                            result_summary = :summary,
+                            completed_at = NOW(),
+                            duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at))::INTEGER * 1000
+                        WHERE id = :task_id
+                    """),
+                    {"task_id": task_id, "summary": summary},
+                )
+                await db.commit()
+        except Exception as e:
+            logger.warning(f"{self.__class__.__name__}.log_task_complete failed: {e}")
+
+    async def log_task_failed(self, task_id: str, error: str) -> None:
+        """Update agent_task_log row: status=failed, error_message."""
+        if not task_id:
+            return
+        try:
+            from app.core.database import AsyncSessionLocal
+            from sqlalchemy import text
+            async with AsyncSessionLocal() as db:
+                await db.execute(
+                    text("""
+                        UPDATE agent_task_log
+                        SET status = 'failed',
+                            error_message = :error,
+                            completed_at = NOW(),
+                            duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at))::INTEGER * 1000
+                        WHERE id = :task_id
+                    """),
+                    {"task_id": task_id, "error": str(error)[:2000]},
+                )
+                await db.commit()
+        except Exception as e:
+            logger.warning(f"{self.__class__.__name__}.log_task_failed failed: {e}")
+
+    # ── v2.0: Inter-agent delegation ──────────────────────────────────────────
+
+    async def delegate_task(
+        self, target_agent_id: str, task: dict, parent_task_id: str
+    ) -> dict:
+        """
+        Request work from another specialist agent via Celery.
+
+        Non-blocking by default — the calling agent continues its own work.
+        Use await_delegation() if the result is needed before proceeding.
+
+        Returns:
+            { task_id: str, agent_id: str, status: "queued" }
+        """
+        try:
+            from app.agents.agent_registry import agent_registry as _registry
+            from app.tasks.celery_app import celery_app
+            import uuid as _uuid
+
+            # Verify target is valid and spawnable
+            if _registry.is_loaded():
+                target_rec = _registry.get(target_agent_id)
+                if not target_rec.get("can_be_spawned", True):
+                    raise ValueError(
+                        f"Agent '{target_agent_id}' cannot be spawned (can_be_spawned=False)"
+                    )
+                if not target_rec.get("is_active", True):
+                    raise ValueError(f"Agent '{target_agent_id}' is not active")
+
+            # Build delegation task payload
+            delegated_task = {
+                **{k: v for k, v in task.items()
+                   if k not in ("_config", "_progress_callback")},
+                "_requesting_agent_id": self.agent_id,
+                "_parent_task_id": parent_task_id,
+            }
+
+            # Insert queued log row
+            import uuid as _uuid2
+            task_id = str(_uuid2.uuid4())
+            try:
+                from app.core.database import AsyncSessionLocal
+                from sqlalchemy import text
+                async with AsyncSessionLocal() as db:
+                    await db.execute(
+                        text("""
+                            INSERT INTO agent_task_log
+                                (id, agent_id, parent_task_id, requested_by_agent_id,
+                                 triggered_by_user_id, source, status, queued_at)
+                            VALUES
+                                (:id, :agent_id, :parent_task_id, :requesting_agent_id,
+                                 :user_id, 'agent_delegation', 'queued', NOW())
+                        """),
+                        {
+                            "id": task_id,
+                            "agent_id": target_agent_id,
+                            "parent_task_id": parent_task_id,
+                            "requesting_agent_id": self.agent_id,
+                            "user_id": task.get("user_id", ""),
+                        },
+                    )
+                    await db.commit()
+            except Exception as log_err:
+                logger.warning(f"delegate_task: failed to log queued row: {log_err}")
+                task_id = str(_uuid2.uuid4())  # still proceed
+
+            # Enqueue the Celery task
+            delegated_task["_agent_task_log_id"] = task_id
+            delegated_task["agent"] = target_agent_id.replace("agent_", "")
+            celery_app.send_task(
+                "app.tasks.tasks.process_delegated_agent_task",
+                kwargs={
+                    "task_data": delegated_task,
+                    "agent_id": target_agent_id,
+                    "parent_task_id": parent_task_id,
+                    "requested_by_agent_id": self.agent_id or "",
+                },
+            )
+            logger.info(
+                f"{self.__class__.__name__}.delegate_task: "
+                f"→ {target_agent_id} task_id={task_id}"
+            )
+            return {"task_id": task_id, "agent_id": target_agent_id, "status": "queued"}
+        except Exception as e:
+            logger.error(f"{self.__class__.__name__}.delegate_task failed: {e}")
+            return {"task_id": "", "agent_id": target_agent_id, "status": "error", "error": str(e)}
+
+    async def await_delegation(
+        self, task_id: str, timeout_seconds: int = 300
+    ) -> dict:
+        """
+        Block until a delegated sub-task completes (or times out).
+
+        Polls agent_task_log every 5 seconds up to timeout_seconds.
+        Returns the result_summary and result_artifacts from agent_task_log.
+        """
+        import asyncio as _asyncio
+        elapsed = 0
+        poll_interval = 5
+        while elapsed < timeout_seconds:
+            try:
+                from app.core.database import AsyncSessionLocal
+                from sqlalchemy import text
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(
+                        text("""
+                            SELECT status, result_summary, result_artifacts, error_message
+                            FROM agent_task_log
+                            WHERE id = :task_id
+                        """),
+                        {"task_id": task_id},
+                    )
+                    row = result.fetchone()
+                    if row:
+                        status = row.status
+                        if status == "completed":
+                            return {
+                                "success": True,
+                                "status": "completed",
+                                "result_summary": row.result_summary or "",
+                                "result_artifacts": row.result_artifacts or [],
+                            }
+                        if status == "failed":
+                            return {
+                                "success": False,
+                                "status": "failed",
+                                "error": row.error_message or "Sub-task failed",
+                                "result_summary": "",
+                                "result_artifacts": [],
+                            }
+            except Exception as e:
+                logger.warning(f"await_delegation poll error: {e}")
+            await _asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+
+        return {
+            "success": False,
+            "status": "timeout",
+            "error": f"Delegation timed out after {timeout_seconds}s",
+            "result_summary": "",
+            "result_artifacts": [],
+        }
+
+    # ── v2.0: Knowledge base loading ─────────────────────────────────────────
+
+    def _load_knowledge(self) -> list[Path]:
+        """
+        Return paths to RAG knowledge files for this agent only.
+
+        Loads from:
+          - knowledge/{memory_namespace}/ — agent-specific files
+          - knowledge/shared/             — cross-agent shared files
+
+        No cross-namespace access: a finance agent cannot load sales knowledge.
+
+        Returns:
+            List of Path objects for .md, .txt, and .pdf files.
+        """
+        namespace = None
+        if self.agent_record:
+            namespace = self.agent_record.get("memory_namespace")
+        if not namespace:
+            # Derive from class name as fallback (e.g. FinanceAgent → "finance")
+            cls_name = self.__class__.__name__.lower()
+            namespace = cls_name.replace("agent", "").strip("_") or "shared"
+
+        agent_dir = KNOWLEDGE_BASE_PATH / namespace
+        shared_dir = KNOWLEDGE_BASE_PATH / "shared"
+
+        files: list[Path] = []
+        for d in (agent_dir, shared_dir):
+            if d.exists() and d.is_dir():
+                for pattern in ("*.md", "*.txt", "*.pdf"):
+                    files.extend(d.glob(pattern))
+        return files

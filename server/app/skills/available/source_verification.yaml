@@ -1,0 +1,21 @@
+name: "source_verification"
+version: "1.0.0"
+description: "Credibility scoring and cross-referencing sources for Research Agent"
+agent: "research"
+
+capabilities:
+  - score_source
+  - verify_claim
+
+tools:
+  - name: "score_source"
+    description: "Score a source URL for credibility (returns tier: high/medium/low)"
+    parameters:
+      url: { type: "string", required: true }
+      title: { type: "string", required: false }
+
+  - name: "verify_claim"
+    description: "Verify a claim against provided source excerpts"
+    parameters:
+      claim: { type: "string", required: true }
+      supporting_sources: { type: "array", required: true }

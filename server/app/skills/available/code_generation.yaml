@@ -1,0 +1,23 @@
+name: "code_generation"
+version: "1.0.0"
+description: "LLM-based code writing with safety scanning and style enforcement"
+agent: "developer"
+
+capabilities:
+  - generate
+  - review
+  - safety_scan
+
+tools:
+  - name: "generate"
+    description: "Generate code from a natural language description"
+    parameters:
+      description: { type: "string", required: true }
+      language: { type: "string", required: false }
+      context: { type: "string", required: false }
+
+  - name: "review"
+    description: "Static code review with severity-rated issue detection"
+    parameters:
+      code: { type: "string", required: true }
+      language: { type: "string", required: false }

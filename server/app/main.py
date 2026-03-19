@@ -89,6 +89,20 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("PostgreSQL connection FAILED — server starting anyway")
 
+    # v2.0: Load AgentRegistry from DB (agents table)
+    try:
+        from app.agents.agent_registry import agent_registry as _agent_registry
+        await _agent_registry.load()
+        logger.info(
+            f"AgentRegistry loaded: "
+            f"{[a['id'] for a in _agent_registry.all_active()]}"
+        )
+    except Exception as e:
+        logger.warning(
+            f"AgentRegistry.load() failed — orchestration unavailable until "
+            f"agents table exists (run migrate.py). Error: {e}"
+        )
+
     # Verify Redis
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     try:

@@ -1,0 +1,27 @@
+name: "code_execution"
+version: "1.0.0"
+description: "Static code analysis, SQL classification, explanation, and debug assistance"
+agent: "developer"
+
+capabilities:
+  - classify_sql
+  - explain_code
+  - debug_assistance
+
+tools:
+  - name: "classify_sql"
+    description: "Classify SQL as read-only (safe to execute) or write operation"
+    parameters:
+      sql: { type: "string", required: true }
+
+  - name: "explain_code"
+    description: "Explain code in plain language step by step"
+    parameters:
+      code: { type: "string", required: true }
+      language: { type: "string", required: false }
+
+  - name: "debug_assistance"
+    description: "Analyse code and error message to identify root cause and fix"
+    parameters:
+      code: { type: "string", required: true }
+      error_message: { type: "string", required: true }

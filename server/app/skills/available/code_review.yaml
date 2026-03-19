@@ -1,0 +1,20 @@
+name: "code_review"
+version: "1.0.0"
+description: "Static analysis, bug detection, and security vulnerability scanning"
+agent: "developer"
+
+capabilities:
+  - full_review
+  - security_scan
+
+tools:
+  - name: "full_review"
+    description: "Comprehensive code review with severity-rated issues and quality score"
+    parameters:
+      code: { type: "string", required: true }
+      language: { type: "string", required: false }
+
+  - name: "security_scan"
+    description: "Security vulnerability scan for injection, XSS, path traversal"
+    parameters:
+      code: { type: "string", required: true }

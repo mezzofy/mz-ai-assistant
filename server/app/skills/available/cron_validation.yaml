@@ -1,0 +1,35 @@
+name: "cron_validation"
+version: "1.0.0"
+description: "Cron expression validation, HKT/SGT-UTC conversion, next-run calculation"
+agent: "scheduler"
+
+dependencies:
+  - croniter>=1.3.8
+
+capabilities:
+  - validate
+  - compute_next_runs
+  - explain
+  - natural_to_cron
+
+tools:
+  - name: "validate"
+    description: "Validate a 5-field cron expression and return field breakdown"
+    parameters:
+      cron_expr: { type: "string", required: true }
+
+  - name: "compute_next_runs"
+    description: "Compute next N run times in UTC and HKT/SGT"
+    parameters:
+      cron_expr: { type: "string", required: true }
+      count: { type: "integer", required: false }
+
+  - name: "explain"
+    description: "Explain a cron expression in plain language with next run times"
+    parameters:
+      cron_expr: { type: "string", required: true }
+
+  - name: "natural_to_cron"
+    description: "Convert natural language schedule description to cron expression"
+    parameters:
+      natural_language: { type: "string", required: true }
