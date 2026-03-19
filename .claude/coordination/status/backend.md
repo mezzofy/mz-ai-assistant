@@ -1,9 +1,15 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-19
 **Project:** mz-ai-assistant
-**Session:** 22 (portal-v1.40.0 — Task 1: files download endpoint)
+**Session:** 23 (BUG-fix: get_crm_leads LEFT JOIN UUID type mismatch)
 
-## Completed This Session (Session 22)
+## Completed This Session (Session 23)
+- ✅ BUG fix: `server/app/api/admin_portal.py` line 1489
+  - Changed `LEFT JOIN users u ON u.id::text = sl.assigned_to` → `LEFT JOIN users u ON u.id = sl.assigned_to`
+  - Root cause: unnecessary `::text` cast caused PostgreSQL "operator does not exist: text = uuid" error
+  - Both `users.id` and `sales_leads.assigned_to` are UUID — direct UUID = UUID comparison is correct
+
+## Previous Session (22): portal-v1.40.0 — Task 1: files download endpoint
 - Task 1 DONE: Added `GET /files/{file_id}/download` endpoint to admin portal router
   - File: `server/app/api/admin_portal.py` (lines 899–956)
   - Inserted after `folder-tree` endpoint, before `# ── Users ──` section

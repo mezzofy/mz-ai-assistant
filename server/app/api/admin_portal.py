@@ -1486,7 +1486,7 @@ async def get_crm_leads(
                 sl.follow_up_date, sl.last_contacted, NULL::text AS source_ref,
                 u.name AS assigned_to_name, u.email AS assigned_to_email
             FROM sales_leads sl
-            LEFT JOIN users u ON u.id::text = sl.assigned_to
+            LEFT JOIN users u ON u.id = sl.assigned_to
             WHERE {where}
             ORDER BY sl.created_at DESC
             LIMIT :limit OFFSET :offset
