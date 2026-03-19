@@ -78,6 +78,7 @@ export interface FileRecord {
   size_bytes: number | null
   created_at: string
   download_url: string
+  subfolder?: string | null
 }
 
 export interface FolderGroup {
@@ -127,6 +128,7 @@ export interface Lead {
   follow_up_date: string | null
   last_contacted: string | null
   source_ref: string | null
+  assigned_to: string | null
   assigned_to_name: string | null
   assigned_to_email: string | null
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
-import type { Lead } from '../types'
+import type { Lead, User } from '../types'
 
 const STATUS_COLORS: Record<string, string> = {
   new: '#7A8FA6',
@@ -56,6 +56,12 @@ export default function CRMPage() {
     queryFn: () => portalApi.getCrmCountries().then(r => r.data),
   })
   const countries: string[] = countriesData?.countries || []
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => portalApi.getUsers().then(r => r.data),
+  })
+  const users: User[] = usersData?.users || []
 
   const createMutation = useMutation({
     mutationFn: (data: typeof newForm) => portalApi.createLead(data as Record<string, unknown>),
@@ -398,14 +404,17 @@ export default function CRMPage() {
               </div>
               <div className="col-span-2">
                 <label className="block text-xs text-gray-400 mb-1">Assigned To</label>
-                <input
-                  type="text"
-                  value={editLead.assigned_to_name || editLead.assigned_to_email?.split('@')[0] || ''}
-                  readOnly
-                  className="w-full px-3 py-2 rounded-lg text-sm border outline-none cursor-default"
-                  style={{ background: '#1E2A3A', borderColor: '#374151', color: '#6B7280' }}
-                  placeholder="Unassigned"
-                />
+                <select
+                  value={editLead.assigned_to || ''}
+                  onChange={e => setEditLead(l => l ? { ...l, assigned_to: e.target.value || null } : l)}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                >
+                  <option value="">— Unassigned —</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                  ))}
+                </select>
               </div>
               <div className="col-span-2">
                 <label className="block text-xs text-gray-400 mb-1">Notes</label>
@@ -433,6 +442,7 @@ export default function CRMPage() {
                     source: editLead.source,
                     status: editLead.status,
                     notes: editLead.notes || undefined,
+                    assigned_to: editLead.assigned_to || undefined,
                   },
                 })}
                 disabled={updateMutation.isPending}

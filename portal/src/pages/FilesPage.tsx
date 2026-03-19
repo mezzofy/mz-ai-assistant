@@ -38,6 +38,7 @@ const DEPT_ORDER = ['company', 'management', 'finance', 'hr', 'sales', 'marketin
 
 interface FlatFile extends FileRecord {
   folderLabel: string
+  subfolderLabel: string | null
 }
 
 export default function FilesPage() {
@@ -86,7 +87,11 @@ export default function FilesPage() {
     })
 
   const allFiles: FlatFile[] = folders.flatMap((g) =>
-    g.files.map((f) => ({ ...f, folderLabel: folderLabel(g) }))
+    g.files.map((f) => ({
+      ...f,
+      folderLabel: folderLabel(g),
+      subfolderLabel: f.subfolder ? f.subfolder.toUpperCase() : null,
+    }))
   )
 
   const displayed: FlatFile[] = searchQuery.trim()
@@ -219,7 +224,7 @@ export default function FilesPage() {
                       className="px-2 py-0.5 rounded text-xs font-mono font-medium"
                       style={{ background: '#1E2A3A', color: '#f97316' }}
                     >
-                      {f.folderLabel}
+                      {f.subfolderLabel ? `${f.folderLabel} > ${f.subfolderLabel}` : f.folderLabel}
                     </span>
                   </td>
                   <td className="py-3 text-xs font-mono" style={{ color: '#6B7280' }}>
@@ -229,7 +234,7 @@ export default function FilesPage() {
                     {f.created_at ? new Date(f.created_at).toLocaleDateString() : '\u2014'}
                   </td>
                   <td className="py-3 pr-4">
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => portalApi.downloadFile(f.id, f.filename)}
                         title="Download"

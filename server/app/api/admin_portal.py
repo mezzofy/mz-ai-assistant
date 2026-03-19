@@ -881,6 +881,18 @@ async def get_folder_tree(
             except Exception:
                 size = None
 
+        # Extract subfolder from file_path (parts after {dept}/{email-or-shared}/)
+        subfolder = None
+        if r.file_path:
+            try:
+                artifacts_root = Path("/var/mezzofy/artifacts")
+                rel_parts = Path(r.file_path).relative_to(artifacts_root).parts
+                # rel_parts: (dept, email-or-"shared", [subfolder...], filename)
+                if len(rel_parts) > 3:
+                    subfolder = "/".join(rel_parts[2:-1])
+            except Exception:
+                subfolder = None
+
         grp["files"].append({
             "id": str(r.id),
             "filename": r.filename,
@@ -891,6 +903,7 @@ async def get_folder_tree(
             "size_bytes": size,
             "created_at": r.created_at.isoformat() if r.created_at else None,
             "download_url": f"/files/{r.id}",
+            "subfolder": subfolder,
         })
 
     return {"folders": list(groups.values())}
@@ -1506,6 +1519,7 @@ async def get_crm_leads(
                 sl.contact_phone, sl.industry, sl.location, sl.source,
                 sl.status, sl.notes, sl.created_at, sl.created_at AS updated_at,
                 sl.follow_up_date, sl.last_contacted, NULL::text AS source_ref,
+                sl.assigned_to,
                 u.name AS assigned_to_name, u.email AS assigned_to_email
             FROM sales_leads sl
             LEFT JOIN users u ON u.id = sl.assigned_to
@@ -1541,6 +1555,7 @@ async def get_crm_leads(
             "follow_up_date": r.follow_up_date.isoformat() if r.follow_up_date else None,
             "last_contacted": r.last_contacted.isoformat() if r.last_contacted else None,
             "source_ref": r.source_ref,
+            "assigned_to": str(r.assigned_to) if r.assigned_to else None,
             "assigned_to_name": r.assigned_to_name,
             "assigned_to_email": r.assigned_to_email,
         })
@@ -1608,6 +1623,7 @@ async def update_crm_lead(
     allowed = {
         "company_name", "contact_name", "contact_email", "contact_phone",
         "industry", "location", "source", "status", "notes", "follow_up_date",
+        "assigned_to",
     }
     updates = {k: v for k, v in body.items() if k in allowed}
     if not updates:
