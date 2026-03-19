@@ -30,6 +30,7 @@ from app.agents.support_agent import SupportAgent
 from app.agents.research_agent import ResearchAgent
 from app.agents.developer_agent import DeveloperAgent
 from app.agents.scheduler_agent import SchedulerAgent
+from app.agents.legal_agent import LegalAgent
 
 logger = logging.getLogger("mezzofy.agents.registry")
 
@@ -169,6 +170,8 @@ AGENT_MAP = {
     "research": ResearchAgent,
     "developer": DeveloperAgent,
     "scheduler": SchedulerAgent,
+    "legal": LegalAgent,
+    "agent_legal": LegalAgent,  # Support explicit agent_override routing
 }
 
 # All agent classes (for cross-department keyword fallback)

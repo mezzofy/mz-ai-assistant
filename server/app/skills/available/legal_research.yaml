@@ -1,0 +1,51 @@
+name: "legal_research"
+version: "1.0.0"
+description: "Research jurisdiction-specific laws, regulations, and compliance requirements for business activities"
+agent: "legal"
+
+capabilities:
+  - research_jurisdiction_law
+  - lookup_regulatory_requirements
+  - check_compliance_requirements
+  - cross_jurisdiction_comparison
+
+supported_jurisdictions:
+  - "singapore"
+  - "hong_kong"
+  - "malaysia"
+  - "uae"
+  - "saudi_arabia"
+  - "qatar"
+  - "cayman_islands"
+
+research_depth_levels:
+  - "overview"   # High-level summary — quick answer
+  - "standard"   # Standard depth — key statutes and requirements
+  - "deep"       # Deep research — web search + KB + regulatory citations
+
+tools:
+  - name: "research_jurisdiction_law"
+    description: "Research the applicable law and legal framework for a topic in a specific jurisdiction"
+    parameters:
+      topic: { type: "string", required: true }
+      jurisdiction: { type: "string", required: true }
+      depth: { type: "string", required: false, default: "standard" }
+
+  - name: "lookup_regulatory_requirements"
+    description: "Look up regulatory requirements for a business activity in a jurisdiction"
+    parameters:
+      activity: { type: "string", required: true }
+      jurisdiction: { type: "string", required: true }
+      entity_type: { type: "string", required: false }
+
+  - name: "check_compliance_requirements"
+    description: "Check compliance requirements across multiple jurisdictions for a company"
+    parameters:
+      company_type: { type: "string", required: true }
+      jurisdictions: { type: "array", required: true }
+      industry: { type: "string", required: false }
+      annual_revenue_usd: { type: "number", required: false }
+
+dependencies:
+  - "playwright>=1.40.0"
+  - "beautifulsoup4>=4.12.0"

@@ -1,0 +1,69 @@
+name: "contract_drafting"
+version: "1.0.0"
+description: "Draft and customise business contracts and legal agreements for supported jurisdictions"
+agent: "legal"
+
+capabilities:
+  - draft_nda
+  - draft_service_agreement
+  - draft_employment_contract
+  - draft_mou
+  - draft_vendor_agreement
+  - draft_consultancy_agreement
+  - draft_ip_assignment
+  - draft_distribution_agreement
+  - draft_loi
+  - draft_shareholders_agreement
+  - customise_jurisdiction_clauses
+
+supported_contract_types:
+  - "nda"
+  - "service_agreement"
+  - "employment_contract"
+  - "mou"
+  - "vendor_agreement"
+  - "consultancy_agreement"
+  - "ip_assignment"
+  - "distribution_agreement"
+  - "loi"
+  - "shareholders_agreement"
+  - "exempted_company_mou"
+
+supported_jurisdictions:
+  - "singapore"
+  - "hong_kong"
+  - "malaysia"
+  - "uae"
+  - "saudi_arabia"
+  - "qatar"
+  - "cayman_islands"
+  - "general"
+
+tools:
+  - name: "draft_contract"
+    description: "Generate a complete legal contract from a template for the specified jurisdiction"
+    parameters:
+      contract_type: { type: "string", required: true }
+      party_a: { type: "string", required: true }
+      party_b: { type: "string", required: true }
+      commercial_terms: { type: "object", required: false }
+      governing_law: { type: "string", required: false }
+      special_clauses: { type: "array", required: false }
+      output_format: { type: "string", required: false, default: "docx" }
+
+  - name: "customise_clauses"
+    description: "Apply specific modifications to an existing contract draft"
+    parameters:
+      base_contract_text: { type: "string", required: true }
+      modifications: { type: "array", required: true }
+      governing_law: { type: "string", required: false }
+
+  - name: "get_contract_template"
+    description: "Load a contract template for the specified type and jurisdiction from the knowledge base"
+    parameters:
+      contract_type: { type: "string", required: true }
+      jurisdiction: { type: "string", required: true }
+
+dependencies:
+  - "python-docx>=1.1.0"
+  - "jinja2>=3.1.3"

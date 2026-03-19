@@ -1,0 +1,47 @@
+name: "document_review"
+version: "1.0.0"
+description: "Extract, parse, and analyse legal documents (PDF and DOCX formats)"
+agent: "legal"
+
+capabilities:
+  - extract_text_from_pdf
+  - extract_text_from_docx
+  - identify_document_type
+  - detect_parties
+  - detect_governing_law
+  - detect_key_dates
+
+tools:
+  - name: "extract_legal_document"
+    description: "Extract full text from a PDF or DOCX legal document"
+    parameters:
+      file_path: { type: "string", required: true }
+      file_type: { type: "string", required: false, default: "auto" }
+
+  - name: "identify_document_type"
+    description: "Classify the type of legal document (NDA, service agreement, employment contract, etc.)"
+    parameters:
+      document_text: { type: "string", required: true }
+
+  - name: "detect_parties"
+    description: "Extract the names and roles of all contracting parties from a legal document"
+    parameters:
+      document_text: { type: "string", required: true }
+
+  - name: "detect_governing_law"
+    description: "Identify the governing law and jurisdiction clause in a legal document"
+    parameters:
+      document_text: { type: "string", required: true }
+
+constraints:
+  max_file_size_mb: 50
+  max_pages: 200
+  supported_formats:
+    - "pdf"
+    - "docx"
+    - "doc"
+
+dependencies:
+  - "python-docx>=1.1.0"
+  - "reportlab>=4.0.7"
+  - "PyPDF2>=3.0.0"

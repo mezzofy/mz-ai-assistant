@@ -1,0 +1,147 @@
+name: "jurisdiction_advisory"
+version: "1.0.0"
+description: "Provide jurisdiction-specific legal advisory for international business structuring and operations"
+agent: "legal"
+
+capabilities:
+  - jurisdiction_overview
+  - cross_jurisdiction_comparison
+  - jurisdiction_recommendation
+  - entity_structure_advice
+  - regulatory_landscape_summary
+
+jurisdictions_covered:
+  singapore:
+    full_name: "Republic of Singapore"
+    legal_system: "Common Law (English origin)"
+    key_regulator: "ACRA, MAS, MOM"
+    primary_court: "Singapore High Court"
+    arbitration_centre: "SIAC"
+    strengths:
+      - "Asia's premier financial hub"
+      - "Strong IP protection regime"
+      - "Pro-business regulatory environment"
+      - "Extensive double tax treaty network"
+    entity_types:
+      - "Private Limited Company (Pte Ltd)"
+      - "Branch Office"
+      - "Representative Office"
+      - "Variable Capital Company (VCC)"
+
+  hong_kong:
+    full_name: "Hong Kong SAR, China"
+    legal_system: "Common Law (English origin, maintained post-1997)"
+    key_regulator: "CR, SFC, HKMA, Labour Department"
+    primary_court: "Court of First Instance"
+    arbitration_centre: "HKIAC"
+    strengths:
+      - "Gateway to mainland China"
+      - "Low and simple tax regime"
+      - "Free capital flows"
+      - "World-class financial infrastructure"
+    entity_types:
+      - "Private Limited Company (Ltd)"
+      - "Branch Office"
+      - "Representative Office"
+
+  malaysia:
+    full_name: "Malaysia"
+    legal_system: "Common Law (English origin) + Syariah Law (personal matters)"
+    key_regulator: "SSM, Bank Negara Malaysia, LHDN"
+    primary_court: "High Court of Malaya"
+    arbitration_centre: "AIAC (Asian International Arbitration Centre)"
+    strengths:
+      - "ASEAN manufacturing hub"
+      - "Competitive cost base"
+      - "Digital economy incentives (MSC status)"
+      - "Skilled multilingual workforce"
+    entity_types:
+      - "Sendirian Berhad (Sdn Bhd)"
+      - "Branch Office"
+      - "Representative Office"
+
+  uae:
+    full_name: "United Arab Emirates"
+    legal_system: "Civil Law (Federal) + Common Law (DIFC/ADGM free zones)"
+    key_regulator: "DED, CBUAE, DFSA (DIFC), FSRA (ADGM)"
+    primary_court: "Federal Court + DIFC Courts / ADGM Courts (free zones)"
+    arbitration_centre: "DIAC, ADCCAC"
+    strengths:
+      - "Zero personal income tax"
+      - "DIFC/ADGM common law enclaves"
+      - "Strategic Middle East/Africa hub"
+      - "100% foreign ownership in free zones"
+    entity_types:
+      - "Free Zone Company (FZC/FZCO)"
+      - "LLC (mainland)"
+      - "Branch Office"
+      - "Representative Office"
+
+  saudi_arabia:
+    full_name: "Kingdom of Saudi Arabia"
+    legal_system: "Islamic Law (Sharia) + Royal Decrees + Vision 2030 reforms"
+    key_regulator: "MISA, CMA, SAMA, Ministry of Commerce"
+    primary_court: "Commercial Court"
+    arbitration_centre: "SCCA (Saudi Center for Commercial Arbitration)"
+    strengths:
+      - "Largest Middle East economy"
+      - "Vision 2030 investment opportunities"
+      - "NEOM and giga-projects"
+      - "100% foreign ownership (selected sectors post-reform)"
+    entity_types:
+      - "LLC (limited liability company)"
+      - "Branch Office"
+      - "Regional Headquarters (new RHQ programme)"
+
+  qatar:
+    full_name: "State of Qatar"
+    legal_system: "Civil Law (French/Egyptian influence) + Common Law (QFC)"
+    key_regulator: "MOCI, QCB, QFC Regulatory Authority"
+    primary_court: "Court of First Instance"
+    arbitration_centre: "QICCA, QFC Dispute Resolution Centre"
+    strengths:
+      - "High per-capita GDP"
+      - "QFC common law financial centre"
+      - "Post-FIFA 2022 infrastructure buildout"
+      - "100% foreign ownership in QFC"
+    entity_types:
+      - "LLC"
+      - "QFC Entity"
+      - "Branch Office"
+
+  cayman_islands:
+    full_name: "Cayman Islands (British Overseas Territory)"
+    legal_system: "Common Law (English origin)"
+    key_regulator: "CIMA (Cayman Islands Monetary Authority), Registrar of Companies"
+    primary_court: "Grand Court of the Cayman Islands"
+    arbitration_centre: "CIAC (Cayman Islands Arbitration Centre)"
+    strengths:
+      - "Zero corporate tax, no capital gains tax"
+      - "Leading offshore fund jurisdiction"
+      - "Flexible exempted company structure"
+      - "Recognised by global institutional investors"
+    entity_types:
+      - "Exempted Company"
+      - "Exempted Limited Partnership (ELP)"
+      - "LLC (Cayman)"
+      - "Segregated Portfolio Company (SPC)"
+
+tools:
+  - name: "get_jurisdiction_overview"
+    description: "Get a comprehensive overview of a jurisdiction's legal framework for business"
+    parameters:
+      jurisdiction: { type: "string", required: true }
+      topic: { type: "string", required: false }
+
+  - name: "compare_jurisdictions"
+    description: "Compare legal and regulatory features across multiple jurisdictions"
+    parameters:
+      topic: { type: "string", required: true }
+      jurisdictions: { type: "array", required: true }
+
+  - name: "recommend_jurisdiction"
+    description: "Recommend the most suitable jurisdiction for a business activity based on requirements"
+    parameters:
+      business_activity: { type: "string", required: true }
+      considerations: { type: "array", required: false }
+      company_size: { type: "string", required: false }

@@ -544,6 +544,22 @@ def run_migrations(conn):
     """)
     print("  ✅ agents (9 agents seeded)")
 
+    # ── Leo (Legal Agent) seed ────────────────────────────────────────
+    cur.execute("""
+        INSERT INTO agents
+            (id, name, display_name, department, description,
+             skills, tools_allowed, llm_model, memory_namespace,
+             is_orchestrator, can_be_spawned)
+        VALUES
+          ('agent_legal', 'Legal Agent', 'Leo (Legal)', 'legal',
+           'I review and draft business contracts, provide jurisdiction-specific legal advisory for Singapore, Hong Kong, Malaysia, UAE, Saudi Arabia, Qatar, and Cayman Islands, and assess legal risk in documents.',
+           '["document_review","contract_drafting","legal_research","jurisdiction_advisory"]',
+           '["read_pdf","read_docx","create_docx","create_pdf","outlook_send_email","teams_post_message","database_query","web_research"]',
+           'claude-sonnet-4-6', 'legal', FALSE, TRUE)
+        ON CONFLICT (id) DO NOTHING
+    """)
+    print("  ✅ agents (Leo / agent_legal seeded)")
+
     # ── 15. agent_task_log (inter-agent delegation chain tracking) ──
     cur.execute("""
         CREATE TABLE IF NOT EXISTS agent_task_log (

@@ -43,6 +43,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_config
 from app.core.database import get_db
 from app.core.auth import decode_access_token
+from app.agents.legal_agent import LEGAL_TRIGGERS
 from app.input.input_router import process_input
 from app.context.session_manager import (
     get_or_create_session,
@@ -161,18 +162,30 @@ def _is_scheduler_request(message: str) -> bool:
     return True
 
 
+def _is_legal_request(message: str) -> bool:
+    """Return True if the message contains a legal trigger keyword."""
+    lower = message.lower()
+    return any(trigger in lower for trigger in LEGAL_TRIGGERS)
+
+
 def _detect_agent_type(message: str) -> str | None:
     """
     Detect whether a message should be routed to a specific power-user agent.
 
-    Returns "research", "developer", or None (fall through to department routing).
-    Prefix syntax ("research: ...", "developer: ...") takes priority over keyword scan.
+    Returns "research", "developer", "legal", or None (fall through to department routing).
+    Prefix syntax ("research: ...", "developer: ...", "legal: ...") takes priority.
+
+    Legal detection runs BEFORE _is_long_running() — legal phrases like "review this
+    NDA" or "draft a contract" may contain long-running keywords but must always route
+    to LegalAgent for synchronous handling. Same pattern as SchedulerAgent routing.
     """
     lower = message.lower()
     if lower.startswith("research:") or any(kw in lower for kw in _RESEARCH_KEYWORDS):
         return "research"
     if lower.startswith("developer:") or any(kw in lower for kw in _DEVELOPER_KEYWORDS):
         return "developer"
+    if lower.startswith("legal:") or _is_legal_request(message):
+        return "legal"
     return None
 
 
@@ -207,6 +220,13 @@ async def send_message(
     # "schedule a weekly report" contain long-running keywords ("weekly", "report").
     if _is_scheduler_request(body.message):
         task["agent"] = "scheduler"
+
+    # Legal detection runs BEFORE _is_long_running() check — legal requests like
+    # "review this NDA" or "draft a contract" may match long-running keywords
+    # ("report", "analyse") but must always route to LegalAgent synchronously.
+    # Same pattern as SchedulerAgent: set task["agent"] before Celery gate check.
+    if not task.get("agent") and _is_legal_request(body.message):
+        task["agent"] = "legal"
 
     # Detect power-user agent type before long-running check
     # (checked first so "research:"/"developer:" prefixes always route correctly)
