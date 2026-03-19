@@ -1,8 +1,29 @@
 # Context Checkpoint: Frontend Agent
 **Date:** 2026-03-19
-**Session:** 4 of 4
-**Context:** ~20% at checkpoint
-**Reason:** All assigned tasks complete
+**Session:** 5
+**Context:** ~15% at checkpoint
+**Reason:** AgentOffice canvas cleanup task complete
+
+## Completed This Session (Session 5)
+
+- ✅ AgentOffice.tsx: Removed entire computer monitor block (lines 86–99) from `drawSprite()` — 15 lines deleted
+- ✅ AgentOffice.tsx: Verified two-pass label render — Pass 1 (sprites + bubbles) at lines 457–481, Pass 2 (labels) at lines 484–501 — already correct, no changes needed
+- ✅ Git commit: `f8da2f4` — "feat(portal): remove computer screens from AgentOffice canvas (v1.42.0)"
+- ⚠️ EC2 deploy: SSH to ubuntu@3.1.255.48 initiated; `git pull` returned "Already up to date"; `npm run build` started (1644 modules transformed, reached "rendering chunks"); SSH connection timed out before completion confirmed
+
+## EC2 Deploy — Action May Be Required
+If build did not complete, re-run on EC2:
+```bash
+ssh -i C:/Mezzofy/workspace/mz-ai-assistant/mz-ai-key.pem ubuntu@3.1.255.48
+cd /home/ubuntu/mz-ai-assistant/portal
+npm run build
+sudo cp -r dist/* /var/www/mission-control/
+```
+
+## Files Modified (Session 5)
+- `portal/src/components/AgentOffice.tsx` — Removed computer monitor block (15 lines)
+
+---
 
 ## Completed This Session (Session 4)
 
