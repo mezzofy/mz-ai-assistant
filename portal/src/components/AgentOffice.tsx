@@ -259,9 +259,9 @@ function drawLabel(
   const boxX = x - boxW / 2
   const boxY = y + 18 * scale
 
-  ctx.fillStyle = 'rgba(5,10,20,0.82)'
-  ctx.strokeStyle = deptColor + '90'
-  ctx.lineWidth = 1
+  ctx.fillStyle = 'rgba(235,235,240,0.92)'
+  ctx.strokeStyle = deptColor
+  ctx.lineWidth = 1.5
   // @ts-ignore
   ctx.roundRect(boxX, boxY, boxW, boxH, 4)
   ctx.fill()
@@ -273,7 +273,7 @@ function drawLabel(
   ctx.fillText(deptText, x, boxY + 13)
 
   ctx.font = 'bold 12px sans-serif'
-  ctx.fillStyle = '#FFFFFF'
+  ctx.fillStyle = '#1A1A2E'
   ctx.fillText(persona, x, boxY + 28)
   ctx.textAlign = 'left'
 }
@@ -438,11 +438,12 @@ export default function AgentOffice({ agents, onAgentClick }: Props) {
         cur.y += (ty - cur.y) * 0.07
       })
 
-      // ── Pass 1: Draw all sprites and bubbles ──────────────────────────────
+      // ── Render all agents ────────────────────────────────────────────
       ALL_DEPTS.forEach((dept) => {
         const cur = animPosRef.current[dept]
         const home = HOME_POSITIONS[dept]
         const isBusy = agentMap[dept]?.is_busy || false
+        const deptColor = DEPT_COLORS[dept] || '#9CA3AF'
         const scale = dept === 'management' ? 2.0 : 1.5
 
         const target = isBusy
@@ -463,24 +464,6 @@ export default function AgentOffice({ agents, onAgentClick }: Props) {
         } else if (isWalking) {
           drawWalkingBubble(ctx, cur.x, cur.y, scale)
         }
-      })
-
-      // ── Pass 2: Draw all labels on top of sprites ─────────────────────────
-      ALL_DEPTS.forEach((dept) => {
-        const cur = animPosRef.current[dept]
-        const home = HOME_POSITIONS[dept]
-        const isBusy = agentMap[dept]?.is_busy || false
-        const deptColor = DEPT_COLORS[dept] || '#9CA3AF'
-        const scale = dept === 'management' ? 2.0 : 1.5
-
-        const target = isBusy
-          ? TABLE_SEATS[busyDepts.indexOf(dept) % TABLE_SEATS.length]
-          : home
-        const distToTarget = Math.hypot(cur.x - target.x, cur.y - target.y)
-        const isWalking = distToTarget > 8
-        const bobSpeed = isWalking ? 600 : 2000
-        const bobAmp = isWalking ? 3 : 2
-        const bobOffset = Math.round(Math.sin(timestamp / bobSpeed + home.x) * bobAmp)
 
         drawLabel(ctx, dept, cur.x, cur.y + bobOffset, deptColor, scale)
       })
