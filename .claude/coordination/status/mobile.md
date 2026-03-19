@@ -1,8 +1,31 @@
 # Context Checkpoint: Mobile Agent
-**Date:** 2026-03-16
-**Session:** v1.30.0 — Notification History Screen
-**Context:** ~15% at checkpoint
-**Reason:** v1.30.0 release APK complete and verified
+**Date:** 2026-03-20
+**Session:** Targeted fixes — dept colors + persona greeting
+**Context:** ~20% at checkpoint
+**Reason:** Both fixes applied and committed (85e5d6b)
+
+## Completed This Session
+- ✅ Fix 1 — Added 5 missing dept colors (hr, legal, research, developer, scheduler) to both `BRAND.deptColors` and `LIGHT_THEME.deptColors` in `APP/src/utils/theme.ts`
+- ✅ Fix 2 — Replaced static `WELCOME_MSG` with `buildWelcomeMsg()` in `APP/src/stores/chatStore.ts`:
+  - Time-of-day greeting using HKT (UTC+8): morning/afternoon/evening
+  - Per-department persona intro for all 10 agents (Max, Fiona, Sam, Maya, Suki, Hana, Leo, Rex, Dev, Sched)
+  - Falls back to `GENERIC_GREETING` when department is unknown
+  - Called at store init and `resetChat()`
+  - Department sourced from `useAuthStore.getState().user?.department` via lazy `require()` to avoid circular import
+- ✅ TypeScript check passed (only pre-existing `@types/jest` warning, unrelated to changes)
+- ✅ Git committed: `85e5d6b` on branch `eric-design`
+
+## Files Modified
+- `APP/src/utils/theme.ts` — added hr/legal/research/developer/scheduler to BRAND + LIGHT_THEME deptColors
+- `APP/src/stores/chatStore.ts` — replaced WELCOME_MSG with buildWelcomeMsg(); added PERSONA_GREETINGS + GENERIC_GREETING
+
+## Key Decisions
+- Used `require('./authStore')` inline inside `buildWelcomeMsg()` to break circular dependency (authStore already imports useChatStore)
+- `resetChat()` now calls `buildWelcomeMsg()` directly instead of spreading WELCOME_MSG — produces a fresh id/time each reset
+
+---
+
+# Previous Session: v1.30.0 — Notification History Screen
 
 ---
 
