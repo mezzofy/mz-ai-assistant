@@ -896,6 +896,66 @@ async def get_folder_tree(
     return {"folders": list(groups.values())}
 
 
+@router.get("/files/{file_id}/download")
+async def download_file(
+    file_id: str,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Download a file by artifact ID — admin portal auth."""
+    from sqlalchemy import text as sql_text
+    from fastapi.responses import FileResponse
+    from pathlib import Path as FsPath
+    import os
+
+    row = await db.execute(
+        sql_text("SELECT filename, file_path, file_type FROM artifacts WHERE id = :id"),
+        {"id": file_id},
+    )
+    artifact = row.fetchone()
+    if artifact is None or not artifact.file_path:
+        from fastapi import HTTPException, status as http_status
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    file_path = artifact.file_path
+    if not os.path.exists(file_path):
+        from fastapi import HTTPException, status as http_status
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="File removed from storage")
+
+    # Basic path traversal guard
+    from app.context.artifact_manager import get_artifacts_dir
+    resolved = FsPath(file_path).resolve()
+    artifact_root = get_artifacts_dir().resolve()
+    if not str(resolved).startswith(str(artifact_root)):
+        from fastapi import HTTPException, status as http_status
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    # Map file_type to MIME (reuse same logic as files.py)
+    mime_map = {
+        "pdf": "application/pdf",
+        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xls": "application/vnd.ms-excel",
+        "csv": "text/csv",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "txt": "text/plain",
+        "md": "text/markdown",
+        "json": "application/json",
+        "png": "image/png",
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "mp4": "video/mp4",
+        "mp3": "audio/mpeg",
+    }
+    mime = mime_map.get((artifact.file_type or "").lower(), "application/octet-stream")
+
+    return FileResponse(
+        path=file_path,
+        filename=artifact.filename,
+        media_type=mime,
+    )
+
+
 # ── Users ─────────────────────────────────────────────────────────────────────
 
 @router.get("/users")

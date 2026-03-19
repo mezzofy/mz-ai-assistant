@@ -1,4 +1,31 @@
 # Context Checkpoint: Backend Agent
+**Date:** 2026-03-19
+**Project:** mz-ai-assistant
+**Session:** 22 (portal-v1.40.0 — Task 1: files download endpoint)
+
+## Completed This Session (Session 22)
+- Task 1 DONE: Added `GET /files/{file_id}/download` endpoint to admin portal router
+  - File: `server/app/api/admin_portal.py` (lines 899–956)
+  - Inserted after `folder-tree` endpoint, before `# ── Users ──` section
+  - Lazy inline imports throughout (sql_text, FileResponse, FsPath, os, HTTPException, get_artifacts_dir)
+  - Path traversal guard using `get_artifacts_dir().resolve()`
+  - Inline MIME map (13 types + octet-stream fallback)
+  - Uses `AdminUser` dependency — consistent with all other admin portal endpoints
+
+## Backend Work for v1.40.0: COMPLETE
+- No further backend tasks. Frontend Agent handles Tasks 2–6. Deploy is Task 7.
+
+## Resume Instructions
+After /clear, load in order:
+1. CLAUDE.md
+2. .claude/agents/backend.md
+3. .claude/coordination/status/backend.md
+4. .claude/coordination/plans/portal-v1.40.0-plan.md
+Backend Task 1 is DONE. No further backend action needed for v1.40.0.
+
+---
+
+# Previous Checkpoint: Session 21 (BUG-notification-history — stale comment removed)
 **Date:** 2026-03-17
 **Project:** mz-ai-assistant
 **Session:** 21 (BUG-notification-history — stale comment removed)

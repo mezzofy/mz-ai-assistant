@@ -112,10 +112,13 @@ export default function TasksPage() {
                       <button
                         onClick={() => killMutation.mutate(t.id)}
                         disabled={killMutation.isPending}
-                        className="px-2 py-1 rounded text-xs transition-colors hover:bg-red-500/20"
+                        title="Kill task"
+                        className="p-1.5 rounded transition-colors hover:bg-red-500/20 disabled:opacity-40"
                         style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
                       >
-                        Kill
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        </svg>
                       </button>
                     )}
                   </td>

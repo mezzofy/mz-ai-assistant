@@ -53,6 +53,19 @@ export const portalApi = {
     })
   },
   deleteFile: (id: string) => client.delete(`/api/admin-portal/files/${id}`),
+  downloadFile: async (id: string, filename: string): Promise<void> => {
+    const response = await client.get(`/api/admin-portal/files/${id}/download`, {
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(response.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  },
 
   // CRM
   getCrmLeads: (page = 1, status?: string, search?: string) =>
