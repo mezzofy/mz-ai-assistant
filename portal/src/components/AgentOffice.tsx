@@ -12,6 +12,7 @@ const AGENT_POSITIONS: Record<string, { x: number; y: number }> = {
   hr:         { x: 330, y: 330 },
   marketing:  { x: 470, y: 330 },
   support:    { x: 590, y: 270 },
+  legal:      { x: 550, y: 190 },
   research:   { x: 710, y: 190 },
   developer:  { x: 670, y: 330 },
   scheduler:  { x: 130, y: 320 },
@@ -24,6 +25,7 @@ const DEPT_COLORS: Record<string, string> = {
   support:    '#4DA6FF',
   management: '#FF6B8A',
   hr:         '#DB2777',
+  legal:      '#F59E0B',
   research:   '#4DA6FF',
   developer:  '#00D4AA',
   scheduler:  '#FFB84D',
@@ -56,6 +58,7 @@ function drawSprite(
     marketing: '#78350F',
     support: '#164E63',
     hr: '#4C1D95',
+    legal: '#3B1A00',
     research: '#1E3A5F',
     developer: '#064E3B',
     scheduler: '#78350F',
@@ -101,6 +104,21 @@ function drawSprite(
   } else if (dept === 'scheduler') {
     ctx.fillStyle = '#FFB84D'
     ctx.fillRect(x - 5 * scale, cy - 7 * scale, 10 * scale, 3 * scale)
+  } else if (dept === 'legal') {
+    // Scales of justice: beam + two hanging pans
+    ctx.fillStyle = '#F59E0B'
+    // Horizontal beam
+    ctx.fillRect(x - 7 * scale, cy - 8 * scale, 14 * scale, 2 * scale)
+    // Center post
+    ctx.fillRect(x - 1 * scale, cy - 8 * scale, 2 * scale, 4 * scale)
+    // Left pan
+    ctx.fillRect(x - 9 * scale, cy - 5 * scale, 5 * scale, 2 * scale)
+    // Right pan
+    ctx.fillRect(x + 4 * scale, cy - 5 * scale, 5 * scale, 2 * scale)
+    // Left chain
+    ctx.fillRect(x - 7 * scale, cy - 8 * scale, 1 * scale, 3 * scale)
+    // Right chain
+    ctx.fillRect(x + 6 * scale, cy - 8 * scale, 1 * scale, 3 * scale)
   }
 
   // Activity bubble with task count (orange circle above head)

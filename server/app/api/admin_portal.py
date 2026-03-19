@@ -457,15 +457,76 @@ async def toggle_job(
 # ── Agents ────────────────────────────────────────────────────────────────────
 
 AGENT_REGISTRY = [
-    {"name": "Finance", "department": "finance", "skills": ["financial-reporting", "budget-analysis", "forecasting"]},
-    {"name": "Sales", "department": "sales", "skills": ["lead-management", "crm", "outreach"]},
-    {"name": "Marketing", "department": "marketing", "skills": ["campaign-analysis", "content-generation", "social-media"]},
-    {"name": "Support", "department": "support", "skills": ["ticket-management", "customer-lookup", "escalation"]},
-    {"name": "Management", "department": "management", "skills": ["kpi-reporting", "team-analytics", "executive-summary"]},
-    {"name": "HR", "department": "hr", "skills": ["headcount", "onboarding", "payroll-support"]},
-    {"name": "Research", "department": "research", "skills": ["web-search", "competitive-intelligence", "market-analysis"]},
-    {"name": "Developer", "department": "developer", "skills": ["code-generation", "debugging", "claude-code-cli"]},
-    {"name": "Scheduler", "department": "scheduler", "skills": ["job-scheduling", "cron-management", "delivery"]},
+    {
+        "name": "Management Agent", "persona": "Max", "department": "management",
+        "description": "Cross-department KPI aggregator and orchestrator. Decomposes multi-department tasks and delegates to specialist agents.",
+        "skills": ["data_analysis", "web_research"],
+        "tools_allowed": ["DatabaseOps", "PDFOps", "PPTXOps", "CSVOps", "EmailOps", "TeamsOps"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": True,
+    },
+    {
+        "name": "Finance Agent", "persona": "Fiona", "department": "finance",
+        "description": "Financial analysis, KPI reports, revenue metrics, and department-scoped data access.",
+        "skills": ["financial_reporting", "data_analysis"],
+        "tools_allowed": ["DatabaseOps", "PDFOps", "PPTXOps", "CSVOps"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
+    {
+        "name": "Sales Agent", "persona": "Sam", "department": "sales",
+        "description": "CRM lead management, LinkedIn prospecting, sales email outreach, and pitch deck generation.",
+        "skills": ["linkedin_prospecting", "email_outreach", "pitch_deck_generation", "web_research"],
+        "tools_allowed": ["CRMOps", "LinkedInOps", "EmailOps", "PPTXOps", "PDFOps"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
+    {
+        "name": "Marketing Agent", "persona": "Maya", "department": "marketing",
+        "description": "Marketing content creation, campaign email delivery, and competitive web research.",
+        "skills": ["content_generation", "web_research"],
+        "tools_allowed": ["EmailOps", "WebScrapeOps", "PDFOps", "PPTXOps", "DOCXOps"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
+    {
+        "name": "Support Agent", "persona": "Suki", "department": "support",
+        "description": "Support ticket management, SLA reporting, and customer communications.",
+        "skills": ["data_analysis", "email_outreach"],
+        "tools_allowed": ["DatabaseOps", "EmailOps", "TeamsOps", "PDFOps"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
+    {
+        "name": "HR Agent", "persona": "Hana", "department": "hr",
+        "description": "HR data analytics, leave management, and employee communications.",
+        "skills": ["data_analysis", "email_outreach"],
+        "tools_allowed": ["DatabaseOps", "EmailOps", "CSVOps"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
+    {
+        "name": "Legal Agent", "persona": "Leo", "department": "legal",
+        "description": "International business law specialist — contract review and drafting for SG, HK, MY, UAE, KSA, QA, and Cayman Islands.",
+        "skills": ["document_review", "contract_drafting", "legal_research", "jurisdiction_advisory"],
+        "tools_allowed": ["DOCXOps", "PDFOps", "EmailOps", "TeamsOps", "DatabaseOps", "WebResearch"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
+    {
+        "name": "Research Agent", "persona": "Rex", "department": "research",
+        "description": "Agentic web-research specialist. Multi-iteration search loop using Claude native web_search tool.",
+        "skills": ["web_research", "data_analysis", "deep_research", "source_verification"],
+        "tools_allowed": ["web_search_20250305 (native Anthropic tool)"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
+    {
+        "name": "Developer Agent", "persona": "Dev", "department": "developer",
+        "description": "Runs Claude Code CLI as a headless subprocess for code generation, review, and execution tasks.",
+        "skills": ["code_generation", "code_review", "code_execution", "api_integration", "test_generation"],
+        "tools_allowed": ["Claude Code CLI (stream-JSON subprocess)"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
+    {
+        "name": "Scheduler Agent", "persona": "Sched", "department": "scheduler",
+        "description": "Chat-based scheduled job manager. Accepts natural language and translates to UTC cron expressions.",
+        "skills": ["schedule_management", "cron_validation", "job_monitoring", "beat_sync"],
+        "tools_allowed": ["SchedulerOps (create_job, list_jobs, delete_job, run_now)"],
+        "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
+    },
 ]
 
 

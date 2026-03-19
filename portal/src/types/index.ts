@@ -91,7 +91,12 @@ export interface FolderGroup {
 export interface Agent {
   name: string
   department: string
+  persona?: string
+  description?: string
   skills: string[]
+  tools_allowed?: string[]
+  llm_model?: string
+  is_orchestrator?: boolean
   is_busy: boolean
   tasks_today: number
   rag_memory_count: number

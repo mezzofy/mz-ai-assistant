@@ -78,23 +78,42 @@ export default function AgentsPage() {
         {agents.map((agent) => (
           <div
             key={agent.department}
-            className="rounded-xl border p-5"
+            className="rounded-xl border p-5 flex flex-col gap-3"
             style={{ background: '#111827', borderColor: '#1E2A3A' }}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <div className="flex items-center gap-2">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
-                    className="w-2 h-2 rounded-full"
+                    className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ background: agent.is_busy ? '#00D4AA' : '#374151' }}
                   />
                   <h3 className="text-sm font-semibold text-white">{agent.name}</h3>
+                  {agent.is_orchestrator && (
+                    <span
+                      className="px-1.5 py-0.5 rounded text-xs font-bold"
+                      style={{ background: 'rgba(108,99,255,0.15)', color: '#6C63FF', border: '1px solid rgba(108,99,255,0.3)' }}
+                    >
+                      ORCHESTRATOR
+                    </span>
+                  )}
+                  {!agent.is_orchestrator && ['research', 'developer', 'scheduler', 'legal'].includes(agent.department) && (
+                    <span
+                      className="px-1.5 py-0.5 rounded text-xs font-bold"
+                      style={{ background: 'rgba(0,212,170,0.1)', color: '#00D4AA', border: '1px solid rgba(0,212,170,0.2)' }}
+                    >
+                      SPECIAL
+                    </span>
+                  )}
                 </div>
-                <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-                  {agent.department}
-                </div>
+                {agent.persona && (
+                  <div className="text-xs mt-0.5" style={{ color: '#f97316' }}>
+                    {agent.persona} · {agent.department}
+                  </div>
+                )}
               </div>
-              <div className="text-right">
+              <div className="text-right ml-2 flex-shrink-0">
                 <div className="text-lg font-bold" style={{ color: '#f97316' }}>
                   {agent.tasks_today}
                 </div>
@@ -102,30 +121,69 @@ export default function AgentsPage() {
               </div>
             </div>
 
-            <div className="space-y-1 mb-3">
-              {agent.skills.map((skill) => (
-                <span
-                  key={skill}
-                  className="inline-block mr-1 mb-1 px-2 py-0.5 rounded text-xs"
-                  style={{ background: '#1E2A3A', color: '#9CA3AF' }}
-                >
-                  {skill}
+            {/* Description */}
+            {agent.description && (
+              <p className="text-xs leading-relaxed" style={{ color: '#9CA3AF', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {agent.description}
+              </p>
+            )}
+
+            {/* Skills */}
+            {agent.skills.length > 0 && (
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: '#6B7280' }}>Skills</div>
+                <div className="flex flex-wrap gap-1">
+                  {agent.skills.map((skill) => (
+                    <span
+                      key={skill}
+                      className="inline-block px-2 py-0.5 rounded text-xs"
+                      style={{ background: '#1E2A3A', color: '#9CA3AF' }}
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tools */}
+            {agent.tools_allowed && agent.tools_allowed.length > 0 && (
+              <div>
+                <div className="text-xs font-medium mb-1" style={{ color: '#6B7280' }}>Tools</div>
+                <div className="flex flex-wrap gap-1">
+                  {agent.tools_allowed.map((tool) => (
+                    <span
+                      key={tool}
+                      className="inline-block px-2 py-0.5 rounded text-xs"
+                      style={{ background: 'rgba(249,115,22,0.08)', color: '#f97316', border: '1px solid rgba(249,115,22,0.15)' }}
+                    >
+                      {tool}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* LLM model + Memory toggle */}
+            <div className="flex items-center justify-between border-t pt-2 mt-auto" style={{ borderColor: '#1E2A3A' }}>
+              {agent.llm_model && (
+                <span className="text-xs font-mono" style={{ color: '#6B7280' }}>
+                  {agent.llm_model}
                 </span>
-              ))}
+              )}
+              <button
+                onClick={() => loadMemory(agent.department)}
+                className="flex items-center gap-1 text-xs transition-colors hover:text-orange-400 ml-auto"
+                style={{ color: '#6B7280' }}
+              >
+                <span>Memory ({agent.rag_memory_count})</span>
+                <span>{expandedAgent === agent.department ? '\u25B2' : '\u25BC'}</span>
+              </button>
             </div>
 
-            <button
-              onClick={() => loadMemory(agent.department)}
-              className="flex items-center justify-between w-full text-xs py-2 border-t transition-colors hover:text-orange-400"
-              style={{ borderColor: '#1E2A3A', color: '#6B7280' }}
-            >
-              <span>View Memory ({agent.rag_memory_count} docs)</span>
-              <span>{expandedAgent === agent.department ? '\u25B2' : '\u25BC'}</span>
-            </button>
-
+            {/* Memory expanded */}
             {expandedAgent === agent.department && (
-              <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
-                {/* Upload button */}
+              <div className="space-y-1 max-h-40 overflow-y-auto">
                 <div className="flex items-center gap-2 mb-2">
                   <input
                     type="file"
@@ -159,7 +217,7 @@ export default function AgentsPage() {
                         className="text-red-400 hover:text-red-300 px-1"
                         title="Delete"
                       >
-                        x
+                        &#215;
                       </button>
                     </div>
                   ))
