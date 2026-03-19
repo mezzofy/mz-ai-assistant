@@ -34,13 +34,28 @@ export type Artifact = {
 
 export type Message = {
   id: number;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   text: string;
   time: string;
   type?: string;
   media?: MediaInfo;
   artifacts?: Artifact[];
   tools?: string[];
+  agentUsed?: string;   // e.g. "legal", "management", "finance"
+  isSystem?: boolean;   // true for handoff divider messages
+};
+
+export const DEPT_TO_PERSONA: Record<string, string> = {
+  management: 'Max',
+  finance: 'Fiona',
+  sales: 'Sam',
+  marketing: 'Maya',
+  support: 'Suki',
+  hr: 'Hana',
+  legal: 'Leo',
+  research: 'Rex',
+  developer: 'Dev',
+  scheduler: 'Sched',
 };
 
 export type SelectedArtifact = {
@@ -274,22 +289,51 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Only add an assistant message for synchronous (non-queued) responses.
       // For queued responses, the task banner handles UX; result arrives via WS.
       if (!newActiveTask) {
-        set(s => ({
-          sessionId: response.session_id,
-          messages: [
-            ...s.messages,
-            {
-              id: Date.now(),
-              role: 'assistant',
-              text: response.response || 'Task completed.',
-              time: getTimeStr(),
-              artifacts: (response.artifacts?.length ?? 0) > 0 ? response.artifacts : undefined,
-              tools: (response.tools_used?.length ?? 0) > 0 ? response.tools_used : undefined,
-            },
-          ],
-          isTyping: false,
-          statusMessage: null,
-        }));
+        const newAgentUsed = response.agent_used || undefined;
+        set(s => {
+          // Find the previous assistant message (non-system) to detect agent change
+          const prevAssistant = [...s.messages].reverse().find(
+            m => m.role === 'assistant' && !m.isSystem,
+          );
+          const prevAgent = prevAssistant?.agentUsed;
+          const agentChanged =
+            newAgentUsed &&
+            prevAssistant !== undefined &&
+            prevAgent !== newAgentUsed;
+
+          const newMsg: Message = {
+            id: Date.now(),
+            role: 'assistant',
+            text: response.response || 'Task completed.',
+            time: getTimeStr(),
+            artifacts: (response.artifacts?.length ?? 0) > 0 ? response.artifacts : undefined,
+            tools: (response.tools_used?.length ?? 0) > 0 ? response.tools_used : undefined,
+            agentUsed: newAgentUsed,
+          };
+
+          // Insert handoff divider if the responding agent changed
+          const divider: Message | null = agentChanged
+            ? {
+                id: Date.now() - 1,
+                role: 'system',
+                text: `${DEPT_TO_PERSONA[newAgentUsed!] || newAgentUsed} joined the conversation`,
+                time: getTimeStr(),
+                isSystem: true,
+                agentUsed: newAgentUsed,
+              }
+            : null;
+
+          return {
+            sessionId: response.session_id,
+            messages: [
+              ...s.messages,
+              ...(divider ? [divider] : []),
+              newMsg,
+            ],
+            isTyping: false,
+            statusMessage: null,
+          };
+        });
       } else {
         // Queued: clear typing, store session ID, set active task banner
         set({
@@ -343,23 +387,50 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     try {
       const response = await sendArtifactApi(artifactId, message, sessionId);
+      const newAgentUsed = response.agent_used || undefined;
 
-      set(s => ({
-        sessionId: response.session_id,
-        messages: [
-          ...s.messages,
-          {
-            id: Date.now(),
-            role: 'assistant',
-            text: response.response,
-            time: getTimeStr(),
-            artifacts: (response.artifacts?.length ?? 0) > 0 ? response.artifacts : undefined,
-            tools: (response.tools_used?.length ?? 0) > 0 ? response.tools_used : undefined,
-          },
-        ],
-        isTyping: false,
-        statusMessage: null,
-      }));
+      set(s => {
+        const prevAssistant = [...s.messages].reverse().find(
+          m => m.role === 'assistant' && !m.isSystem,
+        );
+        const prevAgent = prevAssistant?.agentUsed;
+        const agentChanged =
+          newAgentUsed &&
+          prevAssistant !== undefined &&
+          prevAgent !== newAgentUsed;
+
+        const newMsg: Message = {
+          id: Date.now(),
+          role: 'assistant',
+          text: response.response,
+          time: getTimeStr(),
+          artifacts: (response.artifacts?.length ?? 0) > 0 ? response.artifacts : undefined,
+          tools: (response.tools_used?.length ?? 0) > 0 ? response.tools_used : undefined,
+          agentUsed: newAgentUsed,
+        };
+
+        const divider: Message | null = agentChanged
+          ? {
+              id: Date.now() - 1,
+              role: 'system',
+              text: `${DEPT_TO_PERSONA[newAgentUsed!] || newAgentUsed} joined the conversation`,
+              time: getTimeStr(),
+              isSystem: true,
+              agentUsed: newAgentUsed,
+            }
+          : null;
+
+        return {
+          sessionId: response.session_id,
+          messages: [
+            ...s.messages,
+            ...(divider ? [divider] : []),
+            newMsg,
+          ],
+          isTyping: false,
+          statusMessage: null,
+        };
+      });
 
       if (autoTitle && response.session_id) {
         const {sessionTitles} = get();

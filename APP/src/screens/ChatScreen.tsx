@@ -7,11 +7,11 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import {launchImageLibrary} from 'react-native-image-picker';
 import DocumentPicker, {types as DocTypes, isCancel as isDocPickerCancel} from 'react-native-document-picker';
 import Voice, {SpeechResultsEvent} from '@react-native-voice/voice';
-import {INPUT_MODES, FILE_TYPE_STYLES} from '../utils/theme';
+import {INPUT_MODES, FILE_TYPE_STYLES, BRAND} from '../utils/theme';
 import {useTheme} from '../hooks/useTheme';
 import {useAuthStore} from '../stores/authStore';
 import {useSettingsStore} from '../stores/settingsStore';
-import {useChatStore, Message, MediaInfo, SelectedArtifact} from '../stores/chatStore';
+import {useChatStore, Message, MediaInfo, SelectedArtifact, DEPT_TO_PERSONA} from '../stores/chatStore';
 import {listFilesApi, ArtifactItem} from '../api/files';
 import {DeptBadge} from '../components/shared/DeptBadge';
 
@@ -252,11 +252,35 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   // ── Render helpers ─────────────────────────────────────────────────────────
 
+  const getDeptColor = (dept?: string): string => {
+    if (!dept) {return '#9CA3AF';}
+    return BRAND.deptColors?.[dept] || '#9CA3AF';
+  };
+
   const renderMessage = (msg: Message) => {
+    // ── System / handoff divider ───────────────────────────────────────────────
+    if (msg.isSystem) {
+      const deptColor = getDeptColor(msg.agentUsed);
+      return (
+        <View key={msg.id} style={styles.dividerRow}>
+          <View style={[styles.dividerLine, {backgroundColor: colors.border}]} />
+          <Text style={[styles.dividerText, {color: deptColor}]}>{msg.text}</Text>
+          <View style={[styles.dividerLine, {backgroundColor: colors.border}]} />
+        </View>
+      );
+    }
+
     const isUser = msg.role === 'user';
+    const deptColor = getDeptColor(msg.agentUsed);
+    const personaName = msg.agentUsed ? DEPT_TO_PERSONA[msg.agentUsed] : undefined;
+
     return (
       <View key={msg.id} style={[styles.msgRow, isUser && styles.msgRowUser]}>
         <View style={{maxWidth: '82%'}}>
+          {/* Agent persona label — shown above assistant bubbles when agent is known */}
+          {!isUser && personaName && (
+            <Text style={[styles.agentLabel, {color: deptColor}]}>{personaName}</Text>
+          )}
           {msg.media && (
             <View style={[
               styles.mediaTag,
@@ -275,7 +299,13 @@ export const ChatScreen: React.FC<{navigation: any}> = ({navigation}) => {
               isUser ? styles.bubbleUser : styles.bubbleAI,
               isUser
                 ? {backgroundColor: colors.accent}
-                : {backgroundColor: colors.surfaceLight, borderWidth: 1, borderColor: colors.border},
+                : {
+                    backgroundColor: colors.surfaceLight,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderLeftWidth: msg.agentUsed ? 3 : 1,
+                    borderLeftColor: msg.agentUsed ? deptColor : colors.border,
+                  },
               msg.media && styles.bubbleWithMedia,
             ]}>
             <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : {color: colors.text}]}>
@@ -727,4 +757,10 @@ const styles = StyleSheet.create({
   modalFileDate: {fontSize: 12, marginTop: 2},
   modalError: {margin: 24, fontSize: 14, textAlign: 'center'},
   modalEmpty: {margin: 24, fontSize: 14, textAlign: 'center'},
+  // Agent attribution
+  agentLabel: {fontSize: 11, fontWeight: '700', marginBottom: 3, marginLeft: 4, letterSpacing: 0.3},
+  // Agent handoff divider
+  dividerRow: {flexDirection: 'row', alignItems: 'center', marginVertical: 12, paddingHorizontal: 4},
+  dividerLine: {flex: 1, height: 1},
+  dividerText: {fontSize: 11, fontWeight: '600', marginHorizontal: 10},
 });
