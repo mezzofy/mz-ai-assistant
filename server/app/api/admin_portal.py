@@ -1457,6 +1457,7 @@ async def get_crm_leads(
     status_filter: Optional[str] = Query(None, alias="status"),
     search: Optional[str] = Query(None),
     assigned_to: Optional[str] = Query(None),
+    country: Optional[str] = Query(None),
     current_user: dict = AdminUser,
     db: AsyncSession = Depends(get_db),
 ):
@@ -1474,6 +1475,9 @@ async def get_crm_leads(
     if assigned_to:
         filters.append("sl.assigned_to = :assigned_to")
         params["assigned_to"] = assigned_to
+    if country:
+        filters.append("sl.location ILIKE :country")
+        params["country"] = f"%{country}%"
 
     where = " AND ".join(filters)
 

@@ -1,9 +1,17 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-19
 **Project:** mz-ai-assistant
-**Session:** 23 (BUG-fix: get_crm_leads LEFT JOIN UUID type mismatch)
+**Session:** 24 (FEAT: add `country` filter to GET /crm/leads)
 
-## Completed This Session (Session 23)
+## Completed This Session (Session 24)
+- ✅ Added `country: Optional[str] = Query(None)` parameter to `get_crm_leads` (line 1460)
+  - File: `server/app/api/admin_portal.py`
+  - Added after `assigned_to` param, before `current_user`
+- ✅ Added `country` filter block in filter logic (lines 1478–1480)
+  - `sl.location ILIKE :country` with `%{country}%` for case-insensitive partial match
+  - Matches location/country text such as "Singapore", "Malaysia", etc.
+
+## Previous Session (23): BUG-fix: get_crm_leads LEFT JOIN UUID type mismatch
 - ✅ BUG fix: `server/app/api/admin_portal.py` line 1489
   - Changed `LEFT JOIN users u ON u.id::text = sl.assigned_to` → `LEFT JOIN users u ON u.id = sl.assigned_to`
   - Root cause: unnecessary `::text` cast caused PostgreSQL "operator does not exist: text = uuid" error

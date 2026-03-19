@@ -3,15 +3,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import type { FileRecord, FolderGroup } from '../types'
 
-const FILE_ICONS: Record<string, string> = {
-  pdf: '\uD83D\uDCC4', xlsx: '\uD83D\uDCCA', xls: '\uD83D\uDCCA', csv: '\uD83D\uDCCA',
-  docx: '\uD83D\uDCDD', doc: '\uD83D\uDCDD', pptx: '\uD83D\uDCBD', ppt: '\uD83D\uDCBD',
-  image: '\uD83D\uDDBC', png: '\uD83D\uDDBC', jpg: '\uD83D\uDDBC', jpeg: '\uD83D\uDDBC',
-  mp4: '\uD83C\uDFAC', mp3: '\uD83C\uDFB5', default: '\uD83D\uDCC1',
-}
-
-function fileIcon(type: string) {
-  return FILE_ICONS[type?.toLowerCase()] || FILE_ICONS.default
+function FileTypeAvatar({ type }: { type: string }) {
+  const label = (type || 'file').slice(0, 3).toUpperCase()
+  return (
+    <div
+      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+      style={{ background: '#1E2A3A', color: '#f97316' }}
+    >
+      {label}
+    </div>
+  )
 }
 
 function formatBytes(bytes: number | null) {
@@ -147,22 +148,22 @@ export default function FilesPage() {
             {searchQuery.trim() ? 'No files match your search.' : 'No files.'}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
-              <tr style={{ borderBottom: '1px solid #1E2A3A', background: '#0F1F35' }}>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+              <tr className="border-b text-left" style={{ color: '#6B7280', borderColor: '#1E2A3A' }}>
+                <th className="px-4 py-3">
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                <th className="py-3">
                   Folder
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                <th className="py-3">
                   Size
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                <th className="py-3">
                   Date
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                <th className="py-3 pr-4">
                   Actions
                 </th>
               </tr>
@@ -172,7 +173,7 @@ export default function FilesPage() {
                 <tr key={f.id} className="border-t hover:bg-white/5 transition-colors" style={{ borderColor: '#1E2A3A' }}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span>{fileIcon(f.file_type)}</span>
+                      <FileTypeAvatar type={f.file_type} />
                       {renamingFile === f.id ? (
                         <input
                           value={renameValue}

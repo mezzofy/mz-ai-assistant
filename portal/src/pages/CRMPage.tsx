@@ -28,6 +28,8 @@ export default function CRMPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [country, setCountry] = useState('')
+  const [countryInput, setCountryInput] = useState('')
 
   const { data: pipelineData } = useQuery({
     queryKey: ['crm-pipeline'],
@@ -36,8 +38,8 @@ export default function CRMPage() {
   })
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['crm-leads', page, statusFilter, search],
-    queryFn: () => portalApi.getCrmLeads(page, statusFilter || undefined, search || undefined).then(r => r.data),
+    queryKey: ['crm-leads', page, statusFilter, search, country],
+    queryFn: () => portalApi.getCrmLeads(page, statusFilter || undefined, search || undefined, country || undefined).then(r => r.data),
     refetchInterval: 30000,
   })
 
@@ -48,6 +50,7 @@ export default function CRMPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setSearch(searchInput)
+    setCountry(countryInput)
     setPage(1)
   }
 
@@ -97,6 +100,14 @@ export default function CRMPage() {
           className="px-3 py-2 rounded-lg text-sm text-white border outline-none flex-1"
           style={{ background: '#111827', borderColor: '#1E2A3A' }}
         />
+        <input
+          type="text"
+          placeholder="Filter by country..."
+          value={countryInput}
+          onChange={e => setCountryInput(e.target.value)}
+          className="px-3 py-2 rounded-lg text-sm text-white border outline-none"
+          style={{ background: '#111827', borderColor: '#1E2A3A', width: '180px' }}
+        />
         <button
           type="submit"
           className="px-4 py-2 rounded-lg text-sm font-medium text-white"
@@ -104,10 +115,10 @@ export default function CRMPage() {
         >
           Search
         </button>
-        {(statusFilter || search) && (
+        {(statusFilter || search || country) && (
           <button
             type="button"
-            onClick={() => { setStatusFilter(''); setSearch(''); setSearchInput(''); setPage(1) }}
+            onClick={() => { setStatusFilter(''); setSearch(''); setSearchInput(''); setCountry(''); setCountryInput(''); setPage(1) }}
             className="px-4 py-2 rounded-lg text-sm"
             style={{ background: '#1E2A3A', color: '#6B7280' }}
           >

@@ -23,9 +23,9 @@ export default function TasksPage() {
   const totalPages = data?.total_pages || 1
 
   const statusColor = (s: string) => {
-    if (s === 'completed') return { bg: 'rgba(0,212,170,0.1)', color: '#00D4AA' }
-    if (s === 'running') return { bg: 'rgba(249,115,22,0.1)', color: '#f97316' }
-    return { bg: 'rgba(239,68,68,0.1)', color: '#EF4444' }
+    if (s === 'completed') return { background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }
+    if (s === 'running') return { background: 'rgba(249,115,22,0.1)', color: '#f97316' }
+    return { background: 'rgba(239,68,68,0.1)', color: '#EF4444' }
   }
 
   return (

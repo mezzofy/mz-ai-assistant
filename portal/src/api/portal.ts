@@ -68,8 +68,8 @@ export const portalApi = {
   },
 
   // CRM
-  getCrmLeads: (page = 1, status?: string, search?: string) =>
-    client.get('/api/admin-portal/crm/leads', { params: { page, per_page: 20, ...(status ? { status } : {}), ...(search ? { search } : {}) } }),
+  getCrmLeads: (page = 1, status?: string, search?: string, country?: string) =>
+    client.get('/api/admin-portal/crm/leads', { params: { page, per_page: 20, ...(status ? { status } : {}), ...(search ? { search } : {}), ...(country ? { country } : {}) } }),
   getCrmPipeline: () => client.get('/api/admin-portal/crm/pipeline'),
 
   // Users

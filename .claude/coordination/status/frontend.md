@@ -1,30 +1,30 @@
 # Context Checkpoint: Frontend Agent
 **Date:** 2026-03-19
-**Session:** 1 of 1
+**Session:** 2 of 2
 **Context:** ~20% at checkpoint
 **Reason:** All assigned tasks complete
 
 ## Completed This Session
 
-- ✅ Task 2 — Added `downloadFile(id, filename)` to `portalApi` in `portal.ts` (after `deleteFile`, in the `// Files` section). Uses axios blob response type and programmatic anchor click for authenticated download.
-- ✅ Task 3 — `FilesPage.tsx`: Replaced `<a href={f.download_url}>Download</a>` with a button calling `portalApi.downloadFile(f.id, f.filename)` (download SVG icon, orange). Replaced Rename text button with pencil SVG (blue `#4DA6FF`). Replaced Delete text button with trash SVG (red `#EF4444`). All buttons use `p-1.5 rounded` padding with hover states.
-- ✅ Task 4 — `UsersPage.tsx`: Replaced `✏` emoji button with pencil SVG icon button (orange, `hover:bg-orange-500/10`, `title="Edit"`). Replaced `🗑` emoji button with trash SVG icon button (red, `hover:bg-red-500/10`, `title="Deactivate"`).
-- ✅ Task 5 — `TasksPage.tsx`: Replaced "Kill" text button with stop-square SVG icon button (red, `hover:bg-red-500/20`, `disabled:opacity-40`, `title="Kill task"`).
-- ✅ Task 6 — CRMPage.tsx: No changes needed (confirmed by plan — Leads table already follows Users standard structure).
+- ✅ Task 1a — `FilesPage.tsx`: Fixed table header to match Users style — changed `<table>` from `text-sm` to `text-xs`, changed `<tr>` from inline border+background style to `className="border-b text-left"` with color/borderColor style, changed all `<th>` elements to minimal classes (`px-4 py-3` / `py-3` / `py-3 pr-4`) with color inherited from `<tr>`.
+- ✅ Task 1b — `FilesPage.tsx`: Removed `FILE_ICONS` constant and `fileIcon()` function entirely. Added `FileTypeAvatar` component (orange circle avatar showing first 3 chars of file type). Replaced `<span>{fileIcon(f.file_type)}</span>` with `<FileTypeAvatar type={f.file_type} />` in table body.
+- ✅ Task 2a — `CRMPage.tsx`: Added `country` and `countryInput` state variables. Updated leads `queryKey` and `queryFn` to include `country`. Updated `handleSearch` to call `setCountry(countryInput)`. Added country text input between company search input and Search button. Updated Clear button condition to include `country`, and Clear `onClick` to also reset `setCountry('')` and `setCountryInput('')`.
+- ✅ Task 2a also — `portal.ts`: Added `country?: string` param to `getCrmLeads`, spreads `{ country }` into params when truthy.
+- ✅ Task 3a — `TasksPage.tsx`: Fixed `statusColor` function — replaced invalid CSS property `bg` with `background` in all three return objects.
 
 ## Files Modified
 
-- `portal/src/api/portal.ts` — Added `downloadFile` async function after `deleteFile`
-- `portal/src/pages/FilesPage.tsx` — Replaced Download link + Rename/Delete text buttons with SVG icon buttons
-- `portal/src/pages/UsersPage.tsx` — Replaced ✏ and 🗑 emoji buttons with pencil and trash SVG icon buttons
-- `portal/src/pages/TasksPage.tsx` — Replaced "Kill" text button with stop-square SVG icon button
+- `portal/src/pages/FilesPage.tsx` — Replaced FILE_ICONS/fileIcon with FileTypeAvatar component; fixed table header styling to match Users pattern
+- `portal/src/pages/TasksPage.tsx` — Fixed `statusColor` function: `bg` → `background`
+- `portal/src/pages/CRMPage.tsx` — Added country filter state, query integration, input field, and Clear button update
+- `portal/src/api/portal.ts` — Added `country` optional param to `getCrmLeads`
 
 ## Decisions Made
 
-- No new imports added: all SVG icons are inline JSX, `portalApi` was already imported in FilesPage.
-- Kept `disabled:opacity-40` on Kill button (was not present before) — added per plan spec for better UX when mutation is pending.
-- Task 6 (CRMPage.tsx) confirmed as no-change per plan.
+- `FileTypeAvatar` placed before `formatBytes` (top of file, after imports/types) to keep utility functions grouped.
+- Country input uses `width: '180px'` fixed width (not `flex-1`) to avoid displacing the company search input.
+- Inherited color on `<th>` elements from `<tr>` style (matches Users pattern exactly — no per-th `style={{ color }}` needed).
 
 ## Status
 
-All Tasks 2–6 complete. Ready for Backend Agent to complete Task 1 (download endpoint), then Task 7 (EC2 deploy).
+All tasks complete. No further frontend work required for this batch.
