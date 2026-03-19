@@ -147,7 +147,7 @@ export default function CRMPage() {
           value={countryInput}
           onChange={e => setCountryInput(e.target.value)}
           className="px-3 py-2 rounded-lg text-sm text-white border outline-none"
-          style={{ background: '#111827', borderColor: '#1E2A3A', width: '180px' }}
+          style={{ background: '#111827', borderColor: '#1E2A3A', width: '270px' }}
         >
           <option value="">All Countries</option>
           {countries.map(c => (
@@ -254,21 +254,19 @@ export default function CRMPage() {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-xs" style={{ color: '#6B7280' }}>
-          <span>Page {page} of {totalPages}</span>
-          <div className="flex gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: '#1E2A3A', color: '#E5E7EB' }}>
-              ← Prev
-            </button>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: '#1E2A3A', color: '#E5E7EB' }}>
-              Next →
-            </button>
-          </div>
+      <div className="flex items-center justify-between text-xs" style={{ color: '#6B7280' }}>
+        <span>Page {page} of {totalPages} · {data?.total || 0} total leads</span>
+        <div className="flex gap-2">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+            className="px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: '#1E2A3A', color: '#E5E7EB' }}>
+            ← Prev
+          </button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+            className="px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ background: '#1E2A3A', color: '#E5E7EB' }}>
+            Next →
+          </button>
         </div>
-      )}
+      </div>
 
       {/* New Lead Modal */}
       {showNewModal && (
@@ -399,11 +397,22 @@ export default function CRMPage() {
                 </select>
               </div>
               <div className="col-span-2">
+                <label className="block text-xs text-gray-400 mb-1">Assigned To</label>
+                <input
+                  type="text"
+                  value={editLead.assigned_to_name || editLead.assigned_to_email?.split('@')[0] || ''}
+                  readOnly
+                  className="w-full px-3 py-2 rounded-lg text-sm border outline-none cursor-default"
+                  style={{ background: '#1E2A3A', borderColor: '#374151', color: '#6B7280' }}
+                  placeholder="Unassigned"
+                />
+              </div>
+              <div className="col-span-2">
                 <label className="block text-xs text-gray-400 mb-1">Notes</label>
                 <textarea
                   value={editLead.notes || ''}
                   onChange={e => setEditLead(l => l ? { ...l, notes: e.target.value } : l)}
-                  rows={2}
+                  rows={4}
                   className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none resize-none"
                   style={{ background: '#1E2A3A', borderColor: '#374151' }}
                 />

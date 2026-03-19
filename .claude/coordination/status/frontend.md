@@ -1,22 +1,25 @@
 # Context Checkpoint: Frontend Agent
 **Date:** 2026-03-19
-**Session:** 3 of 3
-**Context:** ~25% at checkpoint
+**Session:** 4 of 4
+**Context:** ~20% at checkpoint
 **Reason:** All assigned tasks complete
 
-## Completed This Session
+## Completed This Session (Session 4)
 
-- ✅ Task 1a — `FilesPage.tsx`: Restructured header into two rows. Row 1: title + inline count + Upload button (justify-between). Row 2: search input + conditional Clear button. Count shows results count when searching, total file count otherwise.
-- ✅ Task 1b — `FilesPage.tsx`: Removed old standalone "File Count" div (was below the header, showed count with quotes around search query).
-- ✅ Task 2a — `CRMPage.tsx`: Replaced flat header (h1 + span) with grouped div (h1 + span side by side) + "+ New Lead" button on right.
-- ✅ Task 2b — `CRMPage.tsx`: Added `useMutation`, `useQueryClient` to react-query import. Added `showNewModal`, `editLead`, `newForm` state. Added `qc = useQueryClient()`. Added `crm-countries` query pulling from `portalApi.getCrmCountries()`. Added `createMutation` and `updateMutation`. Replaced country text input with `<select>` auto-populated from `countries` array.
-- ✅ Task 2c — `CRMPage.tsx`: Added Actions column header after Created column. Changed `colSpan={8}` to `colSpan={9}` in both empty-state rows.
-- ✅ Task 2d — `CRMPage.tsx`: Added edit button td in each row. Added "New Lead" modal and "Edit Lead" modal before closing `</div>`.
-- ✅ Task 3 — `UsersPage.tsx`: Wrapped `<h1>` in `<div className="flex items-center gap-3">` with an inline count span showing `${users.length} users` when count > 0.
-- ✅ Task 4 — `TasksPage.tsx`: Resized filter buttons from `px-3 py-1.5 rounded-lg text-xs` to `px-4 py-2 rounded-lg text-sm font-medium`.
-- ✅ Task 5 — `portal.ts`: Added `getCrmCountries`, `createLead`, `updateLead` functions in the CRM section after `getCrmPipeline`.
+- ✅ OtpPage.tsx: Styled Cancel button as outlined button — `px-6 py-2 rounded-lg border` with `borderColor: '#374151'`; changed wrapper from `text-center` to `flex justify-center`.
+- ✅ CRMPage.tsx (2a): Pagination always rendered (removed `totalPages > 1` conditional). Count label updated to "Page X of Y · N total leads" using `data?.total || 0`.
+- ✅ CRMPage.tsx (2b): Edit Lead modal — added read-only "Assigned To" input above Notes; expanded Notes textarea from `rows={2}` to `rows={4}`.
+- ✅ CRMPage.tsx (2c): Country dropdown width increased from `180px` to `270px`.
+- ✅ FilesPage.tsx (3a): Removed extra `px-4` from Folder, Size, Date body cells; changed Actions cell from `px-4 py-3` to `py-3 pr-4`. Name column `px-4` preserved.
+- ✅ FilesPage.tsx (3b): Rewrote `folderLabel()` — removes literal "DEPARTMENT" word; scope=department shows dept name only; scope=shared shows "DEPT / SHARED"; scope=personal shows "PERSONAL / USERNAME".
 
-## Files Modified
+## Files Modified (Session 4)
+
+- `portal/src/pages/OtpPage.tsx` — Cancel button styled as outlined button
+- `portal/src/pages/CRMPage.tsx` — Pagination always shown with total count; Edit modal Assigned To field + Notes rows=4; country dropdown 270px
+- `portal/src/pages/FilesPage.tsx` — Column alignment fixed (removed px-4 from non-name body cells); folderLabel rewritten
+
+## Files Modified (Session 3 — prior)
 
 - `portal/src/pages/FilesPage.tsx` — Two-row header layout; removed standalone file count div
 - `portal/src/pages/CRMPage.tsx` — Header with New Lead button; countries dropdown; Actions column; New/Edit modals; mutations; useQueryClient
@@ -30,6 +33,7 @@
 - `UsersPage` count only renders when `users.length > 0` — avoids showing "0 users" on initial load.
 - `CRMPage` mutations cast form data to `Record<string, unknown>` to satisfy portal.ts type signatures.
 - Both CRM modals placed after the Pagination block, before the component's closing `</div>`.
+- `folderLabel` personal scope uses `g.owner_email` field on FolderGroup (already in types).
 
 ## Status
 

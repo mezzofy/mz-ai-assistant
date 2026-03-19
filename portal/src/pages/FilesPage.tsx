@@ -23,7 +23,15 @@ function formatBytes(bytes: number | null) {
 }
 
 function folderLabel(g: FolderGroup) {
-  return [g.scope, g.department].filter(Boolean).join(' / ').toUpperCase()
+  const dept = g.department ? g.department.toUpperCase() : null
+  if (g.scope === 'company') return 'COMPANY'
+  if (g.scope === 'department' && dept) return dept
+  if (g.scope === 'shared' && dept) return `${dept} / SHARED`
+  if (g.scope === 'shared') return 'SHARED'
+  if (g.scope === 'personal' && g.owner_email) {
+    return `PERSONAL / ${g.owner_email.split('@')[0].toUpperCase()}`
+  }
+  return dept || g.scope.toUpperCase()
 }
 
 const DEPT_ORDER = ['company', 'management', 'finance', 'hr', 'sales', 'marketing', 'support']
@@ -206,7 +214,7 @@ export default function FilesPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="py-3">
                     <span
                       className="px-2 py-0.5 rounded text-xs font-mono font-medium"
                       style={{ background: '#1E2A3A', color: '#f97316' }}
@@ -214,13 +222,13 @@ export default function FilesPage() {
                       {f.folderLabel}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs font-mono" style={{ color: '#6B7280' }}>
+                  <td className="py-3 text-xs font-mono" style={{ color: '#6B7280' }}>
                     {formatBytes(f.size_bytes)}
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: '#6B7280' }}>
+                  <td className="py-3 text-xs" style={{ color: '#6B7280' }}>
                     {f.created_at ? new Date(f.created_at).toLocaleDateString() : '\u2014'}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="py-3 pr-4">
                     <div className="flex gap-2 justify-end">
                       <button
                         onClick={() => portalApi.downloadFile(f.id, f.filename)}

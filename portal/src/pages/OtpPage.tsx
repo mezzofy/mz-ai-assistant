@@ -141,11 +141,11 @@ export default function OtpPage() {
           </button>
         </div>
 
-        <div className="mt-4 text-center">
+        <div className="mt-4 flex justify-center">
           <button
             onClick={() => navigate('/mission-control/login')}
-            className="text-sm transition-colors"
-            style={{ color: '#6B7280' }}
+            className="px-6 py-2 rounded-lg text-sm border transition-colors hover:bg-white/5"
+            style={{ color: '#6B7280', borderColor: '#374151' }}
           >
             ← Cancel
           </button>
