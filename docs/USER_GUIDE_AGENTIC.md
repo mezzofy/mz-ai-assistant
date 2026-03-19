@@ -52,6 +52,7 @@ You don't need to address agents by name. Just describe what you need — the sy
 | Research Agent | Rex | (All depts) | Deep web research, competitive intelligence, market analysis |
 | Developer Agent | Dev | (All depts) | Code writing, script generation, API integrations, test writing |
 | Scheduler Agent | Sched | (All depts) | Setting up automatic recurring tasks |
+| Legal Agent | Leo | (All depts) | Contract review, contract drafting, legal Q&A, jurisdiction advice |
 
 ---
 
@@ -102,7 +103,7 @@ You don't need special syntax. Just write naturally, as you would to a colleague
 
 ## Triggering Special Agents
 
-Three agents handle specialized work that goes beyond normal department tasks. They activate automatically when your message contains the right keywords.
+Four agents handle specialized work that goes beyond normal department tasks. They activate automatically when your message contains the right keywords.
 
 ---
 
@@ -219,6 +220,38 @@ All schedules run in UTC internally. The AI converts your local time automatical
 | Run a job immediately | `"Run my weekly sales report now"` |
 | Delete a job | `"Delete the Monday sales report"` |
 | Check job health | `"Show me my scheduled job status"` |
+
+---
+
+### Legal Agent (Leo)
+
+**When it activates:** Your message contains words like: *contract, agreement, NDA, MOU, legal review, review this document, draft a contract, legal advice, governing law, jurisdiction, indemnity, non-compete, terms and conditions, force majeure, confidentiality clause*. Or attach a legal document (PDF/DOCX) and ask Leo to review it.
+
+**What it does:**
+Analyses and drafts legal documents for international business, with coverage across Singapore, Hong Kong, Malaysia, UAE, Saudi Arabia, Qatar, and Cayman Islands.
+
+**Sample prompts:**
+
+| What you want | What to type |
+|--------------|-------------|
+| Review a contract | Attach PDF/DOCX → `"Review this NDA and flag any risk areas"` |
+| Draft a new contract | `"Draft an NDA between Mezzofy Pte Ltd and XYZ Corp under Singapore law"` |
+| Legal Q&A | `"What are the notice period requirements for employment contracts in Malaysia?"` |
+| Compare jurisdictions | `"Compare data protection obligations in Singapore and Hong Kong for a tech company"` |
+| Risk assessment | `"Assess the legal risks in this vendor agreement"` |
+| Find clauses | `"Extract all indemnity and liability clauses from this contract"` |
+| Jurisdiction advice | `"Which jurisdiction is best for our new holding company — Singapore or Cayman Islands?"` |
+
+**What Leo produces:**
+- **Document Review:** structured PDF report — Executive Summary → Key Terms & Obligations → Risk Flags → Missing Clauses → Jurisdiction Notes → Recommended Actions
+- **Contract Drafting:** Word document (DOCX) + PDF
+- **Legal Advisory:** written response with applicable laws cited
+- **Risk Assessment:** risk matrix PDF (Critical / High / Medium / Low)
+- **Clause Extraction:** structured list with page references and plain-language summaries
+
+**Important:** All Leo responses include a legal disclaimer — Leo's analysis is for reference only and does not constitute professional legal advice. Consult a qualified solicitor for binding decisions.
+
+> **Note:** Legal review tasks run asynchronously for large documents. You will see progress updates on your screen while Leo analyses the document.
 
 ---
 

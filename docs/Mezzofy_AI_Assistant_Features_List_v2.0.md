@@ -365,24 +365,90 @@
 
 ---
 
+## Legal Department Features *(v1.34.0)* ⭐ NEW
+
+### Document Review & Analysis
+
+| Feature | Status |
+|---------|:------:|
+| Review uploaded legal documents (PDF, DOCX) | ✅ |
+| Contract review: NDAs, MOUs, shareholder agreements, term sheets, employment contracts, vendor agreements | ✅ |
+| Identify document type, parties, key dates, and governing law automatically | ✅ |
+| Structured review: Executive Summary, Key Terms, Risk Flags, Missing Clauses, Jurisdiction Notes, Recommended Actions | ✅ |
+| Generate branded PDF review report | ✅ |
+
+### Contract Drafting & Generation
+
+| Feature | Status |
+|---------|:------:|
+| Generate business contracts from natural language descriptions | ✅ |
+| NDA, Service Agreement, Consultancy Agreement | ✅ |
+| Employment Contract, Vendor/Supplier Agreement, MOU, Letter of Intent | ✅ |
+| IP Assignment, Distribution Agreement, Shareholders Agreement (basic), Joint Venture Agreement (basic) | ✅ |
+| Output in Word (DOCX) + PDF formats | ✅ |
+| Customise jurisdiction-specific clauses | ✅ |
+
+### Jurisdiction Coverage
+
+| Jurisdiction | Arbitration Body | Status |
+|-------------|:----------------:|:------:|
+| Singapore — PDPA, Companies Act, Employment Act | SIAC | ✅ |
+| Hong Kong — Companies Ordinance, Employment Ordinance | HKIAC | ✅ |
+| Malaysia — Companies Act 2016, PDPA MY, Employment Act 1955 | AIAC | ✅ |
+| UAE / Dubai (onshore, DIFC, ADGM) | DIAC / DIFC-LCIA | ✅ |
+| Saudi Arabia — with Shari'ah law considerations | SCCA | ✅ |
+| Qatar (onshore + QFC) | QICCA | ✅ |
+| Cayman Islands — Exempted Companies, ELP, fund structures | Grand Court / London | ✅ |
+
+### Legal Research & Advisory
+
+| Feature | Status |
+|---------|:------:|
+| Jurisdiction-specific legal Q&A | ✅ |
+| Compare legal frameworks across jurisdictions side-by-side | ✅ |
+| Regulatory compliance checks for business activities | ✅ |
+| Recommend best jurisdiction for business structures or transactions | ✅ |
+| Clause extraction (indemnity, liability caps, termination, IP clauses, etc.) | ✅ |
+
+### Legal Risk Assessment
+
+| Feature | Status |
+|---------|:------:|
+| Legal risk matrix (Critical / High / Medium / Low severity) | ✅ |
+| Jurisdiction-specific risk flags | ✅ |
+| Recommended mitigations per risk item | ✅ |
+
+### Legal Agent Skills *(v1.34.0)*
+
+| Skill | Description |
+|-------|-------------|
+| `document_review` | Extract, parse, and analyse legal documents (PDF, DOCX) |
+| `contract_drafting` | Generate business contracts from templates and parameters |
+| `legal_research` | Research jurisdiction-specific laws and regulations |
+| `jurisdiction_advisory` | Jurisdiction advisory for SG, HK, MY, UAE, KSA, QA, Cayman |
+
+> **Important:** All Leo (Legal Agent) outputs include a mandatory AI disclaimer — analysis is for reference only and does not constitute professional legal advice. Consult a qualified solicitor for binding decisions.
+
+---
+
 ## Agent Enhancement v2.0 — Multi-Agent Team
 
 *(v1.20.0 — Released March 2026)*
 
-The AI Assistant now runs as a **team of 9 persistent AI agents**, each with a unique identity, assigned skills, and private knowledge namespace stored in the database.
+The AI Assistant now runs as a **team of 10 persistent AI agents**, each with a unique identity, assigned skills, and private knowledge namespace stored in the database.
 
 ### What's New in v2.0
 
 | Component | Description |
 |-----------|-------------|
 | **Agents Table** | PostgreSQL `agents` table stores each agent's identity, skills, LLM model, memory namespace, and orchestrator flag |
-| **AgentRegistry** | Database-backed singleton — loads all 9 agents at startup, supports skill-based discovery (`find_by_skill`, `get_by_department`) |
+| **AgentRegistry** | Database-backed singleton — loads all 10 agents at startup, supports skill-based discovery (`find_by_skill`, `get_by_department`) |
 | **agent_task_log** | Every agent task is logged with parent/child chain — full delegation tracking and audit trail |
 | **delegate_task()** | BaseAgent method to spawn child tasks on other agents via Celery with `parent_task_id` linking |
 | **_load_knowledge()** | Each agent loads only its own private namespace + shared knowledge — no cross-agent data leakage |
 | **requires_skill()** | Runtime skill capability check before executing skill-dependent workflows |
 
-### The 9 Agent Team
+### The 10 Agent Team
 
 | Agent Name | Persona | Department | Is Orchestrator |
 |-----------|---------|:----------:|:---------------:|
@@ -392,17 +458,18 @@ The AI Assistant now runs as a **team of 9 persistent AI agents**, each with a u
 | Marketing Agent | Maya | marketing | ❌ |
 | Support Agent | Suki | support | ❌ |
 | HR Agent | Hana | hr | ❌ |
+| Legal Agent | Leo | legal | ❌ |
 | Research Agent | Rex | research | ❌ |
 | Developer Agent | Dev | developer | ❌ |
 | Scheduler Agent | Sched | scheduler | ❌ |
 
 ---
 
-## Special Agents — Research, Developer, Scheduler
+## Special Agents — Research, Developer, Scheduler, Legal
 
-*(v1.23.0–v1.25.0)*
+*(v1.23.0–v1.34.0)*
 
-These three agents handle specialized tasks that go beyond standard department workflows.
+These four agents handle specialized tasks that go beyond standard department workflows.
 
 ### Research Agent *(v1.23.0)*
 
@@ -479,6 +546,34 @@ These three agents handle specialized tasks that go beyond standard department w
 - `"Schedule a weekly sales report every Monday at 9am SGT"`
 - `"List my scheduled jobs"`
 - `"Delete the finance report job"`
+
+---
+
+### Legal Agent *(v1.34.0)*
+
+**Persona:** Leo | **Trigger:** Message contains legal keywords (contract, NDA, agreement, legal advice, governing law, etc.) → `task["agent"] = "legal"` · Also delegatable from Management Agent
+
+**Cross-departmental:** Any department can invoke Leo — Sales (vendor agreements), HR (employment contracts), Finance (investment agreements), Management (shareholder agreements).
+
+| Feature | Status |
+|---------|:------:|
+| Legal document review (PDF, DOCX) with structured analysis | ✅ |
+| Contract drafting: 11 contract types across 7 jurisdictions | ✅ |
+| Auto-detect document type, parties, governing law | ✅ |
+| Clause extraction as structured JSON | ✅ |
+| Legal risk matrix (Critical / High / Medium / Low) | ✅ |
+| Jurisdiction-specific advisory (SG, HK, MY, UAE, KSA, QA, Cayman) | ✅ |
+| Cross-jurisdiction comparison | ✅ |
+| Regulatory compliance checks | ✅ |
+| Output: PDF review report + DOCX + PDF contract | ✅ |
+| Mandatory AI legal disclaimer on all outputs | ✅ |
+
+**Skills:** `document_review`, `contract_drafting`, `legal_research`, `jurisdiction_advisory`
+
+**Sample prompts:**
+- `"Review this NDA and flag any risk areas"` *(attach PDF/DOCX)*
+- `"Draft a service agreement between Mezzofy and XYZ Corp under Singapore law"`
+- `"What are the data protection obligations for a fintech company in UAE?"`
 
 ---
 

@@ -239,6 +239,46 @@ sequenceDiagram
 
 ---
 
+### Legal Agent (Special)
+
+| Field | Value |
+|-------|-------|
+| **ID** | `agent_legal` |
+| **Persona** | Leo |
+| **Department** | `legal` |
+| **Skills** | `document_review`, `contract_drafting`, `legal_research`, `jurisdiction_advisory` |
+| **LLM Model** | `claude-sonnet-4-6` |
+| **RAG Namespace** | `legal` |
+
+**Role:** International business law specialist. Reviews and drafts contracts, provides jurisdiction-specific legal advisory, and flags legal risk across Singapore, Hong Kong, Malaysia, UAE/Saudi Arabia/Qatar, and Cayman Islands.
+
+**Trigger:** Legal keywords in message from ANY department (contract, NDA, agreement, review contract, legal advice, governing law, clause, indemnity, non-compete, etc.) → `task["agent"] = "legal"`. Also delegatable from ManagementAgent via `delegate_task()`.
+
+**Cross-departmental:** ✅ Any department can invoke Leo — legal needs arise across Sales (vendor agreements), HR (employment contracts), Finance (loan/investment agreements), Management (shareholder agreements).
+
+**5 workflows:**
+- `document_review` — extract text → classify → LLM structured analysis → branded PDF report
+- `contract_generation` — extract parameters → load template → LLM draft → DOCX + PDF
+- `clause_extraction` — LLM identifies and extracts named clause types as structured JSON
+- `risk_assessment` — LLM risk matrix (Critical/High/Medium/Low) → formatted PDF
+- `legal_advisory` — load jurisdiction knowledge → structured advisory text (no document generated)
+
+**Mandatory disclaimer:** Every Leo output appends: *"This analysis is AI-generated for informational purposes only and does not constitute professional legal advice. Consult a qualified solicitor for binding decisions."*
+
+**Jurisdictions covered:**
+
+| Jurisdiction | Arbitration Body | Key Legislation |
+|---|---|---|
+| Singapore | SIAC | Companies Act, Employment Act, PDPA, Contract Act |
+| Hong Kong | HKIAC | Companies Ordinance, Employment Ordinance, PDPO |
+| Malaysia | AIAC | Companies Act 2016, Employment Act 1955, PDPA MY |
+| UAE (onshore/DIFC/ADGM) | DIAC / DIFC-LCIA | Federal Companies Law, Labour Law, DIFC/ADGM Laws |
+| Saudi Arabia | SCCA | Companies Law, Labor Law, PDPL (Shari'ah applies) |
+| Qatar (onshore/QFC) | QICCA | Commercial Companies Law, Labour Law, QFC Laws |
+| Cayman Islands | Grand Court / London | Companies Act 2023, AML Regulations |
+
+---
+
 ### Research Agent (Special)
 
 | Field | Value |
@@ -353,6 +393,7 @@ flowchart TD
     DA -- research keywords --> RA[ResearchAgent\ntask agent=research]
     DA -- code keywords --> DEV[DeveloperAgent\ntask agent=developer]
     DA -- scheduler keywords --> SCHED[SchedulerAgent\ntask agent=scheduler]
+    DA -- legal keywords --> LEO[LegalAgent\ntask agent=legal]
     DA -- none / department --> R[router.py\nroute_request]
     R --> MA[ManagementAgent]
     R --> FA[FinanceAgent]
@@ -369,6 +410,7 @@ flowchart TD
     CELERY --> MK
     CELERY --> SU
     CELERY --> HR
+    CELERY --> LEO
 ```
 
 ### AgentRegistry
@@ -423,7 +465,7 @@ Each agent's `memory_namespace` field in the `agents` table maps directly to the
 
 ## Skills Catalogue
 
-Full list of all 18 skills across the 9 agents:
+Full list of all 22 skills across the 10 agents:
 
 | Skill | Agent | Version | Description | Tools |
 |-------|-------|:-------:|-------------|-------|
@@ -445,6 +487,10 @@ Full list of all 18 skills across the 9 agents:
 | `cron_validation` | Scheduler | 1.0 | Cron validation, UTC conversion, natural language → cron | `validate`, `compute_next_runs`, `explain`, `natural_to_cron` |
 | `job_monitoring` | Scheduler | 1.0 | Health checks, failure detection, run history | `health_report`, `get_run_history` |
 | `beat_sync` | Scheduler | 1.0 | Celery Beat sync status and next_run recalculation | `sync_status`, `force_next_run_recalculation`, `get_static_beat_jobs` |
+| `document_review` | Legal | 1.0 | Extract, parse, and analyse legal documents (PDF, DOCX) | `extract_legal_document`, `identify_document_type`, `detect_parties`, `detect_governing_law` |
+| `contract_drafting` | Legal | 1.0 | Generate business contracts from templates and parameters | `draft_contract`, `customise_clauses`, `get_contract_template` |
+| `legal_research` | Legal | 1.0 | Research jurisdiction-specific laws and regulations | `research_jurisdiction_law`, `lookup_regulatory_requirements`, `check_compliance_requirements` |
+| `jurisdiction_advisory` | Legal | 1.0 | Jurisdiction advisory for SG, HK, MY, UAE, KSA, QA, Cayman | `get_jurisdiction_overview`, `compare_jurisdictions`, `recommend_jurisdiction` |
 
 ---
 
