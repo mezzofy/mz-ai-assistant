@@ -267,6 +267,20 @@ async def send_message(
                     "qname": queue_name_value,
                 },
             )
+            # Publish queued status to admin agent-office channel
+            try:
+                import redis.asyncio as _aioredis
+                _redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+                async with _aioredis.from_url(_redis_url) as _rc:
+                    await _rc.publish("admin:agent-status", json.dumps({
+                        "type": "agent_status",
+                        "department": user.get("department", ""),
+                        "status": "queued",
+                        "task_title": body.message[:80],
+                        "agent_task_id": new_task_id,
+                    }))
+            except Exception as _pub_err:
+                logger.warning(f"send_message: admin agent-status publish failed (non-fatal): {_pub_err}")
             # Save user message immediately so chat history is never blank
             # if the Celery worker crashes before process_result() runs.
             try:

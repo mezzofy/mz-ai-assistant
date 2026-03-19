@@ -11,13 +11,13 @@ from pathlib import Path
 from typing import Optional
 
 import psutil
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_role, get_db
-from app.core.auth import blacklist_all_user_tokens, hash_password
+from app.core.auth import blacklist_all_user_tokens, hash_password, decode_access_token
 
 logger = logging.getLogger("mezzofy.admin_portal")
 
@@ -1726,3 +1726,65 @@ async def get_crm_pipeline(
         "pipeline": pipeline,
         "total": total,
     }
+
+
+# ── WebSocket — Agent Office Live Feed ───────────────────────────────────────
+
+@router.websocket("/ws")
+async def admin_agent_office_ws(
+    websocket: WebSocket,
+    token: str = Query(...),
+):
+    """
+    Real-time WebSocket stream for Mission Control Agent Office.
+
+    Subscribes to the Redis "admin:agent-status" pub/sub channel and forwards
+    every agent lifecycle event (queued → running → completed/failed) to the
+    connected admin client.
+
+    Auth: JWT passed as query parameter — /api/admin-portal/ws?token=<JWT>
+    Admin role required (validated from JWT payload).
+
+    Server → Client messages:
+      {"type": "agent_status", "department": "...", "status": "queued|running|completed|failed",
+       "task_title": "...", "agent_task_id": "..."}
+    """
+    # 1. Validate JWT and require admin role
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("user_id") or payload.get("sub")
+        role = payload.get("role", "")
+        if not user_id or role != "admin":
+            await websocket.close(code=1008)
+            return
+    except Exception:
+        await websocket.close(code=1008)
+        return
+
+    await websocket.accept()
+    logger.info(f"admin_agent_office_ws: admin user_id={user_id} connected")
+
+    # 2. Subscribe to Redis channel
+    import redis.asyncio as aioredis
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    r = aioredis.from_url(redis_url)
+    pubsub = r.pubsub()
+    await pubsub.subscribe("admin:agent-status")
+
+    try:
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                data = message["data"]
+                if isinstance(data, bytes):
+                    data = data.decode()
+                await websocket.send_text(data)
+    except WebSocketDisconnect:
+        logger.info(f"admin_agent_office_ws: admin user_id={user_id} disconnected")
+    except Exception as e:
+        logger.warning(f"admin_agent_office_ws: error for user_id={user_id}: {e}")
+    finally:
+        try:
+            await pubsub.unsubscribe("admin:agent-status")
+            await r.aclose()
+        except Exception:
+            pass

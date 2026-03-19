@@ -1,9 +1,73 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-19
+**Date:** 2026-03-20
 **Project:** mz-ai-assistant
-**Session:** 26 (FEAT: Leo Legal Agent — v1.34.0)
-**Context:** ~65% at checkpoint
-**Reason:** All 7 tasks complete, committing and checkpointing
+**Session:** 27 (FEAT: WebSocket agent status push — v1.43.0)
+**Context:** ~35% at checkpoint
+**Reason:** All 4 tasks complete for WebSocket push feature
+
+## Completed This Session (Session 27)
+
+- ✅ B1: Redis publish after `agent_tasks` INSERT (status=queued) in POST /send long-running Celery path
+  - File: `server/app/api/chat.py`
+  - Uses `redis.asyncio` context manager, channel: `admin:agent-status`
+
+- ✅ B2: Redis publish in `_update_agent_task_status` (running) — fetches department+title from DB then publishes
+  - File: `server/app/tasks/tasks.py`
+
+- ✅ B2: Redis publish in `_update_agent_task_done` (completed)
+  - File: `server/app/tasks/tasks.py`
+
+- ✅ B2: Redis publish in `_update_agent_task_failed` (failed)
+  - File: `server/app/tasks/tasks.py`
+
+- ✅ B3: Admin WebSocket endpoint at `@router.websocket("/ws")` added to admin_portal.py
+  - Full URL: `/api/admin-portal/ws?token=<JWT>`
+  - Auth: `decode_access_token(token)`, requires `role == "admin"`
+  - File: `server/app/api/admin_portal.py`
+
+- ✅ B4: Router registration confirmed — already present in `server/app/main.py` line 174
+  - `app.include_router(admin_portal.router, prefix="/api/admin-portal", tags=["admin-portal"])`
+
+## Key Details for Frontend Agent
+
+### WebSocket URL
+`ws://<host>/api/admin-portal/ws?token=<JWT>`
+
+### JWT param name
+`?token=` (query parameter, same pattern as `/chat/ws`)
+
+### JWT validation
+- Uses `decode_access_token(token)` from `app.core.auth`
+- Requires `role == "admin"` — closes with code 1008 if not admin or invalid token
+
+### Redis pub/sub channel
+`admin:agent-status`
+
+### Message shape (Server → Client)
+```json
+{
+  "type": "agent_status",
+  "department": "finance",
+  "status": "queued|running|completed|failed",
+  "task_title": "Generate monthly revenue report...",
+  "agent_task_id": "uuid-string"
+}
+```
+
+### tasks.py used async Redis
+`_update_agent_task_status/done/failed` are `async` functions — used `redis.asyncio` (not sync redis).
+
+## Decisions Made
+- Fetches `department` and `title` from DB inside each `_update_*` function (not passed as parameters — kept backward compatible)
+- All publish calls are wrapped in try/except with `logger.warning` — never fatal, won't break task execution
+- WebSocket requires `role == "admin"` (not just any authenticated user)
+
+## Not Deployed
+DO NOT deploy to EC2 — Frontend Agent must complete first.
+
+---
+
+# Previous Session (Session 26): FEAT: Leo Legal Agent — v1.34.0
 
 ## Completed This Session (Session 26)
 

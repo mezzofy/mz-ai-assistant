@@ -629,7 +629,29 @@ async def _update_agent_task_status(agent_task_id: str, new_status: str):
                 ),
                 {"status": new_status, "id": agent_task_id},
             )
+            # Fetch department + title for the Redis publish
+            row = await db.execute(
+                text("SELECT department, title FROM agent_tasks WHERE id = :id"),
+                {"id": agent_task_id},
+            )
+            task_row = row.fetchone()
             await db.commit()
+
+        # Publish running status to admin agent-office channel
+        try:
+            import json as _json
+            import redis.asyncio as _aioredis
+            _redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+            async with _aioredis.from_url(_redis_url) as _rc:
+                await _rc.publish("admin:agent-status", _json.dumps({
+                    "type": "agent_status",
+                    "department": task_row.department if task_row else "",
+                    "status": new_status,
+                    "task_title": task_row.title if task_row else "",
+                    "agent_task_id": agent_task_id,
+                }))
+        except Exception as _pub_err:
+            logger.warning(f"admin agent-status publish failed in _update_agent_task_status (non-fatal): {_pub_err}")
     except Exception as e:
         logger.warning(f"Failed to update agent_task status (id={agent_task_id}): {e}")
 
@@ -651,7 +673,27 @@ async def _update_agent_task_done(agent_task_id: str, result: dict):
                 ),
                 {"result": json.dumps(result), "id": agent_task_id},
             )
+            row = await db.execute(
+                text("SELECT department, title FROM agent_tasks WHERE id = :id"),
+                {"id": agent_task_id},
+            )
+            task_row = row.fetchone()
             await db.commit()
+
+        # Publish completed status to admin agent-office channel
+        try:
+            import redis.asyncio as _aioredis
+            _redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+            async with _aioredis.from_url(_redis_url) as _rc:
+                await _rc.publish("admin:agent-status", json.dumps({
+                    "type": "agent_status",
+                    "department": task_row.department if task_row else "",
+                    "status": "completed",
+                    "task_title": task_row.title if task_row else "",
+                    "agent_task_id": agent_task_id,
+                }))
+        except Exception as _pub_err:
+            logger.warning(f"admin agent-status publish failed in _update_agent_task_done (non-fatal): {_pub_err}")
     except Exception as e:
         logger.warning(f"Failed to update agent_task done (id={agent_task_id}): {e}")
 
@@ -671,7 +713,28 @@ async def _update_agent_task_failed(agent_task_id: str, error_msg: str):
                 ),
                 {"error": error_msg, "id": agent_task_id},
             )
+            row = await db.execute(
+                text("SELECT department, title FROM agent_tasks WHERE id = :id"),
+                {"id": agent_task_id},
+            )
+            task_row = row.fetchone()
             await db.commit()
+
+        # Publish failed status to admin agent-office channel
+        try:
+            import json as _json
+            import redis.asyncio as _aioredis
+            _redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+            async with _aioredis.from_url(_redis_url) as _rc:
+                await _rc.publish("admin:agent-status", _json.dumps({
+                    "type": "agent_status",
+                    "department": task_row.department if task_row else "",
+                    "status": "failed",
+                    "task_title": task_row.title if task_row else "",
+                    "agent_task_id": agent_task_id,
+                }))
+        except Exception as _pub_err:
+            logger.warning(f"admin agent-status publish failed in _update_agent_task_failed (non-fatal): {_pub_err}")
     except Exception as e:
         logger.warning(f"Failed to update agent_task failed (id={agent_task_id}): {e}")
 
