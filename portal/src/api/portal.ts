@@ -53,6 +53,13 @@ export const portalApi = {
     })
   },
   deleteFile: (id: string) => client.delete(`/api/admin-portal/files/${id}`),
+
+  sendAgentMessage: (dept: string, message: string, sessionId: string) =>
+    client.post('/chat/send', {
+      message,
+      department: dept,
+      session_id: sessionId,
+    }),
   downloadFile: async (id: string, filename: string): Promise<void> => {
     const response = await client.get(`/api/admin-portal/files/${id}/download`, {
       responseType: 'blob',

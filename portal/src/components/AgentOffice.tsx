@@ -3,27 +3,51 @@ import type { AgentStatus } from '../types'
 
 interface Props {
   agents: AgentStatus[]
+  onAgentClick: (dept: string) => void
 }
 
-const AGENT_POSITIONS: Record<string, { x: number; y: number }> = {
-  management: { x: 400, y: 60 },
-  finance:    { x: 90,  y: 190 },
-  sales:      { x: 210, y: 270 },
-  hr:         { x: 330, y: 330 },
-  marketing:  { x: 470, y: 330 },
-  support:    { x: 590, y: 270 },
-  legal:      { x: 550, y: 190 },
-  research:   { x: 710, y: 190 },
-  developer:  { x: 670, y: 330 },
-  scheduler:  { x: 130, y: 320 },
+// ── Layout constants ─────────────────────────────────────────────────────────
+const CANVAS_W = 900
+const CANVAS_H = 520
+const ROOM_X = 594   // Task Room starts here (left of divider wall)
+
+// Agent home positions — left 2/3 zone, 3 rows
+const HOME_POSITIONS: Record<string, { x: number; y: number }> = {
+  // Row 0 — management (center, prominent)
+  management: { x: 295, y: 95 },
+  // Row 1 — 5 department agents
+  finance:    { x: 55,  y: 215 },
+  sales:      { x: 155, y: 215 },
+  marketing:  { x: 255, y: 215 },
+  support:    { x: 370, y: 215 },
+  hr:         { x: 475, y: 215 },
+  // Row 2 — 4 special agents
+  legal:      { x: 80,  y: 355 },
+  research:   { x: 190, y: 355 },
+  developer:  { x: 305, y: 355 },
+  scheduler:  { x: 420, y: 355 },
 }
+
+// Task Room meeting table seats (agents sit here when busy)
+const TABLE_SEATS = [
+  { x: 631, y: 148 },
+  { x: 683, y: 148 },
+  { x: 735, y: 148 },
+  { x: 787, y: 148 },
+  { x: 839, y: 148 },
+  { x: 631, y: 268 },
+  { x: 683, y: 268 },
+  { x: 735, y: 268 },
+  { x: 787, y: 268 },
+  { x: 839, y: 268 },
+]
 
 const DEPT_COLORS: Record<string, string> = {
+  management: '#FF6B8A',
   finance:    '#FFB84D',
   sales:      '#00D4AA',
   marketing:  '#C77DFF',
   support:    '#4DA6FF',
-  management: '#FF6B8A',
   hr:         '#DB2777',
   legal:      '#F59E0B',
   research:   '#4DA6FF',
@@ -31,8 +55,22 @@ const DEPT_COLORS: Record<string, string> = {
   scheduler:  '#FFB84D',
 }
 
-const ALL_DEPTS = Object.keys(AGENT_POSITIONS)
+const PERSONAS: Record<string, string> = {
+  management: 'Max',
+  finance:    'Fiona',
+  sales:      'Sam',
+  marketing:  'Maya',
+  support:    'Suki',
+  hr:         'Hana',
+  legal:      'Leo',
+  research:   'Rex',
+  developer:  'Dev',
+  scheduler:  'Sched',
+}
 
+const ALL_DEPTS = Object.keys(HOME_POSITIONS)
+
+// ── Sprite drawing ────────────────────────────────────────────────────────────
 function drawSprite(
   ctx: CanvasRenderingContext2D,
   dept: string,
@@ -40,28 +78,35 @@ function drawSprite(
   y: number,
   isBusy: boolean,
   bobOffset: number,
-  tasksToday: number,
-  activeTasks: number
+  atTable: boolean,
 ) {
   const cy = y + bobOffset
   const scale = dept === 'management' ? 2.0 : 1.5
 
+  // Computer monitor — only at home desk (not in task room)
+  if (!atTable) {
+    ctx.fillStyle = '#0D1F35'
+    ctx.fillRect(x - 10 * scale, cy - 30 * scale, 20 * scale, 13 * scale)
+    ctx.fillStyle = '#0A2E1A'
+    ctx.fillRect(x - 9 * scale, cy - 29 * scale, 18 * scale, 11 * scale)
+    ctx.fillStyle = '#00D4AA'
+    ctx.fillRect(x - 7 * scale, cy - 27 * scale, 11 * scale, 1 * scale)
+    ctx.fillRect(x - 7 * scale, cy - 25 * scale, 8 * scale, 1 * scale)
+    ctx.fillRect(x - 7 * scale, cy - 23 * scale, 10 * scale, 1 * scale)
+    ctx.fillStyle = '#374151'
+    ctx.fillRect(x - 2 * scale, cy - 17 * scale, 4 * scale, 4 * scale)
+    ctx.fillRect(x - 5 * scale, cy - 14 * scale, 10 * scale, 2 * scale)
+  }
+
   // Desk
-  ctx.fillStyle = '#1E3A5F'
+  ctx.fillStyle = atTable ? '#6B4E1A' : '#1E3A5F'
   ctx.fillRect(x - 14 * scale, cy + 12 * scale, 28 * scale, 6 * scale)
 
-  // Body color by department
+  // Body
   const bodyColors: Record<string, string> = {
-    management: '#2D1B69',
-    finance: '#064E3B',
-    sales: '#1E3A5F',
-    marketing: '#78350F',
-    support: '#164E63',
-    hr: '#4C1D95',
-    legal: '#3B1A00',
-    research: '#1E3A5F',
-    developer: '#064E3B',
-    scheduler: '#78350F',
+    management: '#2D1B69', finance: '#064E3B', sales: '#1E3A5F',
+    marketing: '#78350F', support: '#164E63', hr: '#4C1D95',
+    legal: '#3B1A00', research: '#1E3A5F', developer: '#064E3B', scheduler: '#78350F',
   }
   ctx.fillStyle = bodyColors[dept] || '#374151'
   ctx.fillRect(x - 6 * scale, cy + 2 * scale, 12 * scale, 10 * scale)
@@ -70,7 +115,7 @@ function drawSprite(
   ctx.fillStyle = '#FBBF24'
   ctx.fillRect(x - 4 * scale, cy - 6 * scale, 8 * scale, 8 * scale)
 
-  // Department-specific accessory
+  // Dept accessory
   if (dept === 'management') {
     ctx.fillStyle = '#f97316'
     ctx.fillRect(x - 5 * scale, cy - 4 * scale, 3 * scale, 2 * scale)
@@ -105,62 +150,210 @@ function drawSprite(
     ctx.fillStyle = '#FFB84D'
     ctx.fillRect(x - 5 * scale, cy - 7 * scale, 10 * scale, 3 * scale)
   } else if (dept === 'legal') {
-    // Scales of justice: beam + two hanging pans
     ctx.fillStyle = '#F59E0B'
-    // Horizontal beam
     ctx.fillRect(x - 7 * scale, cy - 8 * scale, 14 * scale, 2 * scale)
-    // Center post
     ctx.fillRect(x - 1 * scale, cy - 8 * scale, 2 * scale, 4 * scale)
-    // Left pan
     ctx.fillRect(x - 9 * scale, cy - 5 * scale, 5 * scale, 2 * scale)
-    // Right pan
     ctx.fillRect(x + 4 * scale, cy - 5 * scale, 5 * scale, 2 * scale)
-    // Left chain
     ctx.fillRect(x - 7 * scale, cy - 8 * scale, 1 * scale, 3 * scale)
-    // Right chain
     ctx.fillRect(x + 6 * scale, cy - 8 * scale, 1 * scale, 3 * scale)
   }
+}
 
-  // Activity bubble with task count (orange circle above head)
-  if (isBusy && activeTasks > 0) {
-    const badgeX = x + 8 * scale
-    const badgeY = cy - 16 * scale
-    ctx.beginPath()
-    ctx.arc(badgeX, badgeY, 8, 0, Math.PI * 2)
-    ctx.fillStyle = '#f97316'
-    ctx.fill()
-    ctx.fillStyle = 'white'
-    ctx.font = 'bold 9px monospace'
-    ctx.textAlign = 'center'
-    ctx.fillText(String(activeTasks), badgeX, badgeY + 3)
-    ctx.textAlign = 'left'
-  } else if (isBusy) {
-    const bubbleX = x + 10 * scale
-    const bubbleY = cy - 16 * scale
-    ctx.fillStyle = '#f97316'
-    ctx.beginPath()
-    // @ts-ignore - roundRect may not be in all TS lib versions
-    ctx.roundRect(bubbleX, bubbleY, 24, 14, 4)
-    ctx.fill()
-    ctx.fillStyle = 'white'
-    ctx.font = '8px monospace'
-    ctx.fillText('...', bubbleX + 6, bubbleY + 10)
+// ── Task Room ────────────────────────────────────────────────────────────────
+function drawTaskRoom(ctx: CanvasRenderingContext2D, W: number, H: number, busyCount: number) {
+  // Floor — warm checkerboard
+  const tileS = 38
+  for (let row = 0; row < Math.ceil(H / tileS); row++) {
+    for (let col = 0; col < Math.ceil((W - ROOM_X) / tileS); col++) {
+      ctx.fillStyle = (row + col) % 2 === 0 ? '#D8CFC0' : '#C8BFB0'
+      ctx.fillRect(ROOM_X + col * tileS, row * tileS, tileS, tileS)
+    }
   }
 
-  // Completed-today teal label below name area
-  if (tasksToday > 0) {
-    const labelY = cy + 72
-    ctx.font = '13px monospace'
-    ctx.fillStyle = '#00D4AA'
+  // Wall divider (warm off-white strip)
+  ctx.fillStyle = '#E8DCC8'
+  ctx.fillRect(ROOM_X, 0, 5, H)
+
+  // Room header band
+  ctx.fillStyle = 'rgba(30,20,10,0.4)'
+  ctx.fillRect(ROOM_X + 5, 0, W - ROOM_X - 5, 55)
+
+  // "TASK ROOM" label
+  ctx.font = 'bold 13px monospace'
+  ctx.fillStyle = '#E8DCC8'
+  ctx.textAlign = 'center'
+  ctx.fillText('TASK ROOM', ROOM_X + (W - ROOM_X) / 2, 22)
+  ctx.textAlign = 'left'
+
+  // Busy indicator dot
+  if (busyCount > 0) {
+    ctx.beginPath()
+    ctx.arc(ROOM_X + 20, 16, 5, 0, Math.PI * 2)
+    ctx.fillStyle = '#f97316'
+    ctx.fill()
+  }
+
+  // Meeting table (dark wood)
+  const TX = ROOM_X + 22, TY = 155, TW = 272, TH = 98
+  ctx.fillStyle = '#5A3810'
+  ctx.fillRect(TX, TY, TW, TH)
+  ctx.fillStyle = '#7A5220'
+  ctx.fillRect(TX, TY, TW, 6)
+  ctx.fillStyle = '#4A2E0A'
+  ctx.fillRect(TX, TY + TH - 4, TW, 4)
+  // table legs
+  ctx.fillStyle = '#3A2208'
+  ctx.fillRect(TX + 8,       TY + TH, 8, 14)
+  ctx.fillRect(TX + TW - 16, TY + TH, 8, 14)
+
+  // Chairs — top row (above table)
+  for (let i = 0; i < 5; i++) {
+    const cx = TX + 22 + i * 56
+    ctx.fillStyle = '#1E3A5A'
+    ctx.fillRect(cx - 11, TY - 20, 22, 16)
+    ctx.fillRect(cx - 9,  TY - 34, 18, 14)
+  }
+  // Chairs — bottom row
+  for (let i = 0; i < 5; i++) {
+    const cx = TX + 22 + i * 56
+    ctx.fillStyle = '#1E3A5A'
+    ctx.fillRect(cx - 11, TY + TH + 4,  22, 16)
+    ctx.fillRect(cx - 9,  TY + TH + 20, 18, 14)
+  }
+
+  // Session note at bottom
+  if (busyCount > 0) {
+    ctx.font = '10px monospace'
+    ctx.fillStyle = '#f97316'
     ctx.textAlign = 'center'
-    ctx.fillText(`\u2713${tasksToday}`, x, labelY)
+    ctx.fillText(
+      `● ${busyCount} agent${busyCount > 1 ? 's' : ''} in session`,
+      ROOM_X + (W - ROOM_X) / 2,
+      H - 14,
+    )
     ctx.textAlign = 'left'
   }
 }
 
-export default function AgentOffice({ agents }: Props) {
+// ── Label (dept + persona boxed) ─────────────────────────────────────────────
+function drawLabel(
+  ctx: CanvasRenderingContext2D,
+  dept: string,
+  x: number,
+  y: number,
+  deptColor: string,
+  scale: number,
+) {
+  const persona = PERSONAS[dept] || dept
+  const deptText = dept.toUpperCase()
+
+  ctx.font = '9px monospace'
+  const dw = ctx.measureText(deptText).width
+  ctx.font = 'bold 10px Inter, sans-serif'
+  const pw = ctx.measureText(persona).width
+
+  const boxW = Math.max(dw, pw) + 18
+  const boxH = 30
+  const boxX = x - boxW / 2
+  const boxY = y + 18 * scale
+
+  ctx.fillStyle = 'rgba(5,10,20,0.82)'
+  ctx.strokeStyle = deptColor + '90'
+  ctx.lineWidth = 1
+  // @ts-ignore
+  ctx.roundRect(boxX, boxY, boxW, boxH, 4)
+  ctx.fill()
+  ctx.stroke()
+
+  ctx.font = '9px monospace'
+  ctx.fillStyle = deptColor
+  ctx.textAlign = 'center'
+  ctx.fillText(deptText, x, boxY + 12)
+
+  ctx.font = 'bold 10px Inter, sans-serif'
+  ctx.fillStyle = '#FFFFFF'
+  ctx.fillText(persona, x, boxY + 25)
+  ctx.textAlign = 'left'
+}
+
+// ── Status bubble for task room ───────────────────────────────────────────────
+function drawStatusBubble(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  taskLabel: string | null,
+) {
+  const text1 = '● RUNNING'
+  const raw = taskLabel || 'Working on task...'
+  const text2 = raw.length > 20 ? raw.slice(0, 20) + '…' : raw
+
+  const bx = x - 52
+  const by = y - 58
+  const bw = 104
+  const bh = 36
+
+  ctx.fillStyle = 'rgba(5,8,18,0.92)'
+  ctx.strokeStyle = '#f97316'
+  ctx.lineWidth = 1.5
+  // @ts-ignore
+  ctx.roundRect(bx, by, bw, bh, 5)
+  ctx.fill()
+  ctx.stroke()
+
+  // Bubble tail
+  ctx.fillStyle = 'rgba(5,8,18,0.92)'
+  ctx.beginPath()
+  ctx.moveTo(x - 5, by + bh)
+  ctx.lineTo(x,     by + bh + 9)
+  ctx.lineTo(x + 5, by + bh)
+  ctx.fill()
+  ctx.strokeStyle = '#f97316'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(x - 4, by + bh)
+  ctx.lineTo(x,     by + bh + 8)
+  ctx.lineTo(x + 4, by + bh)
+  ctx.stroke()
+
+  ctx.font = 'bold 8px monospace'
+  ctx.fillStyle = '#f97316'
+  ctx.textAlign = 'center'
+  ctx.fillText(text1, x, by + 14)
+
+  ctx.font = '8px monospace'
+  ctx.fillStyle = '#9CA3AF'
+  ctx.fillText(text2, x, by + 27)
+  ctx.textAlign = 'left'
+}
+
+// ── Walking bubble ────────────────────────────────────────────────────────────
+function drawWalkingBubble(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
+  const bx = x + 6 * scale
+  const by = y - 20 * scale
+  ctx.fillStyle = '#f97316'
+  ctx.beginPath()
+  // @ts-ignore
+  ctx.roundRect(bx, by, 26, 14, 4)
+  ctx.fill()
+  ctx.fillStyle = 'white'
+  ctx.font = '8px monospace'
+  ctx.fillText('...', bx + 7, by + 10)
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function AgentOffice({ agents, onAgentClick }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const frameRef = useRef<number>(0)
+  const animPosRef = useRef<Record<string, { x: number; y: number }>>({})
+
+  // Initialize animated positions once
+  if (Object.keys(animPosRef.current).length === 0) {
+    ALL_DEPTS.forEach((dept) => {
+      const home = HOME_POSITIONS[dept]
+      animPosRef.current[dept] = { x: home.x, y: home.y }
+    })
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -168,77 +361,147 @@ export default function AgentOffice({ agents }: Props) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Build lookup from API agents
+    // Click handler
+    const handleClick = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      const scaleX = canvas.width / rect.width
+      const scaleY = canvas.height / rect.height
+      const cx = (e.clientX - rect.left) * scaleX
+      const cy = (e.clientY - rect.top) * scaleY
+
+      for (const dept of ALL_DEPTS) {
+        const pos = animPosRef.current[dept]
+        if (!pos) continue
+        if (Math.abs(cx - pos.x) < 26 && Math.abs(cy - pos.y) < 26) {
+          onAgentClick(dept)
+          break
+        }
+      }
+    }
+
+    // Cursor — pointer when hovering agent
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      const scaleX = canvas.width / rect.width
+      const scaleY = canvas.height / rect.height
+      const cx = (e.clientX - rect.left) * scaleX
+      const cy = (e.clientY - rect.top) * scaleY
+      const hit = ALL_DEPTS.some((dept) => {
+        const pos = animPosRef.current[dept]
+        return pos && Math.abs(cx - pos.x) < 26 && Math.abs(cy - pos.y) < 26
+      })
+      canvas.style.cursor = hit ? 'pointer' : 'default'
+    }
+
+    canvas.addEventListener('click', handleClick)
+    canvas.addEventListener('mousemove', handleMouseMove)
+
+    // Build agent lookup
     const agentMap: Record<string, AgentStatus> = {}
     agents.forEach((a) => { agentMap[a.department] = a })
 
     const render = (timestamp: number) => {
-      const W = canvas.width
-      const H = canvas.height
+      const W = CANVAS_W
+      const H = CANVAS_H
       ctx.clearRect(0, 0, W, H)
 
-      // Checkerboard floor
-      const tileSize = 40
-      for (let row = 0; row < Math.ceil(H / tileSize); row++) {
-        for (let col = 0; col < Math.ceil(W / tileSize); col++) {
+      // ── Left zone floor (dark checkerboard) ──────────────────────────────
+      const tileS = 40
+      for (let row = 0; row < Math.ceil(H / tileS); row++) {
+        for (let col = 0; col < Math.ceil(ROOM_X / tileS); col++) {
           ctx.fillStyle = (row + col) % 2 === 0 ? '#1E2A3A' : '#162030'
-          ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize)
+          ctx.fillRect(col * tileS, row * tileS, tileS, tileS)
         }
       }
 
-      // HKT clock — top-right
+      // ── Task Room ─────────────────────────────────────────────────────────
+      const busyDepts = ALL_DEPTS.filter((d) => agentMap[d]?.is_busy)
+      drawTaskRoom(ctx, W, H, busyDepts.length)
+
+      // ── HKT Clock (inside task room header) ───────────────────────────────
       const hkt = new Date().toLocaleString('en-HK', {
         timeZone: 'Asia/Hong_Kong',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
-        day: '2-digit', month: 'short', year: 'numeric'
+        day: '2-digit', month: 'short', year: 'numeric',
       })
-      ctx.font = '15px monospace'
-      ctx.fillStyle = '#7A8FA6'
+      ctx.font = '10px monospace'
+      ctx.fillStyle = '#A09080'
       ctx.textAlign = 'right'
-      ctx.fillText(hkt + ' HKT', W - 10, 20)
+      ctx.fillText(hkt + ' HKT', W - 8, 46)
       ctx.textAlign = 'left'
 
-      // Draw each agent (all 9, even if not in API response)
+      // ── Update animated positions (lerp) ──────────────────────────────────
       ALL_DEPTS.forEach((dept) => {
-        const pos = AGENT_POSITIONS[dept]
-        if (!pos) return
-        const agent = agentMap[dept]
-        const isBusy = agent?.is_busy || false
-        const tasksToday = agent?.tasks_today || 0
-        const activeTasks = isBusy ? 1 : 0
-        const bobOffset = Math.sin(timestamp / 2000 + pos.x) * 2
-        drawSprite(ctx, dept, pos.x, pos.y, isBusy, Math.round(bobOffset), tasksToday, activeTasks)
+        const isBusy = agentMap[dept]?.is_busy || false
+        let tx: number, ty: number
+
+        if (isBusy) {
+          const seatIdx = busyDepts.indexOf(dept) % TABLE_SEATS.length
+          tx = TABLE_SEATS[seatIdx].x
+          ty = TABLE_SEATS[seatIdx].y
+        } else {
+          tx = HOME_POSITIONS[dept].x
+          ty = HOME_POSITIONS[dept].y
+        }
+
+        const cur = animPosRef.current[dept]
+        cur.x += (tx - cur.x) * 0.07
+        cur.y += (ty - cur.y) * 0.07
       })
 
-      // Labels
-      ctx.font = '14px Inter, sans-serif'
+      // ── Draw all sprites ──────────────────────────────────────────────────
       ALL_DEPTS.forEach((dept) => {
-        const pos = AGENT_POSITIONS[dept]
-        if (!pos) return
-        const agent = agentMap[dept]
-        const label = agent?.name || dept.charAt(0).toUpperCase() + dept.slice(1)
+        const cur = animPosRef.current[dept]
+        const home = HOME_POSITIONS[dept]
+        const isBusy = agentMap[dept]?.is_busy || false
+        const scale = dept === 'management' ? 2.0 : 1.5
         const deptColor = DEPT_COLORS[dept] || '#9CA3AF'
-        const labelWidth = ctx.measureText(label).width
-        ctx.fillStyle = 'rgba(0,0,0,0.6)'
-        ctx.fillRect(pos.x - labelWidth / 2 - 4, pos.y + 26, labelWidth + 8, 14)
-        ctx.fillStyle = agent?.is_busy ? deptColor : '#9CA3AF'
-        ctx.fillText(label, pos.x - labelWidth / 2, pos.y + 37)
+
+        // Determine if agent is at table, walking, or at desk
+        const target = isBusy
+          ? TABLE_SEATS[busyDepts.indexOf(dept) % TABLE_SEATS.length]
+          : home
+        const distToTarget = Math.hypot(cur.x - target.x, cur.y - target.y)
+        const isWalking = distToTarget > 8
+        const atTable = cur.x > ROOM_X - 30
+
+        // Bob animation (gentle sway when at desk/table, faster when walking)
+        const bobSpeed = isWalking ? 600 : 2000
+        const bobAmp = isWalking ? 3 : 2
+        const bobOffset = Math.round(Math.sin(timestamp / bobSpeed + home.x) * bobAmp)
+
+        drawSprite(ctx, dept, cur.x, cur.y, isBusy, bobOffset, atTable)
+
+        // Status / walking bubble
+        if (atTable && isBusy) {
+          drawStatusBubble(ctx, cur.x, cur.y, agentMap[dept]?.current_task || null)
+        } else if (isWalking) {
+          drawWalkingBubble(ctx, cur.x, cur.y, scale)
+        }
+
+        // Label (dept + persona box) — drawn BELOW sprite
+        drawLabel(ctx, dept, cur.x, cur.y + bobOffset, deptColor, scale)
       })
 
       frameRef.current = requestAnimationFrame(render)
     }
 
     frameRef.current = requestAnimationFrame(render)
-    return () => cancelAnimationFrame(frameRef.current)
-  }, [agents])
+
+    return () => {
+      cancelAnimationFrame(frameRef.current)
+      canvas.removeEventListener('click', handleClick)
+      canvas.removeEventListener('mousemove', handleMouseMove)
+    }
+  }, [agents, onAgentClick])
 
   return (
     <canvas
       ref={canvasRef}
-      width={800}
-      height={480}
+      width={CANVAS_W}
+      height={CANVAS_H}
       className="w-full rounded-lg"
-      style={{ imageRendering: 'pixelated', maxHeight: '480px' }}
+      style={{ imageRendering: 'pixelated', maxHeight: `${CANVAS_H}px` }}
     />
   )
 }

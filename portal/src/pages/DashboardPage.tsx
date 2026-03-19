@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import AgentOffice from '../components/AgentOffice'
+import AgentChatDialog from '../components/AgentChatDialog'
 import type { Session, LlmModel, SystemVitals, AgentStatus } from '../types'
 
 function StatusDot({ ok }: { ok: boolean }) {
@@ -65,6 +66,7 @@ function RadialGauge({ value, label, color }: { value: number; label: string; co
 
 export default function DashboardPage() {
   const [llmPeriod, setLlmPeriod] = useState<'today' | 'week' | 'month'>('today')
+  const [chatDept, setChatDept] = useState<string | null>(null)
 
   const { data: sessions } = useQuery({
     queryKey: ['sessions'],
@@ -108,7 +110,7 @@ export default function DashboardPage() {
             {agentList.filter((a) => a.is_busy).length} active
           </span>
         </h2>
-        <AgentOffice agents={agentList} />
+        <AgentOffice agents={agentList} onAgentClick={(dept) => setChatDept(dept)} />
       </div>
 
       {/* Row 2: Sessions + LLM Gauges */}
@@ -259,6 +261,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      )}
+      {chatDept && (
+        <AgentChatDialog dept={chatDept} onClose={() => setChatDept(null)} />
       )}
     </div>
   )
