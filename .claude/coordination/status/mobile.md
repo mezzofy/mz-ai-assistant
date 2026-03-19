@@ -1,8 +1,19 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-20
-**Session:** Targeted fixes — dept colors + persona greeting
-**Context:** ~20% at checkpoint
-**Reason:** Both fixes applied and committed (85e5d6b)
+**Session:** Multi-agent chat attribution
+**Context:** ~25% at checkpoint
+**Reason:** All 6 fixes applied and committed (103e3a9)
+
+## Completed This Session (2026-03-20)
+- ✅ Fix 1: Extended `Message` type — added `agentUsed?`, `isSystem?`, `'system'` role → `APP/src/stores/chatStore.ts`
+- ✅ Fix 2 + 3: `DEPT_TO_PERSONA` exported map; `sendToServer` + `sendArtifactToServer` extract `agent_used`, detect agent changes, insert system handoff dividers → `APP/src/stores/chatStore.ts`
+- ✅ Fix 4: `renderMessage` updated — system divider, persona label, dept-colored left border → `APP/src/screens/ChatScreen.tsx`
+- ✅ Fix 5: `getDeptColor()` helper added → `APP/src/screens/ChatScreen.tsx`
+- ✅ Fix 6: TypeScript check clean (only pre-existing jest error); committed `103e3a9`
+
+---
+
+# Previous Session: dept colors + persona greeting (85e5d6b)
 
 ## Completed This Session
 - ✅ Fix 1 — Added 5 missing dept colors (hr, legal, research, developer, scheduler) to both `BRAND.deptColors` and `LIGHT_THEME.deptColors` in `APP/src/utils/theme.ts`
