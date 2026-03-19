@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { path: '/mission-control/scheduler', label: 'Scheduler', icon: CalendarClock },
   { path: '/mission-control/agents', label: 'Agents', icon: Bot },
   { path: '/mission-control/files', label: 'Files', icon: FolderOpen },
-  { path: '/mission-control/crm', label: 'CRM', icon: TrendingUp },
+  { path: '/mission-control/crm', label: 'Leads', icon: TrendingUp },
   { path: '/mission-control/users', label: 'Users', icon: Users },
 ]
 

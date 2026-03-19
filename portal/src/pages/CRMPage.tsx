@@ -55,7 +55,7 @@ export default function CRMPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          CRM — Leads
+          Leads
         </h1>
         <span className="text-sm" style={{ color: '#6B7280' }}>
           {data?.total !== undefined ? `${data.total} leads` : ''}

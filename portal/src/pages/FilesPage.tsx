@@ -21,13 +21,19 @@ function formatBytes(bytes: number | null) {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`
 }
 
-function folderKey(g: FolderGroup) {
-  return `${g.scope}:${g.department || 'none'}:${g.owner_email || 'none'}`
+function folderLabel(g: FolderGroup) {
+  return [g.scope, g.department].filter(Boolean).join(' / ').toUpperCase()
+}
+
+const DEPT_ORDER = ['company', 'management', 'finance', 'hr', 'sales', 'marketing', 'support']
+
+interface FlatFile extends FileRecord {
+  folderLabel: string
 }
 
 export default function FilesPage() {
   const qc = useQueryClient()
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [searchQuery, setSearchQuery] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<FileRecord | null>(null)
   const [renamingFile, setRenamingFile] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -57,8 +63,6 @@ export default function FilesPage() {
     },
   })
 
-  const DEPT_ORDER = ['company', 'management', 'finance', 'hr', 'sales', 'marketing', 'support']
-
   const folders: FolderGroup[] = (folderData?.folders || [])
     .filter((g: FolderGroup) => g.scope !== 'personal')
     .sort((a: FolderGroup, b: FolderGroup) => {
@@ -72,14 +76,15 @@ export default function FilesPage() {
       return ai - bi
     })
 
-  const toggleFolder = (key: string) => {
-    setExpandedFolders((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
+  const allFiles: FlatFile[] = folders.flatMap((g) =>
+    g.files.map((f) => ({ ...f, folderLabel: folderLabel(g) }))
+  )
+
+  const displayed: FlatFile[] = searchQuery.trim()
+    ? allFiles.filter((f) =>
+        f.filename.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : allFiles
 
   const handleRename = (file: FileRecord) => {
     setRenamingFile(file.id)
@@ -106,118 +111,132 @@ export default function FilesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-white flex-shrink-0" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
           Files
         </h1>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search files..."
+          className="flex-1 px-3 py-1.5 rounded-lg text-sm text-white border outline-none transition-colors focus:border-orange-500"
+          style={{ background: '#1E2A3A', borderColor: '#374151' }}
+        />
         <button
           onClick={() => setShowUpload(true)}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all flex-shrink-0"
           style={{ background: '#f97316' }}
         >
           + Upload File
         </button>
       </div>
 
-      {/* Folder Tree */}
-      <div className="rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
-        {folders.length === 0 && (
-          <div className="py-12 text-center text-xs" style={{ color: '#6B7280' }}>No files</div>
+      {/* File Count */}
+      <div className="text-xs" style={{ color: '#6B7280' }}>
+        {searchQuery.trim()
+          ? `${displayed.length} result${displayed.length !== 1 ? 's' : ''} for "${searchQuery}"`
+          : `${allFiles.length} file${allFiles.length !== 1 ? 's' : ''} total`}
+      </div>
+
+      {/* Files Table */}
+      <div className="rounded-xl border overflow-hidden" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+        {displayed.length === 0 ? (
+          <div className="py-12 text-center text-xs" style={{ color: '#6B7280' }}>
+            {searchQuery.trim() ? 'No files match your search.' : 'No files.'}
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid #1E2A3A', background: '#0F1F35' }}>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                  Folder
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                  Size
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                  Date
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: '#6B7280' }}>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayed.map((f) => (
+                <tr key={f.id} className="border-t hover:bg-white/5 transition-colors" style={{ borderColor: '#1E2A3A' }}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span>{fileIcon(f.file_type)}</span>
+                      {renamingFile === f.id ? (
+                        <input
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => submitRename(f.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') submitRename(f.id)
+                            if (e.key === 'Escape') setRenamingFile(null)
+                          }}
+                          autoFocus
+                          className="px-1 py-0.5 rounded text-sm text-white border outline-none"
+                          style={{ background: '#1E2A3A', borderColor: '#374151', width: '220px' }}
+                        />
+                      ) : (
+                        <span className="text-gray-200 truncate max-w-[260px]">{f.filename}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className="px-2 py-0.5 rounded text-xs font-mono font-medium"
+                      style={{ background: '#1E2A3A', color: '#f97316' }}
+                    >
+                      {f.folderLabel}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs font-mono" style={{ color: '#6B7280' }}>
+                    {formatBytes(f.size_bytes)}
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: '#6B7280' }}>
+                    {f.created_at ? new Date(f.created_at).toLocaleDateString() : '\u2014'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2 justify-end">
+                      <a
+                        href={f.download_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-1 rounded text-xs transition-colors"
+                        style={{ color: '#f97316' }}
+                      >
+                        Download
+                      </a>
+                      <button
+                        onClick={() => handleRename(f)}
+                        className="px-2 py-1 rounded text-xs transition-colors"
+                        style={{ color: '#4DA6FF' }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(f)}
+                        className="px-2 py-1 rounded text-xs transition-colors hover:bg-red-500/10"
+                        style={{ color: '#EF4444' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-        {folders.map((group) => {
-          const key = folderKey(group)
-          const isOpen = expandedFolders.has(key)
-          const folderLabel = [
-            group.scope,
-            group.department && `/ ${group.department}`,
-            group.owner_email && `(${group.owner_email})`,
-          ].filter(Boolean).join(' ')
-
-          return (
-            <div key={key}>
-              {/* Folder header */}
-              <button
-                onClick={() => toggleFolder(key)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm border-b hover:bg-white/5 transition-colors"
-                style={{ borderColor: '#1E2A3A', color: '#E5E7EB' }}
-              >
-                <div className="flex items-center gap-2">
-                  <span style={{ color: '#f97316' }}>{isOpen ? '\u25BC' : '\u25B6'}</span>
-                  <span>{folderLabel}</span>
-                  <span className="text-xs" style={{ color: '#6B7280' }}>
-                    ({group.files.length} files)
-                  </span>
-                </div>
-              </button>
-
-              {/* Files in folder */}
-              {isOpen && (
-                <div>
-                  <table className="w-full text-xs">
-                    <tbody>
-                      {group.files.map((f) => (
-                        <tr key={f.id} className="border-t" style={{ borderColor: '#1E2A3A' }}>
-                          <td className="px-6 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <span>{fileIcon(f.file_type)}</span>
-                              {renamingFile === f.id ? (
-                                <input
-                                  value={renameValue}
-                                  onChange={(e) => setRenameValue(e.target.value)}
-                                  onBlur={() => submitRename(f.id)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') submitRename(f.id)
-                                    if (e.key === 'Escape') setRenamingFile(null)
-                                  }}
-                                  autoFocus
-                                  className="px-1 py-0.5 rounded text-sm text-white border outline-none"
-                                  style={{ background: '#1E2A3A', borderColor: '#374151', width: '200px' }}
-                                />
-                              ) : (
-                                <span className="text-gray-200 truncate max-w-[200px]">{f.filename}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-2.5 text-gray-400 font-mono">{formatBytes(f.size_bytes)}</td>
-                          <td className="py-2.5 text-gray-400">
-                            {f.created_at ? new Date(f.created_at).toLocaleDateString() : '\u2014'}
-                          </td>
-                          <td className="py-2.5 pr-4">
-                            <div className="flex gap-2">
-                              <a
-                                href={f.download_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-2 py-1 rounded text-xs transition-colors"
-                                style={{ color: '#f97316' }}
-                              >
-                                Download
-                              </a>
-                              <button
-                                onClick={() => handleRename(f)}
-                                className="px-2 py-1 rounded text-xs transition-colors"
-                                style={{ color: '#4DA6FF' }}
-                              >
-                                Rename
-                              </button>
-                              <button
-                                onClick={() => setConfirmDelete(f)}
-                                className="px-2 py-1 rounded text-xs transition-colors hover:bg-red-500/10"
-                                style={{ color: '#EF4444' }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )
-        })}
       </div>
 
       {/* Upload Modal */}
