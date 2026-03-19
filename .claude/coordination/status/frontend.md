@@ -1,4 +1,45 @@
 # Context Checkpoint: Frontend Agent
+**Date:** 2026-03-20
+**Session:** 7
+
+## Completed This Session (Session 7)
+
+- ✅ Created WebSocket hook → `portal/src/hooks/useAgentOfficeWS.ts`
+- ✅ Updated polling interval 8s → 60s and wired WS overrides → `portal/src/pages/DashboardPage.tsx`
+- ✅ Added `current_status?: string` to AgentStatus interface → `portal/src/types/index.ts`
+- ✅ Updated `drawStatusBubble` to accept `statusLabel` param + queued (amber) vs running (orange) bubble → `portal/src/components/AgentOffice.tsx`
+- ✅ TypeScript type check: `npx tsc --noEmit` — zero errors
+- ✅ Git commit: `497e308` on branch `eric-design`
+
+## JWT Token Location
+`useAuthStore.getState().access_token` from Zustand store at `portal/src/stores/authStore.ts`.
+Identical pattern to `portal/src/api/client.ts`.
+
+## WebSocket URL
+`wss://assistant.mezzofy.com/api/admin-portal/ws?token=<JWT>`
+
+## Architecture Decisions (Session 7)
+- Token read at connection time inside `connect()` — always picks up freshest Zustand value.
+- No token → hook returns immediately; REST polling (60s) is the silent fallback.
+- Reconnect: exponential backoff 1s → 2s → 4s … capped at 30s, max 10 retries then stop.
+- `onclose` nulled before intentional unmount close — prevents spurious reconnect loop.
+- `current_status` optional (`?`) on AgentStatus — all REST-only paths stay compatible.
+
+## Queued Bubble Styling (Session 7)
+- QUEUING: amber `#F59E0B`, ⏳ icon, subtitle "Waiting in queue…"
+- RUNNING: orange `#f97316`, ● icon, subtitle from current_task or "Working on task…"
+
+## Files Modified (Session 7)
+- `portal/src/hooks/useAgentOfficeWS.ts` (new)
+- `portal/src/pages/DashboardPage.tsx` (import hook, merge overrides, 60s poll)
+- `portal/src/components/AgentOffice.tsx` (drawStatusBubble statusLabel + queued path)
+- `portal/src/types/index.ts` (current_status?: string added to AgentStatus)
+
+## Deploy Note
+DO NOT deploy to EC2 — human will push and deploy via GitHub Desktop + ssh.
+
+---
+
 **Date:** 2026-03-19
 **Session:** 6
 **Context:** ~10% at checkpoint
