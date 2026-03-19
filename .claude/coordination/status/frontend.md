@@ -1,24 +1,38 @@
 # Context Checkpoint: Frontend Agent
 **Date:** 2026-03-19
-**Session:** 5
-**Context:** ~15% at checkpoint
-**Reason:** AgentOffice canvas cleanup task complete
+**Session:** 6
+**Context:** ~10% at checkpoint
+**Reason:** AgentOffice single-pass render + light grey label background task complete
+
+## Completed This Session (Session 6)
+
+- ✅ AgentOffice.tsx: Merged two-pass render into single-pass — removed Pass 2 forEach; `drawLabel()` now called at end of Pass 1 loop (sprite → bubbles → label in one forEach)
+- ✅ AgentOffice.tsx: `drawLabel()` background changed from `rgba(5,10,20,0.82)` (dark) to `rgba(235,235,240,0.92)` (light grey)
+- ✅ AgentOffice.tsx: `drawLabel()` border stroke changed from `deptColor + '90'` (dim) to `deptColor` at `lineWidth 1.5` (solid, crisp)
+- ✅ AgentOffice.tsx: `drawLabel()` persona text changed from `#FFFFFF` (white) to `#1A1A2E` (dark navy) for legibility on light grey
+- ✅ Git commit: `61d41a3` — "feat(portal): single-pass render + light grey label background in AgentOffice"
+- ✅ EC2 build: `npm run build` completed successfully (1644 modules, ✓ built in 1m 40s)
+- ⚠️ GitHub push: Requires GitHub Desktop — push `eric-design` branch so EC2 can pull latest commit
+
+## EC2 Deploy — Push to GitHub First
+EC2 had "Already up to date" (commit not yet on GitHub). Push via GitHub Desktop, then re-run:
+```bash
+ssh -i C:/Mezzofy/workspace/mz-ai-assistant/mz-ai-key.pem ubuntu@3.1.255.48
+cd /home/ubuntu/mz-ai-assistant && git pull
+cd portal && npm run build
+sudo cp -r dist/* /var/www/mission-control/
+```
+
+## Files Modified (Session 6)
+- `portal/src/components/AgentOffice.tsx` — Single-pass render loop; light grey label background + dark persona text
+
+---
 
 ## Completed This Session (Session 5)
 
 - ✅ AgentOffice.tsx: Removed entire computer monitor block (lines 86–99) from `drawSprite()` — 15 lines deleted
-- ✅ AgentOffice.tsx: Verified two-pass label render — Pass 1 (sprites + bubbles) at lines 457–481, Pass 2 (labels) at lines 484–501 — already correct, no changes needed
 - ✅ Git commit: `f8da2f4` — "feat(portal): remove computer screens from AgentOffice canvas (v1.42.0)"
 - ⚠️ EC2 deploy: SSH to ubuntu@3.1.255.48 initiated; `git pull` returned "Already up to date"; `npm run build` started (1644 modules transformed, reached "rendering chunks"); SSH connection timed out before completion confirmed
-
-## EC2 Deploy — Action May Be Required
-If build did not complete, re-run on EC2:
-```bash
-ssh -i C:/Mezzofy/workspace/mz-ai-assistant/mz-ai-key.pem ubuntu@3.1.255.48
-cd /home/ubuntu/mz-ai-assistant/portal
-npm run build
-sudo cp -r dist/* /var/www/mission-control/
-```
 
 ## Files Modified (Session 5)
 - `portal/src/components/AgentOffice.tsx` — Removed computer monitor block (15 lines)
