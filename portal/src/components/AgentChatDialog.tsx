@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { portalApi } from '../api/portal'
+import type { ActiveTask } from '../types'
 
 interface Props {
   dept: string
@@ -10,6 +11,7 @@ interface Message {
   role: 'user' | 'agent'
   content: string
   timestamp: Date
+  isLoading?: boolean
 }
 
 const PERSONAS: Record<string, string> = {
@@ -51,26 +53,103 @@ const GREETINGS: Record<string, string> = {
   scheduler: "Hi, I'm Sched. Tell me what to schedule and I'll sort the cron.",
 }
 
+const POLL_INTERVAL_MS = 4000
+const MAX_POLLS = 30 // 30 × 4s = 120s timeout
+
+function extractTaskResult(task: ActiveTask): string {
+  const r = task.result
+  if (!r) return 'Task completed.'
+  if (typeof r === 'string') return r
+  if (typeof r.response === 'string' && r.response) return r.response
+  if (typeof r.reply === 'string' && r.reply) return r.reply
+  return JSON.stringify(r)
+}
+
 export default function AgentChatDialog({ dept, onClose }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
   const sessionIdRef = useRef<string>(crypto.randomUUID())
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollCountRef = useRef<number>(0)
 
   const persona = PERSONAS[dept] || dept
   const deptColor = DEPT_COLORS[dept] || '#f97316'
   const agentName = dept.charAt(0).toUpperCase() + dept.slice(1) + ' Agent'
 
+  const stopPolling = () => {
+    if (pollIntervalRef.current !== null) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    pollCountRef.current = 0
+  }
+
   useEffect(() => {
     const greeting = GREETINGS[dept] || `Hi, I'm ${persona}. How can I help?`
     setMessages([{ role: 'agent', content: greeting, timestamp: new Date() }])
     sessionIdRef.current = crypto.randomUUID()
+    return () => stopPolling()
   }, [dept])
+
+  // Cleanup polling when dialog closes
+  useEffect(() => {
+    return () => stopPolling()
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const startPolling = (sessionId: string) => {
+    pollCountRef.current = 0
+    pollIntervalRef.current = setInterval(async () => {
+      pollCountRef.current += 1
+
+      // Timeout after MAX_POLLS
+      if (pollCountRef.current > MAX_POLLS) {
+        stopPolling()
+        setSending(false)
+        setMessages(prev => {
+          const withoutLoading = prev.filter(m => !m.isLoading)
+          return [
+            ...withoutLoading,
+            { role: 'agent', content: 'Response timed out. Please try again.', timestamp: new Date() },
+          ]
+        })
+        return
+      }
+
+      try {
+        const res = await portalApi.getActiveTasks(sessionId)
+        const tasks = res.data as ActiveTask[]
+        if (!Array.isArray(tasks)) return
+
+        const done = tasks.find(t => t.status === 'completed' || t.status === 'failed')
+        if (!done) return
+
+        stopPolling()
+        setSending(false)
+
+        if (done.status === 'failed') {
+          const errMsg = done.error || 'Agent encountered an error. Please try again.'
+          setMessages(prev => {
+            const withoutLoading = prev.filter(m => !m.isLoading)
+            return [...withoutLoading, { role: 'agent', content: `⚠ ${errMsg}`, timestamp: new Date() }]
+          })
+        } else {
+          const result = extractTaskResult(done)
+          setMessages(prev => {
+            const withoutLoading = prev.filter(m => !m.isLoading)
+            return [...withoutLoading, { role: 'agent', content: result, timestamp: new Date() }]
+          })
+        }
+      } catch {
+        // Ignore transient poll errors — keep polling until timeout
+      }
+    }, POLL_INTERVAL_MS)
+  }
 
   const sendMessage = async () => {
     if (!inputText.trim() || sending) return
@@ -81,16 +160,44 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
     try {
       const res = await portalApi.sendAgentMessage(dept, userMsg, sessionIdRef.current)
       const data = res.data as Record<string, unknown>
-      const reply = (data.reply as string) || (data.message as string) || 'Task received and queued.'
+
+      // Update session_id if server returns one
       if (data.session_id) sessionIdRef.current = data.session_id as string
-      setMessages(prev => [...prev, { role: 'agent', content: reply, timestamp: new Date() }])
+
+      const isQueued =
+        data.status === 'queued' || data.status === 'pending' || data.task_id !== undefined
+
+      if (isQueued) {
+        // Add loading bubble and start polling
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'agent',
+            content: 'Working on it...',
+            timestamp: new Date(),
+            isLoading: true,
+          },
+        ])
+        startPolling(sessionIdRef.current)
+      } else {
+        // Sync response — display immediately
+        const reply =
+          (data.reply as string) ||
+          (data.response as string) ||
+          (data.message as string) ||
+          'Done.'
+        setMessages(prev => [...prev, { role: 'agent', content: reply, timestamp: new Date() }])
+        setSending(false)
+      }
     } catch {
-      setMessages(prev => [...prev, {
-        role: 'agent',
-        content: '⚠ Could not reach agent. Please try again.',
-        timestamp: new Date(),
-      }])
-    } finally {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'agent',
+          content: '⚠ Could not reach agent. Please try again.',
+          timestamp: new Date(),
+        },
+      ])
       setSending(false)
     }
   }
@@ -165,14 +272,29 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
                 className="max-w-xs px-3 py-2 rounded-xl text-sm leading-relaxed"
                 style={msg.role === 'user'
                   ? { background: '#f97316', color: '#fff', borderBottomRightRadius: '4px' }
-                  : { background: '#1E2A3A', color: '#E5E7EB', borderBottomLeftRadius: '4px', border: `1px solid ${deptColor}20` }
+                  : msg.isLoading
+                    ? {
+                        background: '#1E2A3A',
+                        color: '#6B7280',
+                        borderBottomLeftRadius: '4px',
+                        border: `1px solid ${deptColor}20`,
+                        fontStyle: 'italic',
+                      }
+                    : { background: '#1E2A3A', color: '#E5E7EB', borderBottomLeftRadius: '4px', border: `1px solid ${deptColor}20` }
                 }
               >
-                {msg.content}
+                {msg.isLoading ? (
+                  <span>
+                    <span className="animate-pulse">⏳</span>
+                    {' '}{msg.content}
+                  </span>
+                ) : (
+                  msg.content
+                )}
               </div>
             </div>
           ))}
-          {sending && (
+          {sending && !messages.some(m => m.isLoading) && (
             <div className="flex justify-start">
               <div
                 className="px-3 py-2 rounded-xl text-sm"

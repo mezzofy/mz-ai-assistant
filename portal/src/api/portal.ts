@@ -60,6 +60,8 @@ export const portalApi = {
       department: dept,
       session_id: sessionId,
     }),
+  getActiveTasks: (sessionId: string) =>
+    client.get('/tasks/active', { params: { session_id: sessionId } }),
   downloadFile: async (id: string, filename: string): Promise<void> => {
     const response = await client.get(`/api/admin-portal/files/${id}/download`, {
       responseType: 'blob',

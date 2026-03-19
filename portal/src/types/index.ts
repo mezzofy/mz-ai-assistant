@@ -144,3 +144,19 @@ export interface AuthState {
   user: { user_id: string; email: string; name: string; role: string } | null
   isAuthenticated: boolean
 }
+
+export interface ActiveTask {
+  id: string
+  task_id?: string
+  status: string
+  result?: {
+    response?: string
+    reply?: string
+    [key: string]: unknown
+  } | string | null
+  session_id?: string
+  department?: string | null
+  created_at?: string
+  completed_at?: string | null
+  error?: string | null
+}
