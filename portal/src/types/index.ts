@@ -52,6 +52,7 @@ export interface AgentStatus {
   is_busy: boolean
   tasks_today: number
   current_task: string | null
+  current_status?: string
 }
 
 export interface ScheduledJob {

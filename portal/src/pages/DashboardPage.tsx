@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import AgentOffice from '../components/AgentOffice'
 import AgentChatDialog from '../components/AgentChatDialog'
+import { useAgentOfficeWS } from '../hooks/useAgentOfficeWS'
 import type { Session, LlmModel, SystemVitals, AgentStatus } from '../types'
 
 function StatusDot({ ok }: { ok: boolean }) {
@@ -68,6 +69,8 @@ export default function DashboardPage() {
   const [llmPeriod, setLlmPeriod] = useState<'today' | 'week' | 'month'>('today')
   const [chatDept, setChatDept] = useState<string | null>(null)
 
+  const { wsOverrides } = useAgentOfficeWS()
+
   const { data: sessions } = useQuery({
     queryKey: ['sessions'],
     queryFn: () => portalApi.getSessions().then((r) => r.data),
@@ -89,10 +92,22 @@ export default function DashboardPage() {
   const { data: agentStatusData } = useQuery({
     queryKey: ['agent-status'],
     queryFn: () => portalApi.getAgentStatus().then((r) => r.data),
-    refetchInterval: 8000,
+    refetchInterval: 60000,
   })
 
   const agentList: AgentStatus[] = agentStatusData?.agents || []
+
+  // Merge real-time WS overrides on top of the REST-polled agent list
+  const mergedAgents = agentList.map((agent) => {
+    const override = wsOverrides[agent.department]
+    if (!override) return agent
+    return {
+      ...agent,
+      is_busy: override.is_busy,
+      current_task: override.current_task,
+      current_status: override.current_status,
+    }
+  })
   const modelList: LlmModel[] = llmUsage?.models || []
   const sessionList: Session[] = sessions?.sessions || []
 
@@ -107,10 +122,10 @@ export default function DashboardPage() {
         <h2 className="text-sm font-semibold text-gray-300 mb-4">
           Agent Office
           <span className="ml-2 text-xs font-normal" style={{ color: '#6B7280' }}>
-            {agentList.filter((a) => a.is_busy).length} active
+            {mergedAgents.filter((a) => a.is_busy).length} active
           </span>
         </h2>
-        <AgentOffice agents={agentList} onAgentClick={(dept) => setChatDept(dept)} />
+        <AgentOffice agents={mergedAgents} onAgentClick={(dept) => setChatDept(dept)} />
       </div>
 
       {/* Row 2: Sessions + LLM Gauges */}

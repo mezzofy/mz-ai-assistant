@@ -284,10 +284,14 @@ function drawStatusBubble(
   x: number,
   y: number,
   taskLabel: string | null,
+  statusLabel: 'RUNNING' | 'QUEUING',
 ) {
-  const text1 = '● RUNNING'
-  const raw = taskLabel || 'Working on task...'
-  const text2 = raw.length > 20 ? raw.slice(0, 20) + '…' : raw
+  const isQueuing = statusLabel === 'QUEUING'
+  const icon = isQueuing ? '\u23F3' : '\u25CF'
+  const accentColor = isQueuing ? '#F59E0B' : '#f97316'
+  const text1 = `${icon} ${statusLabel}`
+  const raw = taskLabel || (isQueuing ? 'Waiting in queue...' : 'Working on task...')
+  const text2 = raw.length > 20 ? raw.slice(0, 20) + '\u2026' : raw
 
   const bx = x - 52
   const by = y - 58
@@ -295,7 +299,7 @@ function drawStatusBubble(
   const bh = 36
 
   ctx.fillStyle = 'rgba(5,8,18,0.92)'
-  ctx.strokeStyle = '#f97316'
+  ctx.strokeStyle = accentColor
   ctx.lineWidth = 1.5
   // @ts-ignore
   ctx.roundRect(bx, by, bw, bh, 5)
@@ -309,7 +313,7 @@ function drawStatusBubble(
   ctx.lineTo(x,     by + bh + 9)
   ctx.lineTo(x + 5, by + bh)
   ctx.fill()
-  ctx.strokeStyle = '#f97316'
+  ctx.strokeStyle = accentColor
   ctx.lineWidth = 1
   ctx.beginPath()
   ctx.moveTo(x - 4, by + bh)
@@ -318,7 +322,7 @@ function drawStatusBubble(
   ctx.stroke()
 
   ctx.font = 'bold 8px monospace'
-  ctx.fillStyle = '#f97316'
+  ctx.fillStyle = accentColor
   ctx.textAlign = 'center'
   ctx.fillText(text1, x, by + 14)
 
@@ -460,7 +464,14 @@ export default function AgentOffice({ agents, onAgentClick }: Props) {
         drawSprite(ctx, dept, cur.x, cur.y, isBusy, bobOffset, atTable)
 
         if (atTable && isBusy) {
-          drawStatusBubble(ctx, cur.x, cur.y, agentMap[dept]?.current_task || null)
+          const isQueued = agentMap[dept]?.current_status === 'queued'
+          drawStatusBubble(
+            ctx,
+            cur.x,
+            cur.y,
+            agentMap[dept]?.current_task || null,
+            isQueued ? 'QUEUING' : 'RUNNING',
+          )
         } else if (isWalking) {
           drawWalkingBubble(ctx, cur.x, cur.y, scale)
         }
