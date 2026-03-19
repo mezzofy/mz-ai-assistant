@@ -268,12 +268,12 @@ function drawLabel(
   ctx.stroke()
 
   ctx.font = 'bold 11px monospace'
-  ctx.fillStyle = deptColor
+  ctx.fillStyle = '#000000'
   ctx.textAlign = 'center'
   ctx.fillText(deptText, x, boxY + 13)
 
   ctx.font = 'bold 12px sans-serif'
-  ctx.fillStyle = '#1A1A2E'
+  ctx.fillStyle = '#000000'
   ctx.fillText(persona, x, boxY + 28)
   ctx.textAlign = 'left'
 }
