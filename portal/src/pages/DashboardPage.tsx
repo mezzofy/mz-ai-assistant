@@ -98,7 +98,8 @@ export default function DashboardPage() {
   const agentList: AgentStatus[] = agentStatusData?.agents || []
 
   // Merge real-time WS overrides on top of the REST-polled agent list
-  const mergedAgents = agentList.map((agent) => {
+  // Also add synthetic entries for WS-only departments (e.g. legal) not yet in REST response
+  let mergedAgents = agentList.map((agent) => {
     const override = wsOverrides[agent.department]
     if (!override) return agent
     return {
@@ -108,15 +109,25 @@ export default function DashboardPage() {
       current_status: override.current_status,
     }
   })
+  // Add any WS-broadcast departments that REST hasn't returned yet
+  const restDepts = new Set(agentList.map((a) => a.department))
+  Object.entries(wsOverrides).forEach(([dept, override]) => {
+    if (!restDepts.has(dept)) {
+      mergedAgents.push({
+        name: dept,
+        department: dept,
+        is_busy: override.is_busy,
+        current_task: override.current_task ?? null,
+        current_status: override.current_status,
+        tasks_today: 0,
+      } as AgentStatus)
+    }
+  })
   const modelList: LlmModel[] = llmUsage?.models || []
   const sessionList: Session[] = sessions?.sessions || []
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-        Mission Control
-      </h1>
-
       {/* Agent Office Pixel Art — FIRST */}
       <div className="rounded-xl border p-5" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
         <h2 className="text-sm font-semibold text-gray-300 mb-4">
