@@ -186,7 +186,7 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
       if (data.session_id) sessionIdRef.current = data.session_id as string
 
       const isQueued =
-        data.status === 'queued' || data.status === 'pending' || data.task_id !== undefined
+        data.status === 'queued' || data.status === 'pending'
 
       if (isQueued) {
         // Capture task_id for the background task card
