@@ -276,7 +276,7 @@ async def get_agent_status(
     rows = result.fetchall()
     by_dept = {r.department: r for r in rows}
 
-    departments = ["finance", "sales", "marketing", "support", "management", "hr", "research", "developer", "scheduler"]
+    departments = ["finance", "sales", "marketing", "support", "management", "hr", "legal", "research", "developer", "scheduler"]
     agents = []
     for dept in departments:
         r = by_dept.get(dept)
