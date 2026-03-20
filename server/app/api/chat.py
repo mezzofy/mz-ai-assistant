@@ -262,7 +262,7 @@ async def send_message(
                     "ref": task_ref,
                     "uid": user["user_id"],
                     "sid": resolved_session_id,   # ← real session ID, never null
-                    "dept": user.get("department", ""),
+                    "dept": _detected_agent or user.get("department", ""),  # ← resolved agent dept, not login user dept
                     "title": body.message[:80],
                     "qname": queue_name_value,
                 },
