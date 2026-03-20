@@ -9,6 +9,7 @@ import {
   getHistoryApi,
   getTasksApi,
   getActiveTasksApi,
+  getTaskByIdApi,
   patchSessionApi,
   ChatResponse,
   SessionSummary,
@@ -269,7 +270,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       // Wire up WS task_complete notification for background tasks
       if (newActiveTask) {
-        const onTaskComplete = (data: {task_id: string; session_id: string; message: string; file_url: string | null}) => {
+        const onTaskComplete = async (data: {
+          task_id: string;
+          session_id: string;
+          message: string;
+          response?: string;
+          file_url: string | null;
+        }) => {
+          // 1. Extract response text — use WS payload first, fallback to API fetch
+          let responseText = data.response || '';
+          if (!responseText) {
+            try {
+              const taskData = await getTaskByIdApi(data.task_id);
+              responseText = (taskData as any).result?.response || data.message || '';
+            } catch {
+              responseText = data.message || 'Task completed.';
+            }
+          }
+
+          // 2. Add as assistant message if we have text
+          if (responseText) {
+            const newMsg: Message = {
+              id: Date.now(),
+              role: 'assistant',
+              text: responseText,
+              time: getTimeStr(),
+            };
+            set(s => ({messages: [...s.messages, newMsg]}));
+          }
+
+          // 3. Update activeTask to completed (triggers 3s banner dismiss)
           set(s => ({
             activeTask: s.activeTask?.id === data.task_id
               ? {...s.activeTask, status: 'completed' as const}
@@ -470,6 +500,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // (e.g., user tapped "+" and resetChat() ran between the call and the response)
       if (get().sessionId !== sessionId) { return; }
       const task = result.tasks.find(t => t.session_id === sessionId) ?? null;
+
+      // If task just completed and has a response, add to chat
+      if (task && (task.status === 'completed' || task.status === 'failed')) {
+        const responseText = task.result?.response || '';
+        if (responseText) {
+          const existing = get().messages;
+          const alreadyShown = existing.some(m => m.role === 'assistant' && m.text === responseText);
+          if (!alreadyShown) {
+            const newMsg: Message = {
+              id: Date.now(),
+              role: 'assistant',
+              text: responseText,
+              time: getTimeStr(),
+            };
+            set(s => ({messages: [...s.messages, newMsg]}));
+          }
+        }
+      }
+
       set({activeTask: task});
     } catch (err) {
       console.warn('[chatStore] pollActiveTask failed:', err);

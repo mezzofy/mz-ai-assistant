@@ -144,6 +144,7 @@ export interface TaskSummary {
   progress?: number;            // 0–100; updated by _update_agent_task_step()
   current_step?: string | null; // JSON string: {agent, tool, iteration, description, ...}
   started_at?: string | null;   // ISO timestamp
+  result?: { response?: string; artifacts?: any[] } | null;
 }
 
 export interface TasksResponse {
@@ -156,3 +157,6 @@ export const getTasksApi = (): Promise<TasksResponse> =>
 
 export const getActiveTasksApi = (): Promise<TasksResponse> =>
   apiFetch<TasksResponse>('/tasks/active');
+
+export const getTaskByIdApi = (taskId: string): Promise<any> =>
+  apiFetch<any>(`/tasks/${taskId}`);
