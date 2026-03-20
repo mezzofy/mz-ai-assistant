@@ -258,18 +258,14 @@ class LegalAgent(BaseAgent):
             task_with_prompt = dict(task)
             task_with_prompt["system_prompt"] = system_prompt
 
-            # First: generate contract text via LLM
-            text_result = await llm_mod.get().chat(
-                messages=[{"role": "user", "content": message}],
-                task_context=task_with_prompt,
-            )
-            contract_text = text_result.get("content", "")
+            # Single LLM call — generates contract text with tool use
+            result = await llm_mod.get().execute_with_tools(task_with_prompt)
+            contract_text = result.get("content", "")
+            artifacts = result.get("artifacts", [])
+            tools_called = result.get("tools_called", ["generate_contract"])
 
-            artifacts = []
-            tools_called = ["generate_contract"]
-
-            # Try skill DOCX generation first, fall back to execute_with_tools
-            if contract_text:
+            # If no artifact was produced, try to save contract text as DOCX / txt
+            if contract_text and not artifacts:
                 docx_title = f"Contract — {message[:60]}"
                 try:
                     from app.llm import llm_manager as _llm_mod
@@ -292,20 +288,13 @@ class LegalAgent(BaseAgent):
                         artifacts.append(artifact)
                         tools_called.append("create_docx")
                 except Exception as e:
-                    logger.warning(f"Skill DOCX generation failed, falling back to execute_with_tools: {e}")
-                    fallback = await llm_mod.get().execute_with_tools(task_with_prompt)
-                    contract_text = fallback.get("content", contract_text)
-                    artifacts = fallback.get("artifacts", [])
-                    tools_called = fallback.get("tools_called", tools_called)
-            else:
-                # No text from chat — fall back to full execute_with_tools
-                fallback = await llm_mod.get().execute_with_tools(task_with_prompt)
-                contract_text = fallback.get("content", "Contract generation complete.")
-                artifacts = fallback.get("artifacts", [])
-                tools_called = fallback.get("tools_called", ["generate_contract"])
+                    logger.warning(
+                        f"LegalAgent.generate_contract DOCX skill failed (non-fatal, returning text): {e}"
+                    )
+                    # Return plain text — no retry, no second LLM call
 
             return self._ok(
-                content=contract_text,
+                content=contract_text or "Contract generation complete.",
                 artifacts=artifacts,
                 tools_called=tools_called,
             )

@@ -45,9 +45,9 @@ celery_app.conf.update(
     # Task tracking
     task_track_started=True,
 
-    # Time limits (10 min hard / 9 min soft — prevents runaway LLM calls)
-    task_time_limit=600,
-    task_soft_time_limit=540,
+    # Time limits (16 min hard / 15 min soft — covers Leo contract + DOCX + web research)
+    task_time_limit=960,        # 16 min hard — covers Leo contract + DOCX + web research
+    task_soft_time_limit=900,   # 15 min soft
 
     # Worker
     worker_concurrency=int(os.getenv("CELERY_CONCURRENCY", "4")),
