@@ -52,6 +52,38 @@ def get() -> "LLMManager":
 # Maximum tool-calling loop iterations
 MAX_TOOL_ITERATIONS = 5
 
+# ── Anthropic server-side tool definitions (module-level constants) ────────────
+
+WEB_SEARCH_TOOL = {
+    "type": "web_search_20260209",
+    "name": "web_search",
+    # No user_location needed — Anthropic handles it
+}
+
+WEB_FETCH_TOOL = {
+    "type": "web_fetch_20250124",
+    "name": "web_fetch",
+}
+
+CODE_EXECUTION_TOOL = {
+    "type": "code_execution_20250825",
+    "name": "code_execution",
+}
+
+MEMORY_TOOL = {
+    "type": "memory",
+    "name": "memory",
+}
+
+SKILLS_BETAS = ["code-execution-2025-08-25", "skills-2025-10-02"]
+
+SKILL_CONFIGS = {
+    "pptx": {"type": "anthropic", "skill_id": "pptx", "version": "latest"},
+    "xlsx": {"type": "anthropic", "skill_id": "xlsx", "version": "latest"},
+    "pdf":  {"type": "anthropic", "skill_id": "pdf",  "version": "latest"},
+    "docx": {"type": "anthropic", "skill_id": "docx", "version": "latest"},
+}
+
 # Singapore timezone (UTC+8) — used for current_time injection in system prompt
 _SGT = timezone(timedelta(hours=8))
 
@@ -631,3 +663,327 @@ class LLMManager:
                 await session.commit()
         except Exception as e:
             logger.warning(f"_track_usage failed (non-fatal): {e}")
+
+    # ── Extended LLM methods using Anthropic native capabilities ──────────────
+
+    async def research_with_web_tools(
+        self,
+        query: str,
+        task_context: dict,
+        fetch_urls: list = None,
+        use_code_execution: bool = False,
+    ) -> dict:
+        """
+        Use Anthropic's native web_search + web_fetch server tools for research.
+        REPLACES: browser_ops.search_web() and scraping_ops.scrape_url()
+        for research-type tasks.
+
+        browser_ops / scraping_ops remain for:
+          - LinkedIn scraping (requires authenticated session cookie)
+          - Internal URL scraping (intranet, localhost)
+          - Playwright-specific interactions (click, fill form, screenshot)
+
+        Args:
+            query:              Research query or instruction
+            task_context:       Agent task dict (for system prompt + user context)
+            fetch_urls:         Specific URLs to fetch (optional, in addition to search)
+            use_code_execution: Enable code execution for data processing
+
+        Returns:
+            {
+              text: str,           # Research findings
+              sources: list[dict], # [{title, url, snippet}] from web_search results
+              usage: dict,
+            }
+        """
+        server_tools = [WEB_SEARCH_TOOL, WEB_FETCH_TOOL]
+        if use_code_execution:
+            server_tools.append(CODE_EXECUTION_TOOL)
+
+        # Build the research prompt
+        user_content = query
+        if fetch_urls:
+            url_list = "\n".join(f"- {u}" for u in fetch_urls)
+            user_content += f"\n\nAlso fetch and analyse these specific URLs:\n{url_list}"
+
+        messages = [{"role": "user", "content": user_content}]
+        system = self._build_system_prompt(task_context)
+
+        # NOTE: web_search + web_fetch are GA — no beta header needed
+        result = await self.claude.chat_with_server_tools(
+            messages=messages,
+            server_tools=server_tools,
+            system=system,
+        )
+
+        # Extract source citations from server tool result blocks
+        sources = self._extract_web_sources(result["content"])
+
+        # Track usage in llm_usage table
+        asyncio.create_task(self._track_usage_extended(
+            model_name="claude-sonnet-4-6",
+            department=task_context.get("department", "unknown"),
+            user_id=task_context.get("user_id"),
+            agent_id=task_context.get("agent_id"),
+            input_tokens=result["usage"]["input_tokens"],
+            output_tokens=result["usage"]["output_tokens"],
+            server_tools_used=["web_search", "web_fetch"],
+            betas_used=[],
+        ))
+
+        return {
+            "text":    result["text"],
+            "sources": sources,
+            "usage":   result["usage"],
+        }
+
+    def _extract_web_sources(self, content_blocks: list) -> list:
+        """
+        Parse web_search_tool_result content blocks to extract cited sources.
+        Returns: [{"title": str, "url": str, "snippet": str}]
+        """
+        sources = []
+        for block in content_blocks:
+            block_type = getattr(block, "type", "")
+            if block_type == "web_search_tool_result":
+                for result in getattr(block, "content", []):
+                    if getattr(result, "type", "") == "web_search_result":
+                        sources.append({
+                            "title":   getattr(result, "title", ""),
+                            "url":     getattr(result, "url", ""),
+                            "snippet": getattr(result, "encrypted_content", "")[:500],
+                        })
+        return sources
+
+    async def generate_document_with_skill(
+        self,
+        skill_id: str,
+        prompt: str,
+        context_data: str = None,
+        task_context: dict = None,
+        existing_container_id: str = None,
+    ) -> dict:
+        """
+        Generate a formatted document using Anthropic Agent Skills.
+        Handles the pause_turn continuation loop automatically.
+
+        Args:
+            skill_id:              "pptx" | "xlsx" | "pdf" | "docx"
+            prompt:                Document generation instruction
+            context_data:          Source data / content to base document on
+            task_context:          Agent task dict for system prompt
+            existing_container_id: Resume an existing container (multi-turn)
+
+        Returns:
+            {
+              success:      bool,
+              file_ids:     list[str],     # Anthropic Files API IDs
+              container_id: str,           # For potential follow-up calls
+              text:         str,           # Any text explanation in response
+              usage:        dict,
+              error:        str | None,
+            }
+
+        Important: file_ids must be downloaded via Files API.
+        This method does NOT download files — call artifact_manager.download_from_anthropic()
+        """
+        if skill_id not in SKILL_CONFIGS:
+            raise ValueError(f"Unknown skill_id: {skill_id}. Valid: {list(SKILL_CONFIGS.keys())}")
+
+        # Build full prompt with context
+        user_content = prompt
+        if context_data:
+            user_content += f"\n\n---\nSource data / context:\n{context_data}"
+
+        messages = [{"role": "user", "content": user_content}]
+        system = self._build_system_prompt(task_context) if task_context else None
+
+        # Container setup — resume or start fresh
+        container = {"skills": [SKILL_CONFIGS[skill_id]]}
+        if existing_container_id:
+            container["id"] = existing_container_id
+
+        all_file_ids = []
+        total_input_tokens = 0
+        total_output_tokens = 0
+        final_text = ""
+        container_id = existing_container_id
+        max_pause_turns = 10
+        pause_count = 0
+
+        # pause_turn loop — Skills may need multiple turns to complete generation
+        while True:
+            result = await self.claude.chat_with_server_tools(
+                messages=messages,
+                server_tools=[CODE_EXECUTION_TOOL],  # Required for Skills
+                betas=SKILLS_BETAS,
+                container=container,
+                system=system,
+            )
+
+            # Accumulate results
+            all_file_ids.extend(result["file_ids"])
+            final_text = result["text"] or final_text
+            container_id = result["container_id"] or container_id
+            total_input_tokens  += result["usage"]["input_tokens"]
+            total_output_tokens += result["usage"]["output_tokens"]
+
+            # Update container to reuse on next loop
+            if container_id:
+                container = {
+                    "id":     container_id,
+                    "skills": [SKILL_CONFIGS[skill_id]],
+                }
+
+            # Check stop reason
+            if result["stop_reason"] == "end_turn":
+                break
+
+            if result["stop_reason"] == "pause_turn":
+                pause_count += 1
+                if pause_count >= max_pause_turns:
+                    logger.warning(f"Skill {skill_id} hit max pause_turns ({max_pause_turns})")
+                    break
+                # Append assistant response and send empty continue
+                messages.append({"role": "assistant", "content": result["content"]})
+                messages.append({"role": "user",      "content": []})
+                continue
+
+            # Any other stop reason — exit loop
+            break
+
+        # Track usage
+        asyncio.create_task(self._track_usage_extended(
+            model_name="claude-sonnet-4-6",
+            department=(task_context or {}).get("department", "unknown"),
+            user_id=(task_context or {}).get("user_id"),
+            agent_id=(task_context or {}).get("agent_id"),
+            input_tokens=total_input_tokens,
+            output_tokens=total_output_tokens,
+            server_tools_used=["code_execution", f"skill:{skill_id}"],
+            betas_used=SKILLS_BETAS,
+            skill_id=skill_id,
+        ))
+
+        return {
+            "success":      len(all_file_ids) > 0,
+            "file_ids":     all_file_ids,
+            "container_id": container_id,
+            "text":         final_text,
+            "usage": {
+                "input_tokens":  total_input_tokens,
+                "output_tokens": total_output_tokens,
+            },
+            "error": None if all_file_ids else "No file produced by Skill",
+        }
+
+    async def chat_with_memory(
+        self,
+        messages: list,
+        memory_scope: str,
+        client_tools: list = None,
+        system: str = None,
+    ) -> dict:
+        """
+        Chat with persistent memory tool enabled.
+        Memory is scoped per entity so users and agents have separate memory spaces.
+
+        memory_scope values:
+          "user:{user_id}"        → User-level memory (personal preferences, history)
+          "agent:{agent_id}"      → Agent-level memory (domain knowledge, learned patterns)
+          "session:{session_id}"  → Session-scoped (cleared after session ends)
+
+        The memory tool lets Claude read/write a persistent memory file directory.
+        Memory files persist across conversations — Claude builds knowledge over time.
+
+        Args:
+            messages:      Conversation messages
+            memory_scope:  Scoping key for this memory namespace
+            client_tools:  Additional client-side tools to include
+            system:        System prompt override
+
+        Returns: standard extended response dict
+        """
+        server_tools = [MEMORY_TOOL]
+
+        # Inject memory scope into system prompt
+        memory_system = f"Your memory namespace for this session is: {memory_scope}. "
+        memory_system += "Use memory to store and retrieve relevant information that should "
+        memory_system += "persist across conversations for this entity.\n\n"
+        if system:
+            memory_system += system
+
+        result = await self.claude.chat_with_server_tools(
+            messages=messages,
+            server_tools=server_tools,
+            client_tools=client_tools,
+            system=memory_system,
+        )
+
+        return result
+
+    async def _track_usage_extended(
+        self,
+        model_name: str,
+        department: str,
+        user_id: str = None,
+        agent_id: str = None,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        server_tools_used: list = None,
+        betas_used: list = None,
+        skill_id: str = None,
+        cost_usd: float = None,
+    ) -> None:
+        """
+        Extended token + cost tracking including Skills and server tool usage.
+        Falls back to original _track_usage() signature if new columns don't exist yet.
+        Non-fatal — failures are logged but do not affect the response.
+        """
+        import json as _json
+
+        # Estimate cost if not provided (rough estimates, update as Anthropic pricing changes)
+        if cost_usd is None:
+            INPUT_COST_PER_1K  = 0.003   # claude-sonnet-4-6 input
+            OUTPUT_COST_PER_1K = 0.015   # claude-sonnet-4-6 output
+            cost_usd = (
+                (input_tokens  / 1000 * INPUT_COST_PER_1K) +
+                (output_tokens / 1000 * OUTPUT_COST_PER_1K)
+            )
+
+        try:
+            from app.core.database import AsyncSessionLocal
+            from sqlalchemy import text
+
+            sql = """
+                INSERT INTO llm_usage (
+                    model, department, user_id, agent_id,
+                    input_tokens, output_tokens, cost_usd,
+                    server_tools_used, betas_used, skill_id
+                )
+                VALUES (
+                    :model, :department, :user_id, :agent_id,
+                    :input_tokens, :output_tokens, :cost_usd,
+                    :server_tools_used, :betas_used, :skill_id
+                )
+            """
+            async with AsyncSessionLocal() as session:
+                await session.execute(text(sql), {
+                    "model":             model_name,
+                    "department":        department,
+                    "user_id":           user_id,
+                    "agent_id":          agent_id,
+                    "input_tokens":      input_tokens,
+                    "output_tokens":     output_tokens,
+                    "cost_usd":          cost_usd,
+                    "server_tools_used": _json.dumps(server_tools_used or []),
+                    "betas_used":        _json.dumps(betas_used or []),
+                    "skill_id":          skill_id,
+                })
+                await session.commit()
+        except Exception:
+            # Fallback to original schema if new columns not yet migrated
+            await self._track_usage(
+                model_name, department, user_id or "system",
+                input_tokens, output_tokens,
+            )

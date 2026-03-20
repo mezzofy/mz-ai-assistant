@@ -264,3 +264,136 @@ class AnthropicClient:
                 }
             ],
         }
+
+    # ── Server-Side Tools + Agent Skills support ──────────────────────────────
+
+    async def chat_with_server_tools(
+        self,
+        messages: list,
+        server_tools: list = None,
+        client_tools: list = None,
+        betas: list = None,
+        container: dict = None,
+        system: str = None,
+        max_tokens: int = 8192,
+    ) -> dict:
+        """
+        Extended chat method supporting Anthropic server-side tools and Agent Skills.
+
+        Server tools (Anthropic executes — no local implementation needed):
+          - web_search:      {"type": "web_search_20260209", "name": "web_search"}
+          - web_fetch:       {"type": "web_fetch_20250124",  "name": "web_fetch"}
+          - code_execution:  {"type": "code_execution_20250825", "name": "code_execution"}
+          - memory:          {"type": "memory", "name": "memory"}
+
+        Agent Skills (via container + betas):
+          betas = ["code-execution-2025-08-25", "skills-2025-10-02"]
+          container = {"skills": [{"type": "anthropic", "skill_id": "pptx", "version": "latest"}]}
+
+        Returns:
+          {
+            content: [...],          # full content blocks
+            stop_reason: str,        # "end_turn" | "pause_turn" | "tool_use"
+            container_id: str|None,  # for continuing Skills sessions
+            text: str,               # extracted text blocks joined
+            file_ids: list[str],     # file_ids from Skills output
+            tool_uses: list[dict],   # client tool_use blocks
+            server_tool_uses: list[dict],  # server_tool_use blocks
+            usage: dict,             # input/output tokens
+          }
+        """
+        # Build tools list — server tools + client tools combined
+        tools = []
+        if server_tools:
+            tools.extend(server_tools)
+        if client_tools:
+            tools.extend(client_tools)
+
+        # Build request params
+        params = {
+            "model":      self._model,
+            "max_tokens": max_tokens,
+            "messages":   self._sanitize_messages(messages),
+            "tools":      tools if tools else None,
+        }
+        if system:
+            params["system"] = system
+        if container:
+            params["container"] = container
+
+        # Use beta client if betas specified
+        if betas:
+            response = await self._client.beta.messages.create(
+                **{k: v for k, v in params.items() if v is not None},
+                betas=betas,
+            )
+        else:
+            response = await self._client.messages.create(
+                **{k: v for k, v in params.items() if v is not None},
+            )
+
+        return self._parse_extended_response(response)
+
+    def _parse_extended_response(self, response) -> dict:
+        """
+        Parse response handling all content block types:
+          - text blocks
+          - tool_use blocks (client tools Claude wants to call)
+          - server_tool_use blocks (web_search, web_fetch executing)
+          - web_search_tool_result blocks
+          - code_execution_result blocks
+          - document/file blocks (from Skills)
+        """
+        text_parts = []
+        file_ids = []
+        tool_uses = []
+        server_tool_uses = []
+        container_id = getattr(response, "container", None)
+        if container_id:
+            container_id = getattr(container_id, "id", None)
+
+        for block in response.content:
+            block_type = getattr(block, "type", "")
+
+            if block_type == "text":
+                text_parts.append(block.text)
+
+            elif block_type == "tool_use":
+                # Client tool call — we need to execute locally
+                tool_uses.append({
+                    "id":    block.id,
+                    "name":  block.name,
+                    "input": block.input,
+                })
+
+            elif block_type == "server_tool_use":
+                # Anthropic is executing this — just track it
+                server_tool_uses.append({
+                    "id":   block.id,
+                    "name": block.name,
+                    "input": getattr(block, "input", {}),
+                })
+
+            elif block_type in ("document", "file"):
+                # File produced by a Skill
+                fid = getattr(block, "file_id", None)
+                if fid:
+                    file_ids.append(fid)
+
+            # web_search_tool_result and code_execution_result are
+            # handled server-side — they appear in content but
+            # we don't need to act on them locally
+
+        return {
+            "content":          response.content,
+            "stop_reason":      response.stop_reason,
+            "container_id":     container_id,
+            "text":             "\n".join(text_parts),
+            "file_ids":         file_ids,
+            "tool_uses":        tool_uses,
+            "server_tool_uses": server_tool_uses,
+            "usage": {
+                "input_tokens":  response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+            },
+        }

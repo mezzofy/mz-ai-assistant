@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -395,3 +396,256 @@ async def sync_dept_artifacts(
             f"for dept={dept}"
         )
     return newly_registered
+
+
+# ── Anthropic Files API integration ───────────────────────────────────────────
+
+_FILES_API_BASE = "https://api.anthropic.com/v1/files"
+_FILES_API_BETA = "files-api-2025-04-14"
+
+_SKILL_EXTENSIONS = {
+    "pptx": (".pptx", "pptx", "presentations"),
+    "xlsx": (".xlsx", "xlsx", "exports"),
+    "pdf":  (".pdf",  "pdf",  "documents"),
+    "docx": (".docx", "docx", "documents"),
+}
+
+
+def _get_anthropic_api_key() -> str:
+    """Retrieve the Anthropic API key from environment."""
+    return os.getenv("ANTHROPIC_API_KEY", "")
+
+
+def _anthropic_headers() -> dict:
+    """Return standard Anthropic API headers for Files API calls."""
+    return {
+        "x-api-key":         _get_anthropic_api_key(),
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta":    _FILES_API_BETA,
+    }
+
+
+async def download_from_anthropic(
+    db: AsyncSession,
+    file_id: str,
+    user_id: str,
+    session_id: str,
+    skill_id: str,
+    suggested_name: str = None,
+    agent_id: str = None,
+    department: str = None,
+) -> dict:
+    """
+    Download a file from Anthropic Files API and store it in our artifact system.
+
+    This is called immediately after generate_document_with_skill() returns file_ids.
+    It bridges the Anthropic Files API → our local artifact storage → artifacts DB table.
+
+    Args:
+        db:             Active DB session.
+        file_id:        Anthropic Files API ID (from Skills response)
+        user_id:        Owner user_id (for RBAC)
+        session_id:     Associated conversation session
+        skill_id:       "pptx" | "xlsx" | "pdf" | "docx" (for file extension + type)
+        suggested_name: Base filename without extension (auto-generated if None)
+        agent_id:       Which agent generated this file (for audit)
+        department:     Department for scope/path resolution
+
+    Returns:
+        {
+          artifact_id:  str,   # Our local artifacts table UUID
+          file_path:    str,   # Local EBS/S3 path
+          download_url: str,   # Our API download URL
+          size_bytes:   int,
+        }
+    """
+    ext, file_type, subdir = _SKILL_EXTENSIONS.get(skill_id, (".bin", "file", "uploads"))
+
+    # Auto-generate filename if not provided
+    if not suggested_name:
+        import time
+        suggested_name = f"{skill_id}_{int(time.time())}"
+    filename = suggested_name + ext
+
+    # Download from Anthropic Files API
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.get(
+            f"{_FILES_API_BASE}/{file_id}/content",
+            headers=_anthropic_headers(),
+        )
+        response.raise_for_status()
+        file_bytes = response.content
+
+    # Save to local artifact storage
+    base_dir = get_artifacts_dir()
+    dest_dir  = base_dir / subdir
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = dest_dir / filename
+    dest_path.write_bytes(file_bytes)
+
+    # Record in artifacts table (with anthropic_file_id, skill_id, generation_source)
+    artifact_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+
+    try:
+        await db.execute(
+            text("""
+                INSERT INTO artifacts
+                  (id, user_id, session_id, filename, file_path, file_type,
+                   scope, department, created_at,
+                   anthropic_file_id, skill_id, generation_source)
+                VALUES
+                  (:id, :uid, :sid, :fname, :fpath, :ftype,
+                   :scope, :dept, :now,
+                   :anthropic_file_id, :skill_id, :generation_source)
+            """),
+            {
+                "id":               artifact_id,
+                "uid":              user_id,
+                "sid":              str(session_id) if session_id else None,
+                "fname":            filename,
+                "fpath":            str(dest_path),
+                "ftype":            file_type,
+                "scope":            "personal",
+                "dept":             department,
+                "now":              now,
+                "anthropic_file_id": file_id,
+                "skill_id":         skill_id,
+                "generation_source": "anthropic_skill",
+            },
+        )
+        await db.commit()
+    except Exception as e:
+        logger.warning(
+            f"download_from_anthropic: DB insert failed (new columns may not be migrated yet) — {e}"
+        )
+        # Fallback: insert without the new columns
+        try:
+            await db.rollback()
+            await db.execute(
+                text("""
+                    INSERT INTO artifacts
+                      (id, user_id, session_id, filename, file_path, file_type,
+                       scope, department, created_at, anthropic_file_id)
+                    VALUES
+                      (:id, :uid, :sid, :fname, :fpath, :ftype,
+                       :scope, :dept, :now, :anthropic_file_id)
+                """),
+                {
+                    "id":               artifact_id,
+                    "uid":              user_id,
+                    "sid":              str(session_id) if session_id else None,
+                    "fname":            filename,
+                    "fpath":            str(dest_path),
+                    "ftype":            file_type,
+                    "scope":            "personal",
+                    "dept":             department,
+                    "now":              now,
+                    "anthropic_file_id": file_id,
+                },
+            )
+            await db.commit()
+        except Exception as e2:
+            logger.error(f"download_from_anthropic: fallback DB insert also failed: {e2}")
+
+    # Delete from Anthropic Files API after downloading (saves Anthropic storage cost)
+    await _delete_anthropic_file(file_id)
+
+    logger.info(
+        f"download_from_anthropic: saved {filename} ({len(file_bytes)} bytes) "
+        f"artifact_id={artifact_id}"
+    )
+    return {
+        "artifact_id":  artifact_id,
+        "file_path":    str(dest_path),
+        "download_url": f"/files/{artifact_id}",
+        "size_bytes":   len(file_bytes),
+    }
+
+
+async def _delete_anthropic_file(file_id: str) -> None:
+    """Delete file from Anthropic Files API after we've downloaded it (non-fatal)."""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            await client.delete(
+                f"{_FILES_API_BASE}/{file_id}",
+                headers=_anthropic_headers(),
+            )
+    except Exception as e:
+        logger.warning(f"_delete_anthropic_file: failed to delete {file_id}: {e}")
+
+
+async def upload_to_anthropic(file_path: str, media_type: str = None) -> str:
+    """
+    Upload a local file to Anthropic Files API for use in API calls.
+    Returns the Anthropic file_id.
+
+    Use case: uploading user-provided PDFs/DOCX for Claude to read and analyse,
+    without re-uploading on every API call (Files API caches them).
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    # Auto-detect media type if not provided
+    if media_type is None:
+        _MEDIA_TYPES = {
+            ".pdf":  "application/pdf",
+            ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".png":  "image/png",
+            ".jpg":  "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".txt":  "text/plain",
+            ".csv":  "text/csv",
+        }
+        media_type = _MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        with open(path, "rb") as f:
+            response = await client.post(
+                _FILES_API_BASE,
+                headers=_anthropic_headers(),
+                files={"file": (path.name, f, media_type)},
+            )
+        response.raise_for_status()
+        return response.json()["id"]
+
+
+async def list_anthropic_files(user_id: str = None) -> list:
+    """
+    List files currently stored in Anthropic Files API.
+    Returns list of {id, filename, created_at, size} dicts.
+    (user_id is for logging/audit only — Anthropic Files API is global per API key.)
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                _FILES_API_BASE,
+                headers=_anthropic_headers(),
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("data", [])
+    except Exception as e:
+        logger.warning(f"list_anthropic_files: failed: {e}")
+        return []
+
+
+async def delete_from_anthropic(file_id: str) -> bool:
+    """
+    Explicitly delete a file from Anthropic Files API.
+    Returns True if deleted, False if error.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.delete(
+                f"{_FILES_API_BASE}/{file_id}",
+                headers=_anthropic_headers(),
+            )
+            response.raise_for_status()
+            return True
+    except Exception as e:
+        logger.warning(f"delete_from_anthropic: failed for {file_id}: {e}")
+        return False

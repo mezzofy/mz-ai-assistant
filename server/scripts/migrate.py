@@ -367,6 +367,49 @@ def run_migrations(conn):
     """)
     print("  ✅ artifacts.anthropic_file_id")
 
+    # ── Anthropic API Upgrade (v1.45.0) — additive columns ───────────────
+    # artifacts: track Anthropic Skill origin
+    cur.execute("""
+        ALTER TABLE artifacts
+            ADD COLUMN IF NOT EXISTS skill_id           VARCHAR(16) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS generation_source  VARCHAR(32) DEFAULT 'legacy_lib'
+    """)
+    print("  ✅ artifacts.skill_id / artifacts.generation_source")
+
+    # llm_usage: track native API features
+    cur.execute("""
+        ALTER TABLE llm_usage
+            ADD COLUMN IF NOT EXISTS agent_id          VARCHAR(32) DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS server_tools_used JSONB DEFAULT '[]',
+            ADD COLUMN IF NOT EXISTS betas_used        JSONB DEFAULT '[]',
+            ADD COLUMN IF NOT EXISTS skill_id          VARCHAR(16) DEFAULT NULL
+    """)
+    print("  ✅ llm_usage.agent_id / server_tools_used / betas_used / skill_id")
+
+    # llm_usage: cost_usd already exists in base schema — guard add in case it doesn't
+    cur.execute("""
+        ALTER TABLE llm_usage
+            ADD COLUMN IF NOT EXISTS cost_usd NUMERIC(10, 6) DEFAULT 0
+    """)
+    print("  ✅ llm_usage.cost_usd (guard)")
+
+    # memory_log: audit trail for Anthropic Memory tool operations
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS memory_log (
+            id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            scope      VARCHAR(128) NOT NULL,
+            operation  VARCHAR(16)  NOT NULL,
+            summary    TEXT,
+            session_id VARCHAR(64),
+            created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_memory_log_scope
+            ON memory_log (scope)
+    """)
+    print("  ✅ memory_log (Anthropic Memory tool audit table)")
+
     # artifacts: add folder_id FK if missing (must check column existence first)
     cur.execute("""
         SELECT column_name FROM information_schema.columns
