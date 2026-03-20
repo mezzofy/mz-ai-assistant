@@ -226,13 +226,6 @@ async def send_message(
     if _is_scheduler_request(body.message):
         task["agent"] = "scheduler"
 
-    # Legal detection runs BEFORE _is_long_running() check — legal requests like
-    # "review this NDA" or "draft a contract" may match long-running keywords
-    # ("report", "analyse") but must always route to LegalAgent synchronously.
-    # Same pattern as SchedulerAgent: set task["agent"] before Celery gate check.
-    if not task.get("agent") and _is_legal_request(body.message):
-        task["agent"] = "legal"
-
     # Detect power-user agent type before long-running check
     # (checked first so "research:"/"developer:" prefixes always route correctly)
     _detected_agent = _detect_agent_type(body.message)
@@ -324,6 +317,10 @@ async def send_message(
                 "estimated_seconds": 120,
             },
         )
+
+    # Sync path — set agent for routing (legal, research, developer, or department)
+    if not task.get("agent") and _detected_agent:
+        task["agent"] = _detected_agent
 
     # Process input (text passthrough)
     task = await process_input(task)
