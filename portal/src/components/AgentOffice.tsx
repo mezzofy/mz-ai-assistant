@@ -29,17 +29,19 @@ const HOME_POSITIONS: Record<string, { x: number; y: number }> = {
 }
 
 // Task Room meeting table seats (agents sit here when busy)
+// Portrait table: TX=702, TY=168, TW=90, TH=240
+// Left column seats (x ≈ 682), Right column seats (x ≈ 812)
 const TABLE_SEATS = [
-  { x: 631, y: 148 },
-  { x: 683, y: 148 },
-  { x: 735, y: 148 },
-  { x: 787, y: 148 },
-  { x: 839, y: 148 },
-  { x: 631, y: 268 },
-  { x: 683, y: 268 },
-  { x: 735, y: 268 },
-  { x: 787, y: 268 },
-  { x: 839, y: 268 },
+  { x: 682, y: 192 },   // left col, seat 1
+  { x: 682, y: 240 },   // left col, seat 2
+  { x: 682, y: 288 },   // left col, seat 3
+  { x: 682, y: 336 },   // left col, seat 4
+  { x: 682, y: 384 },   // left col, seat 5
+  { x: 812, y: 192 },   // right col, seat 1
+  { x: 812, y: 240 },   // right col, seat 2
+  { x: 812, y: 288 },   // right col, seat 3
+  { x: 812, y: 336 },   // right col, seat 4
+  { x: 812, y: 384 },   // right col, seat 5
 ]
 
 const DEPT_COLORS: Record<string, string> = {
@@ -195,32 +197,34 @@ function drawTaskRoom(ctx: CanvasRenderingContext2D, W: number, H: number, busyC
   ctx.fillText(hkt + ' HKT', roomCenterX, 38)
   ctx.textAlign = 'left'
 
-  // Meeting table (dark wood)
-  const TX = ROOM_X + 22, TY = 155, TW = 272, TH = 98
+  // Meeting table — portrait orientation (rotated 90°), centered in Task Room
+  const TX = 702, TY = 168, TW = 90, TH = 240
   ctx.fillStyle = '#5A3810'
   ctx.fillRect(TX, TY, TW, TH)
   ctx.fillStyle = '#7A5220'
-  ctx.fillRect(TX, TY, TW, 6)
+  ctx.fillRect(TX, TY, TW, 6)           // top highlight
   ctx.fillStyle = '#4A2E0A'
-  ctx.fillRect(TX, TY + TH - 4, TW, 4)
+  ctx.fillRect(TX + TW - 4, TY, 4, TH)  // right edge shadow
   // table legs
   ctx.fillStyle = '#3A2208'
-  ctx.fillRect(TX + 8,       TY + TH, 8, 14)
-  ctx.fillRect(TX + TW - 16, TY + TH, 8, 14)
+  ctx.fillRect(TX - 8,       TY + 8,        8, 8)
+  ctx.fillRect(TX - 8,       TY + TH - 16,  8, 8)
+  ctx.fillRect(TX + TW,      TY + 8,        8, 8)
+  ctx.fillRect(TX + TW,      TY + TH - 16,  8, 8)
 
-  // Chairs — top row (above table)
+  // Chairs — left column (5 chairs, spaced 48px apart vertically)
   for (let i = 0; i < 5; i++) {
-    const cx = TX + 22 + i * 56
+    const cy = TY + 24 + i * 48
     ctx.fillStyle = '#1E3A5A'
-    ctx.fillRect(cx - 11, TY - 20, 22, 16)
-    ctx.fillRect(cx - 9,  TY - 34, 18, 14)
+    ctx.fillRect(TX - 34, cy - 11, 16, 22)   // seat
+    ctx.fillRect(TX - 48, cy - 9,  14, 18)   // back
   }
-  // Chairs — bottom row
+  // Chairs — right column
   for (let i = 0; i < 5; i++) {
-    const cx = TX + 22 + i * 56
+    const cy = TY + 24 + i * 48
     ctx.fillStyle = '#1E3A5A'
-    ctx.fillRect(cx - 11, TY + TH + 4,  22, 16)
-    ctx.fillRect(cx - 9,  TY + TH + 20, 18, 14)
+    ctx.fillRect(TX + TW + 18, cy - 11, 16, 22)   // seat
+    ctx.fillRect(TX + TW + 34, cy - 9,  14, 18)   // back
   }
 
   // Session note at bottom
