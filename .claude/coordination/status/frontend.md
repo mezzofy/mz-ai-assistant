@@ -1,5 +1,35 @@
 # Context Checkpoint: Frontend Agent
 **Date:** 2026-03-20
+**Session:** 10
+
+## Completed This Session (Session 10)
+
+- Fix F1: Added `getTaskById(taskId)` to `portal/src/api/portal.ts` — calls `GET /tasks/{taskId}`
+- Fix F2: Updated `startPolling()` in `AgentChatDialog.tsx` — when `backgroundTaskIdRef.current` is set, polls by task ID directly via `getTaskById`; falls back to `getActiveTasks` when no task ID is available. Checks `task.status === 'completed' || 'failed'` on the single task object, not an array search.
+- Fix F3: Updated `extractTaskResult()` to handle `{ success, response, artifacts, message }` backend format — now extracts `r.artifacts` count and `r.message` before falling back to generic "Task completed successfully."
+- TypeScript check: `npx tsc --noEmit` — 0 errors
+- Git commit: `96a92c0` — "fix(portal): poll task-by-id for completion, fix extractTaskResult for response field (v1.44.0)"
+
+## Files Modified (Session 10)
+- `portal/src/api/portal.ts` (modified — `getTaskById` method added)
+- `portal/src/components/AgentChatDialog.tsx` (modified — task-by-id polling strategy + extractTaskResult)
+
+## Decisions Made (Session 10)
+- Kept `getActiveTasks` as a fallback for cases where task ID is unavailable (defensive)
+- `extractTaskResult` checks `r.artifacts` before `r.message` — artifacts are primary backend output for async agent tasks
+- Still queued/running: polling continues silently (loading bubble stays visible)
+
+## Resume Instructions
+After /clear, load in order:
+1. CLAUDE.md
+2. .claude/agents/frontend.md
+3. .claude/skills/frontend-developer.md
+4. This checkpoint file
+Then continue with any new frontend tasks assigned.
+
+---
+
+**Date:** 2026-03-20
 **Session:** 9
 
 ## Completed This Session (Session 9)

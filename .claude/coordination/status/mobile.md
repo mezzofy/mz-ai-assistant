@@ -1,5 +1,30 @@
 # Context Checkpoint: Mobile Agent
 **Date:** 2026-03-20
+**Session:** Background task LLM response display (v1.44.0)
+**Context:** ~20% at checkpoint
+**Reason:** Subtask complete — M1/M2/M3 fixes applied and committed
+
+## Completed This Session (2026-03-20)
+- Fix M3: Added `getTaskByIdApi(taskId)` to `APP/src/api/chat.ts`; added `result?: { response?: string; artifacts?: any[] } | null` to `TaskSummary` interface
+- Fix M1: Rewrote `onTaskComplete` in `chatStore.ts` `sendToServer` to be async; now extracts LLM response from WS `data.response`, falls back to `getTaskByIdApi`, then `data.message`; adds response as assistant `Message` before updating `activeTask` status
+- Fix M2: Updated `pollActiveTask()` in `chatStore.ts` to detect completed/failed tasks with `result.response`, adds as assistant message with duplicate guard (`alreadyShown` check by exact text match)
+- TypeScript check: only pre-existing `TS2688: Cannot find type definition file for 'jest'` — not introduced by these changes
+- Git commit: `1f6a64e` on branch `eric-design`
+
+## Files Modified
+- `APP/src/api/chat.ts` — added `getTaskByIdApi`, added `result` field to `TaskSummary`
+- `APP/src/stores/chatStore.ts` — import `getTaskByIdApi`, fixed `onTaskComplete`, fixed `pollActiveTask`
+
+## Decisions Made This Session
+- `onTaskComplete` is now async to support `await getTaskByIdApi(...)` fallback fetch
+- Duplicate guard in `pollActiveTask` uses exact text match — safe because LLM responses are unique strings
+- WS payload `data.response` takes priority over API fetch (avoids extra round-trip when backend sends response inline)
+
+---
+
+# Previous Session — Multi-agent chat attribution
+
+**Date:** 2026-03-20
 **Session:** Multi-agent chat attribution
 **Context:** ~25% at checkpoint
 **Reason:** All 6 fixes applied and committed (103e3a9)
