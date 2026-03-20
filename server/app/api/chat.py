@@ -232,7 +232,7 @@ async def send_message(
 
     # Long-running task detection — dispatch to Celery and return 202 immediately.
     # Skipped for scheduler requests (they always run synchronously).
-    if not task.get("agent") and _is_long_running(body.message):
+    if not task.get("agent") and (_detected_agent or _is_long_running(body.message)):
         import uuid as _uuid
         from app.tasks.tasks import process_chat_task
 
@@ -292,9 +292,9 @@ async def send_message(
             "user_id": user["user_id"],
             "session_id": resolved_session_id,    # ← pass to Celery so it reuses the session
             "message": body.message,
-            "department": user.get("department", ""),
+            "department": body.department or user.get("department", ""),
             # Power-user agents use their own name; department agents use dept name
-            "agent": _detected_agent or user.get("department", ""),
+            "agent": _detected_agent or body.department or user.get("department", ""),
             "device_token": body.device_token or "",
             "platform": body.platform,
             "source": "mobile",
