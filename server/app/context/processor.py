@@ -116,6 +116,7 @@ async def process_result(
             import json as _json
             _result_payload = _json.dumps({
                 "success": success,
+                "response": content.strip() if content else "Task completed.",
                 "artifacts": [
                     {
                         "id": a.get("id"),

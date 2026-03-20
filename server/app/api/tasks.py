@@ -89,20 +89,24 @@ async def list_active_tasks(
     user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return all queued and running tasks for the current user."""
+    """Return queued/running tasks plus tasks completed or failed in the last 5 minutes."""
     result = await db.execute(
         text(
             "SELECT id, task_ref, session_id, department, title, status, "
-            "progress, current_step, error, notify_on_done, queue_name, "
+            "progress, current_step, result, error, notify_on_done, queue_name, "
             "started_at, completed_at, created_at "
             "FROM agent_tasks "
-            "WHERE user_id = :uid AND status IN ('queued', 'running') "
+            "WHERE user_id = :uid "
+            "  AND ("
+            "    status IN ('queued', 'running')"
+            "    OR (status IN ('completed', 'failed') AND completed_at > NOW() - INTERVAL '5 minutes')"
+            "  ) "
             "ORDER BY created_at DESC"
         ),
         {"uid": user["user_id"]},
     )
     rows = result.fetchall()
-    return {"tasks": [_row_to_dict(r) for r in rows], "total": len(rows)}
+    return {"tasks": [_row_to_dict(r, include_result=True) for r in rows], "total": len(rows)}
 
 
 # ── GET /tasks/{task_id} ──────────────────────────────────────────────────────

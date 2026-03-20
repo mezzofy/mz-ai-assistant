@@ -536,11 +536,13 @@ async def _run_chat_task(task_data: dict) -> dict:
         import redis.asyncio as aioredis
         async with aioredis.from_url(redis_url) as redis_client:
             summary = (task_data["message"][:60] + "…") if len(task_data["message"]) > 60 else task_data["message"]
+            full_response = response.get("response", "")
             notification_payload = json.dumps({
                 "type": "task_complete",
                 "task_id": agent_task_id or celery_task_id,
                 "session_id": str(session["id"]),
                 "message": summary,
+                "response": full_response,
                 "file_url": file_url,
             })
             await redis_client.publish(f"user:{user_id}:notifications", notification_payload)
