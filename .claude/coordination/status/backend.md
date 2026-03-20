@@ -1,6 +1,20 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-20
 **Project:** mz-ai-assistant
+**Session:** 28 (BUG-fix: agent_tasks.department resolved agent attribution)
+
+## Completed This Session (Session 28)
+
+- ✅ Fixed agent_tasks.department bug: was storing login user's department ("management") instead of the resolved executing agent ("sales", "research", "legal", etc.)
+  - File: `server/app/api/chat.py` line 265
+  - Change: `"dept": user.get("department", "")` → `"dept": _detected_agent or user.get("department", "")`
+  - Same fallback logic already used for `task_payload["agent"]` at line 299
+  - Committed: `fix(backend): agent_tasks.department uses resolved agent dept, not login user dept`
+
+---
+
+# Previous Session (Session 27): FEAT: WebSocket agent status push — v1.43.0
+**Date:** 2026-03-20
 **Session:** 27 (FEAT: WebSocket agent status push — v1.43.0)
 **Context:** ~35% at checkpoint
 **Reason:** All 4 tasks complete for WebSocket push feature

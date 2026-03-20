@@ -1,5 +1,25 @@
 # Context Checkpoint: Frontend Agent
 **Date:** 2026-03-20
+**Session:** 9
+
+## Completed This Session (Session 9)
+
+- Reduced `MAX_POLLS` from 30 to 15 (120s → 60s) in `AgentChatDialog.tsx`
+- Added `isBackground?: boolean` to `Message` interface
+- Added `backgroundTaskIdRef` to capture `task_id` from the 202 queued response
+- On 60s timeout: replaces loading bubble with neutral background-task card (pre-wrap, slate styling)
+  - Background card: "⚙️ Running in background\nTask ID: {taskId}\nThis task is still running. The agent will update you when it's done."
+  - Styling: `#1A2535` bg, `#94A3B8` text, `#334155` border — info tone, not error red
+- Changed `> MAX_POLLS` to `>= MAX_POLLS` so it fires at poll 15 (exactly 60s)
+- TypeScript check: `npx tsc --noEmit` — 0 errors
+- Git commit: `845d355` — "fix(portal): 60s background task card instead of timeout error in AgentChatDialog"
+
+## Files Modified (Session 9)
+- `portal/src/components/AgentChatDialog.tsx` (modified — poll count 30→15, isBackground card, backgroundTaskIdRef)
+
+---
+
+**Date:** 2026-03-20
 **Session:** 8
 
 ## Completed This Session (Session 8)
