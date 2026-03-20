@@ -178,10 +178,8 @@ class HRAgent(BaseAgent):
     async def _weekly_hr_summary_workflow(self, task: dict) -> dict:
         """Scheduler (Friday 5PM SGT): weekly HR summary → Teams #hr + HR manager email."""
         from app.tools.database.db_ops import DatabaseOps
-        from app.tools.document.pdf_ops import PDFOps
 
         db = DatabaseOps(self.config)
-        pdf = PDFOps(self.config)
         tools_called = []
         today = date.today().strftime("%B %d, %Y")
 
@@ -214,18 +212,42 @@ class HRAgent(BaseAgent):
 
         # Generate PDF report
         artifacts = []
-        pdf_result = await pdf.execute(
-            "create_pdf",
-            content=summary,
-            title="Weekly HR Summary",
-        )
-        tools_called.append("create_pdf")
-        if pdf_result.get("success") and pdf_result.get("output"):
-            artifacts.append({
-                "name": f"weekly_hr_summary_{date.today().strftime('%Y%m%d')}.pdf",
-                "path": pdf_result["output"],
-                "type": "pdf",
-            })
+        title = "Weekly HR Summary"
+        try:
+            skill_result = await llm_mod.get().generate_document_with_skill(
+                skill_id="pdf",
+                prompt=summary,
+                context_data=None,
+                task_context=task,
+            )
+            if skill_result.get("success") and skill_result.get("file_ids"):
+                from app.context.artifact_manager import download_from_anthropic
+                artifact = await download_from_anthropic(
+                    db=task["db"],
+                    file_id=skill_result["file_ids"][0],
+                    user_id=task["user_id"],
+                    session_id=task["session_id"],
+                    skill_id="pdf",
+                    suggested_name=title,
+                )
+                artifacts.append(artifact)
+                tools_called.append("create_pdf")
+        except Exception as e:
+            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            from app.tools.document.pdf_ops import PDFOps
+            pdf = PDFOps(self.config)
+            pdf_result = await pdf.execute(
+                "create_pdf",
+                content=summary,
+                title=title,
+            )
+            tools_called.append("create_pdf")
+            if pdf_result.get("success") and pdf_result.get("output"):
+                artifacts.append({
+                    "name": f"weekly_hr_summary_{date.today().strftime('%Y%m%d')}.pdf",
+                    "path": pdf_result["output"],
+                    "type": "pdf",
+                })
 
         # Deliver to Teams and HR manager email
         await self._deliver_to_teams(
@@ -248,10 +270,8 @@ class HRAgent(BaseAgent):
     async def _headcount_report_workflow(self, task: dict) -> dict:
         """Scheduler (1st of month, 9AM SGT): monthly headcount report → email."""
         from app.tools.database.db_ops import DatabaseOps
-        from app.tools.document.pdf_ops import PDFOps
 
         db = DatabaseOps(self.config)
-        pdf = PDFOps(self.config)
         tools_called = []
         today = date.today().strftime("%B %d, %Y")
 
@@ -280,18 +300,42 @@ class HRAgent(BaseAgent):
         summary = llm_result.get("content", "Monthly headcount report generated.")
 
         artifacts = []
-        pdf_result = await pdf.execute(
-            "create_pdf",
-            content=summary,
-            title="Monthly Headcount Report",
-        )
-        tools_called.append("create_pdf")
-        if pdf_result.get("success") and pdf_result.get("output"):
-            artifacts.append({
-                "name": f"headcount_report_{date.today().strftime('%Y%m')}.pdf",
-                "path": pdf_result["output"],
-                "type": "pdf",
-            })
+        title = "Monthly Headcount Report"
+        try:
+            skill_result = await llm_mod.get().generate_document_with_skill(
+                skill_id="pdf",
+                prompt=summary,
+                context_data=None,
+                task_context=task,
+            )
+            if skill_result.get("success") and skill_result.get("file_ids"):
+                from app.context.artifact_manager import download_from_anthropic
+                artifact = await download_from_anthropic(
+                    db=task["db"],
+                    file_id=skill_result["file_ids"][0],
+                    user_id=task["user_id"],
+                    session_id=task["session_id"],
+                    skill_id="pdf",
+                    suggested_name=title,
+                )
+                artifacts.append(artifact)
+                tools_called.append("create_pdf")
+        except Exception as e:
+            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            from app.tools.document.pdf_ops import PDFOps
+            pdf = PDFOps(self.config)
+            pdf_result = await pdf.execute(
+                "create_pdf",
+                content=summary,
+                title=title,
+            )
+            tools_called.append("create_pdf")
+            if pdf_result.get("success") and pdf_result.get("output"):
+                artifacts.append({
+                    "name": f"headcount_report_{date.today().strftime('%Y%m')}.pdf",
+                    "path": pdf_result["output"],
+                    "type": "pdf",
+                })
 
         hr_manager_email = self.config.get("notifications", {}).get("hr_manager_email", "")
         if hr_manager_email:
@@ -308,9 +352,6 @@ class HRAgent(BaseAgent):
 
     async def _onboarding_workflow(self, task: dict) -> dict:
         """Webhook (employee_onboarded): generate onboarding checklist → Teams #hr."""
-        from app.tools.document.pdf_ops import PDFOps
-
-        pdf = PDFOps(self.config)
         tools_called = []
         today = date.today().strftime("%B %d, %Y")
 
@@ -336,18 +377,42 @@ class HRAgent(BaseAgent):
         checklist = llm_result.get("content", "Onboarding checklist generated.")
 
         artifacts = []
-        pdf_result = await pdf.execute(
-            "create_pdf",
-            content=checklist,
-            title=f"Onboarding Checklist — {employee_name}",
-        )
-        tools_called.append("create_pdf")
-        if pdf_result.get("success") and pdf_result.get("output"):
-            artifacts.append({
-                "name": f"onboarding_checklist_{employee_name.replace(' ', '_').lower()}.pdf",
-                "path": pdf_result["output"],
-                "type": "pdf",
-            })
+        title = f"Onboarding Checklist — {employee_name}"
+        try:
+            skill_result = await llm_mod.get().generate_document_with_skill(
+                skill_id="pdf",
+                prompt=checklist,
+                context_data=None,
+                task_context=task,
+            )
+            if skill_result.get("success") and skill_result.get("file_ids"):
+                from app.context.artifact_manager import download_from_anthropic
+                artifact = await download_from_anthropic(
+                    db=task["db"],
+                    file_id=skill_result["file_ids"][0],
+                    user_id=task["user_id"],
+                    session_id=task["session_id"],
+                    skill_id="pdf",
+                    suggested_name=title,
+                )
+                artifacts.append(artifact)
+                tools_called.append("create_pdf")
+        except Exception as e:
+            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            from app.tools.document.pdf_ops import PDFOps
+            pdf = PDFOps(self.config)
+            pdf_result = await pdf.execute(
+                "create_pdf",
+                content=checklist,
+                title=title,
+            )
+            tools_called.append("create_pdf")
+            if pdf_result.get("success") and pdf_result.get("output"):
+                artifacts.append({
+                    "name": f"onboarding_checklist_{employee_name.replace(' ', '_').lower()}.pdf",
+                    "path": pdf_result["output"],
+                    "type": "pdf",
+                })
 
         await self._deliver_to_teams(
             channel="#hr",
@@ -363,9 +428,6 @@ class HRAgent(BaseAgent):
 
     async def _offboarding_workflow(self, task: dict) -> dict:
         """Webhook (employee_offboarded): generate exit summary → Teams #hr."""
-        from app.tools.document.pdf_ops import PDFOps
-
-        pdf = PDFOps(self.config)
         tools_called = []
         today = date.today().strftime("%B %d, %Y")
 
@@ -393,18 +455,42 @@ class HRAgent(BaseAgent):
         exit_summary = llm_result.get("content", "Exit summary generated.")
 
         artifacts = []
-        pdf_result = await pdf.execute(
-            "create_pdf",
-            content=exit_summary,
-            title=f"Offboarding Summary — {employee_name}",
-        )
-        tools_called.append("create_pdf")
-        if pdf_result.get("success") and pdf_result.get("output"):
-            artifacts.append({
-                "name": f"offboarding_summary_{employee_name.replace(' ', '_').lower()}.pdf",
-                "path": pdf_result["output"],
-                "type": "pdf",
-            })
+        title = f"Offboarding Summary — {employee_name}"
+        try:
+            skill_result = await llm_mod.get().generate_document_with_skill(
+                skill_id="pdf",
+                prompt=exit_summary,
+                context_data=None,
+                task_context=task,
+            )
+            if skill_result.get("success") and skill_result.get("file_ids"):
+                from app.context.artifact_manager import download_from_anthropic
+                artifact = await download_from_anthropic(
+                    db=task["db"],
+                    file_id=skill_result["file_ids"][0],
+                    user_id=task["user_id"],
+                    session_id=task["session_id"],
+                    skill_id="pdf",
+                    suggested_name=title,
+                )
+                artifacts.append(artifact)
+                tools_called.append("create_pdf")
+        except Exception as e:
+            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            from app.tools.document.pdf_ops import PDFOps
+            pdf = PDFOps(self.config)
+            pdf_result = await pdf.execute(
+                "create_pdf",
+                content=exit_summary,
+                title=title,
+            )
+            tools_called.append("create_pdf")
+            if pdf_result.get("success") and pdf_result.get("output"):
+                artifacts.append({
+                    "name": f"offboarding_summary_{employee_name.replace(' ', '_').lower()}.pdf",
+                    "path": pdf_result["output"],
+                    "type": "pdf",
+                })
 
         await self._deliver_to_teams(
             channel="#hr",

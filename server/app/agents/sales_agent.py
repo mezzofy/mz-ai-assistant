@@ -164,22 +164,50 @@ class SalesAgent(BaseAgent):
         research_result = await research_skill.search_web(query=f"{customer_name} company")
         tools_called.append("search_web")
 
-        # Create pitch deck
-        deck_result = await deck_skill.create_pitch_deck(
-            customer_name=customer_name,
-            include_pricing=True,
-            include_case_studies=True,
-        )
-        tools_called.append("create_pitch_deck")
+        # Create pitch deck — try skill PPTX first, fall back to deck_skill
+        pptx_title = f"Mezzofy Pitch Deck — {customer_name}"
+        artifacts = []
+        try:
+            research_summary = research_result.get("output", "") if isinstance(research_result.get("output"), str) else ""
+            skill_prompt = (
+                f"Create a professional sales pitch deck for {customer_name}. "
+                f"Include Mezzofy product overview, value proposition, pricing, and case studies.\n\n"
+                f"Company research: {str(research_summary)[:2000]}"
+            )
+            skill_result = await llm_mod.get().generate_document_with_skill(
+                skill_id="pptx",
+                prompt=skill_prompt,
+                context_data=None,
+                task_context=task,
+            )
+            if skill_result.get("success") and skill_result.get("file_ids"):
+                from app.context.artifact_manager import download_from_anthropic
+                artifact = await download_from_anthropic(
+                    db=task["db"],
+                    file_id=skill_result["file_ids"][0],
+                    user_id=task["user_id"],
+                    session_id=task["session_id"],
+                    skill_id="pptx",
+                    suggested_name=pptx_title,
+                )
+                artifacts.append(artifact)
+                tools_called.append("create_pitch_deck")
+        except Exception as e:
+            logger.warning(f"Skill PPTX generation failed, falling back to deck_skill: {e}")
+            deck_result = await deck_skill.create_pitch_deck(
+                customer_name=customer_name,
+                include_pricing=True,
+                include_case_studies=True,
+            )
+            tools_called.append("create_pitch_deck")
+            if not deck_result.get("success"):
+                return self._err(f"Pitch deck creation failed: {deck_result.get('error')}")
+            artifacts = [{
+                "name": f"pitch_deck_{customer_name.replace(' ', '_')}.pptx",
+                "path": deck_result.get("output", ""),
+                "type": "pptx",
+            }]
 
-        if not deck_result.get("success"):
-            return self._err(f"Pitch deck creation failed: {deck_result.get('error')}")
-
-        artifacts = [{
-            "name": f"pitch_deck_{customer_name.replace(' ', '_')}.pptx",
-            "path": deck_result.get("output", ""),
-            "type": "pptx",
-        }]
         return self._ok(
             content=f"Pitch deck created for {customer_name}. Ready to download.",
             artifacts=artifacts,

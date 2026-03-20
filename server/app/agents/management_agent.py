@@ -84,11 +84,32 @@ class ManagementAgent(BaseAgent):
     async def _general_response(self, task: dict) -> dict:
         """General question — answer via LLM with full tool access (create_txt, create_csv, etc.)."""
         task_for_llm = {**task, "messages": task.get("conversation_history", [])}
-        llm_result = await llm_mod.get().execute_with_tools(task_for_llm)
-        content = llm_result.get("content", "I'm here to help. Could you clarify your request?")
-        tools_called = llm_result.get("tools_called", [])
-        artifacts = llm_result.get("artifacts", [])
-        return self._ok(content=content, tools_called=tools_called, artifacts=artifacts)
+
+        # Use memory tool for user preferences / cached KPIs
+        messages = task_for_llm.get("messages", [])
+        if not messages or messages[-1].get("content") != task.get("message", ""):
+            messages = messages + [{"role": "user", "content": task.get("message", "")}]
+
+        memory_scope = f"user:{task.get('user_id', 'unknown')}"
+        system_prompt = llm_mod.get()._build_system_prompt(task_for_llm)
+        try:
+            llm_result = await llm_mod.get().chat_with_memory(
+                messages=messages,
+                memory_scope=memory_scope,
+                client_tools=None,
+                system=system_prompt,
+            )
+            content = llm_result.get("text") or llm_result.get("content", "")
+            if not content:
+                content = "I'm here to help. Could you clarify your request?"
+            return self._ok(content=content, tools_called=["memory"], artifacts=[])
+        except Exception as e:
+            logger.warning(f"chat_with_memory failed, falling back to execute_with_tools: {e}")
+            llm_result = await llm_mod.get().execute_with_tools(task_for_llm)
+            content = llm_result.get("content", "I'm here to help. Could you clarify your request?")
+            tools_called = llm_result.get("tools_called", [])
+            artifacts = llm_result.get("artifacts", [])
+            return self._ok(content=content, tools_called=tools_called, artifacts=artifacts)
 
     async def _kpi_dashboard_workflow(self, task: dict) -> dict:
         """Mobile: generate cross-department KPI dashboard."""
@@ -147,20 +168,42 @@ class ManagementAgent(BaseAgent):
 
         # Generate PDF
         artifacts = []
-        from app.tools.document.pdf_ops import PDFOps
-        pdf = PDFOps(self.config)
-        pdf_result = await pdf.execute(
-            "create_pdf",
-            content=summary,
-            title="KPI Dashboard",
-        )
-        tools_called.append("create_pdf")
-        if pdf_result.get("success") and pdf_result.get("output"):
-            artifacts.append({
-                "name": "kpi_dashboard.pdf",
-                "path": pdf_result["output"],
-                "type": "pdf",
-            })
+        title = "KPI Dashboard"
+        try:
+            skill_result = await llm_mod.get().generate_document_with_skill(
+                skill_id="pdf",
+                prompt=summary,
+                context_data=None,
+                task_context=task,
+            )
+            if skill_result.get("success") and skill_result.get("file_ids"):
+                from app.context.artifact_manager import download_from_anthropic
+                artifact = await download_from_anthropic(
+                    db=task["db"],
+                    file_id=skill_result["file_ids"][0],
+                    user_id=task["user_id"],
+                    session_id=task["session_id"],
+                    skill_id="pdf",
+                    suggested_name=title,
+                )
+                artifacts.append(artifact)
+                tools_called.append("create_pdf")
+        except Exception as e:
+            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            from app.tools.document.pdf_ops import PDFOps
+            pdf = PDFOps(self.config)
+            pdf_result = await pdf.execute(
+                "create_pdf",
+                content=summary,
+                title=title,
+            )
+            tools_called.append("create_pdf")
+            if pdf_result.get("success") and pdf_result.get("output"):
+                artifacts.append({
+                    "name": "kpi_dashboard.pdf",
+                    "path": pdf_result["output"],
+                    "type": "pdf",
+                })
 
         return self._ok(content=summary, artifacts=artifacts, tools_called=tools_called)
 
@@ -197,16 +240,38 @@ class ManagementAgent(BaseAgent):
         summary = llm_result.get("content", "Weekly KPI report generated.")
 
         artifacts = []
-        from app.tools.document.pdf_ops import PDFOps
-        pdf = PDFOps(self.config)
-        pdf_result = await pdf.execute("create_pdf", content=summary, title="Weekly KPI Report")
-        tools_called.append("create_pdf")
-        if pdf_result.get("success") and pdf_result.get("output"):
-            artifacts.append({
-                "name": "weekly_kpi_report.pdf",
-                "path": pdf_result["output"],
-                "type": "pdf",
-            })
+        title = "Weekly KPI Report"
+        try:
+            skill_result = await llm_mod.get().generate_document_with_skill(
+                skill_id="pdf",
+                prompt=summary,
+                context_data=None,
+                task_context=task,
+            )
+            if skill_result.get("success") and skill_result.get("file_ids"):
+                from app.context.artifact_manager import download_from_anthropic
+                artifact = await download_from_anthropic(
+                    db=task["db"],
+                    file_id=skill_result["file_ids"][0],
+                    user_id=task["user_id"],
+                    session_id=task["session_id"],
+                    skill_id="pdf",
+                    suggested_name=title,
+                )
+                artifacts.append(artifact)
+                tools_called.append("create_pdf")
+        except Exception as e:
+            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            from app.tools.document.pdf_ops import PDFOps
+            pdf = PDFOps(self.config)
+            pdf_result = await pdf.execute("create_pdf", content=summary, title=title)
+            tools_called.append("create_pdf")
+            if pdf_result.get("success") and pdf_result.get("output"):
+                artifacts.append({
+                    "name": "weekly_kpi_report.pdf",
+                    "path": pdf_result["output"],
+                    "type": "pdf",
+                })
 
         # Deliver to Teams and email leadership
         await self._deliver_to_teams(

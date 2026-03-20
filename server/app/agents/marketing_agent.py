@@ -75,37 +75,81 @@ class MarketingAgent(BaseAgent):
 
             # Step 2: For playbooks → generate PDF
             if content_type == "playbook":
-                from app.tools.document.pdf_ops import PDFOps
-                pdf_ops = PDFOps(self.config)
-                pdf_result = await pdf_ops.execute(
-                    "create_pdf",
-                    content=content,
-                    title="Mezzofy Playbook",
-                )
-                tools_called.append("create_pdf")
-                if pdf_result.get("success") and pdf_result.get("output"):
-                    artifacts.append({
-                        "name": f"mezzofy_playbook_{content_type}.pdf",
-                        "path": pdf_result["output"],
-                        "type": "pdf",
-                    })
+                pdf_title = "Mezzofy Playbook"
+                try:
+                    skill_result = await llm_mod.get().generate_document_with_skill(
+                        skill_id="pdf",
+                        prompt=content,
+                        context_data=None,
+                        task_context=task,
+                    )
+                    if skill_result.get("success") and skill_result.get("file_ids"):
+                        from app.context.artifact_manager import download_from_anthropic
+                        artifact = await download_from_anthropic(
+                            db=task["db"],
+                            file_id=skill_result["file_ids"][0],
+                            user_id=task["user_id"],
+                            session_id=task["session_id"],
+                            skill_id="pdf",
+                            suggested_name=pdf_title,
+                        )
+                        artifacts.append(artifact)
+                        tools_called.append("create_pdf")
+                except Exception as e:
+                    logger.warning(f"Skill PDF generation failed, falling back to PDFOps: {e}")
+                    from app.tools.document.pdf_ops import PDFOps
+                    pdf_ops = PDFOps(self.config)
+                    pdf_result = await pdf_ops.execute(
+                        "create_pdf",
+                        content=content,
+                        title=pdf_title,
+                    )
+                    tools_called.append("create_pdf")
+                    if pdf_result.get("success") and pdf_result.get("output"):
+                        artifacts.append({
+                            "name": f"mezzofy_playbook_{content_type}.pdf",
+                            "path": pdf_result["output"],
+                            "type": "pdf",
+                        })
 
-            # Step 3: For website copy → save as .md
+            # Step 3: For website copy → save as .docx
             if content_type == "website":
-                from app.tools.document.docx_ops import DocxOps
-                docx_ops = DocxOps(self.config)
-                doc_result = await docx_ops.execute(
-                    "create_document",
-                    content=content,
-                    title="Website Copy",
-                )
-                tools_called.append("create_document")
-                if doc_result.get("success") and doc_result.get("output"):
-                    artifacts.append({
-                        "name": "website_copy.docx",
-                        "path": doc_result["output"],
-                        "type": "docx",
-                    })
+                docx_title = "Website Copy"
+                try:
+                    skill_result = await llm_mod.get().generate_document_with_skill(
+                        skill_id="docx",
+                        prompt=content,
+                        context_data=None,
+                        task_context=task,
+                    )
+                    if skill_result.get("success") and skill_result.get("file_ids"):
+                        from app.context.artifact_manager import download_from_anthropic
+                        artifact = await download_from_anthropic(
+                            db=task["db"],
+                            file_id=skill_result["file_ids"][0],
+                            user_id=task["user_id"],
+                            session_id=task["session_id"],
+                            skill_id="docx",
+                            suggested_name=docx_title,
+                        )
+                        artifacts.append(artifact)
+                        tools_called.append("create_document")
+                except Exception as e:
+                    logger.warning(f"Skill DOCX generation failed, falling back to DocxOps: {e}")
+                    from app.tools.document.docx_ops import DocxOps
+                    docx_ops = DocxOps(self.config)
+                    doc_result = await docx_ops.execute(
+                        "create_document",
+                        content=content,
+                        title=docx_title,
+                    )
+                    tools_called.append("create_document")
+                    if doc_result.get("success") and doc_result.get("output"):
+                        artifacts.append({
+                            "name": "website_copy.docx",
+                            "path": doc_result["output"],
+                            "type": "docx",
+                        })
 
             return self._ok(
                 content=content,

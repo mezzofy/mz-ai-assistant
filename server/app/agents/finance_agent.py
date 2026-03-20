@@ -88,14 +88,35 @@ class FinanceAgent(BaseAgent):
             summary = llm_result.get("content", "Analysis complete.")
 
             # Step 3: Generate PDF
-            format_result = await skill.financial_format(data=data, format="pdf")
             artifacts = []
-            if format_result.get("success") and format_result.get("output"):
-                artifacts.append({
-                    "name": f"financial_{report_type}_{date_bounds['start']}.pdf",
-                    "path": format_result["output"],
-                    "type": "pdf",
-                })
+            pdf_title = f"Financial {report_type.upper()} Report"
+            try:
+                skill_result = await llm_mod.get().generate_document_with_skill(
+                    skill_id="pdf",
+                    prompt=summary,
+                    context_data=str(data)[:4000],
+                    task_context=task,
+                )
+                if skill_result.get("success") and skill_result.get("file_ids"):
+                    from app.context.artifact_manager import download_from_anthropic
+                    artifact = await download_from_anthropic(
+                        db=task["db"],
+                        file_id=skill_result["file_ids"][0],
+                        user_id=task["user_id"],
+                        session_id=task["session_id"],
+                        skill_id="pdf",
+                        suggested_name=pdf_title,
+                    )
+                    artifacts.append(artifact)
+            except Exception as e:
+                logger.warning(f"Skill PDF generation failed, falling back to financial_format: {e}")
+                format_result = await skill.financial_format(data=data, format="pdf")
+                if format_result.get("success") and format_result.get("output"):
+                    artifacts.append({
+                        "name": f"financial_{report_type}_{date_bounds['start']}.pdf",
+                        "path": format_result["output"],
+                        "type": "pdf",
+                    })
 
             # Step 4: Deliver (scheduled = Teams + Outlook)
             if self._is_automated(task):

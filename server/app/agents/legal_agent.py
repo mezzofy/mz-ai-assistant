@@ -257,12 +257,57 @@ class LegalAgent(BaseAgent):
 
             task_with_prompt = dict(task)
             task_with_prompt["system_prompt"] = system_prompt
-            result = await llm_mod.get().execute_with_tools(task_with_prompt)
+
+            # First: generate contract text via LLM
+            text_result = await llm_mod.get().chat(
+                messages=[{"role": "user", "content": message}],
+                task_context=task_with_prompt,
+            )
+            contract_text = text_result.get("content", "")
+
+            artifacts = []
+            tools_called = ["generate_contract"]
+
+            # Try skill DOCX generation first, fall back to execute_with_tools
+            if contract_text:
+                docx_title = f"Contract — {message[:60]}"
+                try:
+                    from app.llm import llm_manager as _llm_mod
+                    skill_result = await _llm_mod.get().generate_document_with_skill(
+                        skill_id="docx",
+                        prompt=contract_text,
+                        context_data=None,
+                        task_context=task,
+                    )
+                    if skill_result.get("success") and skill_result.get("file_ids"):
+                        from app.context.artifact_manager import download_from_anthropic
+                        artifact = await download_from_anthropic(
+                            db=task["db"],
+                            file_id=skill_result["file_ids"][0],
+                            user_id=task["user_id"],
+                            session_id=task["session_id"],
+                            skill_id="docx",
+                            suggested_name=docx_title,
+                        )
+                        artifacts.append(artifact)
+                        tools_called.append("create_docx")
+                except Exception as e:
+                    logger.warning(f"Skill DOCX generation failed, falling back to execute_with_tools: {e}")
+                    fallback = await llm_mod.get().execute_with_tools(task_with_prompt)
+                    contract_text = fallback.get("content", contract_text)
+                    artifacts = fallback.get("artifacts", [])
+                    tools_called = fallback.get("tools_called", tools_called)
+            else:
+                # No text from chat — fall back to full execute_with_tools
+                fallback = await llm_mod.get().execute_with_tools(task_with_prompt)
+                contract_text = fallback.get("content", "Contract generation complete.")
+                artifacts = fallback.get("artifacts", [])
+                tools_called = fallback.get("tools_called", ["generate_contract"])
 
             return self._ok(
-                content=result.get("content", "Contract generation complete."),
-                artifacts=result.get("artifacts", []),
-                tools_called=result.get("tools_called", ["generate_contract"]),
+                content=contract_text,
+                artifacts=artifacts,
+                tools_called=tools_called,
             )
         except Exception as exc:
             logger.error(f"LegalAgent.generate_contract failed: {exc}", exc_info=True)
