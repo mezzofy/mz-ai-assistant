@@ -1,7 +1,7 @@
-# Mezzofy AI Assistant — Features List v2.0
+# Mezzofy AI Assistant — Features List v2.1
 
-**Last Updated:** March 19, 2026
-**Version:** 2.0.0
+**Last Updated:** March 20, 2026
+**Version:** 2.1.0
 
 ---
 
@@ -15,17 +15,18 @@
 6. [Human Resources Department Features](#human-resources-department-features)
 7. [Support Department Features](#support-department-features)
 8. [Management Department Features](#management-department-features)
-9. [Agent Enhancement v2.0 — Multi-Agent Team](#agent-enhancement-v20--multi-agent-team) ⭐ NEW
-10. [Special Agents — Research, Developer, Scheduler](#special-agents--research-developer-scheduler) ⭐ NEW
-11. [Cross-Department Orchestration](#cross-department-orchestration) ⭐ NEW
-12. [RAG Knowledge Namespacing](#rag-knowledge-namespacing) ⭐ NEW
-13. [Mission Control Admin Portal](#mission-control-admin-portal) ⭐ NEW
-14. [Knowledge Base & Search](#knowledge-base--search)
-15. [Database & Analytics Queries](#database--analytics-queries)
-16. [File Storage Hierarchy](#file-storage-hierarchy)
-17. [Supported File Formats](#supported-file-formats)
-18. [Rate Limits & Constraints](#rate-limits--constraints)
-19. [Timezone Reference](#timezone-reference)
+9. [Agent Enhancement v2.0 — Multi-Agent Team](#agent-enhancement-v20--multi-agent-team)
+10. [Special Agents — Research, Developer, Scheduler](#special-agents--research-developer-scheduler)
+11. [Cross-Department Orchestration](#cross-department-orchestration)
+12. [RAG Knowledge Namespacing](#rag-knowledge-namespacing)
+13. [Mission Control Admin Portal](#mission-control-admin-portal)
+14. [Claude API Native Capabilities (v2.1.0)](#claude-api-native-capabilities-v210) ⭐ NEW
+15. [Knowledge Base & Search](#knowledge-base--search)
+16. [Database & Analytics Queries](#database--analytics-queries)
+17. [File Storage Hierarchy](#file-storage-hierarchy)
+18. [Supported File Formats](#supported-file-formats)
+19. [Rate Limits & Constraints](#rate-limits--constraints)
+20. [Timezone Reference](#timezone-reference)
 
 ---
 
@@ -471,22 +472,26 @@ The AI Assistant now runs as a **team of 10 persistent AI agents**, each with a 
 
 These four agents handle specialized tasks that go beyond standard department workflows.
 
-### Research Agent *(v1.23.0)*
+### Research Agent *(v1.23.0 · Enhanced v2.1.0)*
 
 **Persona:** Rex | **Trigger:** Message contains research keywords → `task["agent"] = "research"`
+
+As of v2.1.0, the Research Agent uses Anthropic's native server-side `web_search` and `web_fetch` tools — replacing the previous Playwright browser-automation approach. No browser is required; all web access runs through Anthropic's infrastructure, making research faster, more reliable, and free from browser maintenance overhead.
 
 | Feature | Status |
 |---------|:------:|
 | Agentic web-search loop (up to 8 iterations) | ✅ |
-| Claude native `web_search_20250305` tool support | ✅ |
+| Native Anthropic `web_search_20250305` server-side tool | ✅ |
+| Native Anthropic `web_fetch_20250124` — read any URL directly | ✅ |
 | Kimi `$web_search` fallback (when KIMI_API_KEY set) | ✅ |
 | Live step-by-step progress broadcast to mobile app | ✅ |
 | Strip "research:" prefix from message automatically | ✅ |
 | Multi-source research synthesis with citation tracking | ✅ |
 | Source credibility scoring (high / medium / low tier) | ✅ |
 | Claim verification against provided sources | ✅ |
+| No Playwright / browser dependency (removed in v2.1.0) | ✅ |
 
-**Skills:** `deep_research`, `source_verification`, `web_research`, `data_analysis`
+**Skills:** `deep_research`, `source_verification`, `web_research`, `data_analysis`, `anthropic_web_search`, `anthropic_web_fetch`
 
 **Sample prompts:**
 - `"Research our top 5 competitors in Singapore"`
@@ -660,6 +665,50 @@ Each agent has a **private knowledge namespace** — it can only access its own 
 
 ---
 
+## Claude API Native Capabilities (v2.1.0)
+
+*(Released March 2026)*
+
+The v2.1.0 upgrade integrates the full native capability set of the Anthropic Claude API — server-side tools, Agent Skills for document generation, the Files API for artifact management, and the Memory tool for persistent state. These capabilities run inside Anthropic's infrastructure; no additional servers, browsers, or Python libraries are required on the Mezzofy side.
+
+### Server-Side Tools
+
+| Feature | Status |
+|---------|:------:|
+| Native web search (Anthropic server-side, no browser) | ✅ |
+| Native web fetch — read any URL directly via Anthropic | ✅ |
+| Code execution in Anthropic-managed secure sandbox | ✅ |
+| Persistent memory across sessions (per agent / per user) | ✅ |
+
+### Agent Skills — AI-Native Document Generation
+
+| Feature | Status |
+|---------|:------:|
+| AI-native PowerPoint (PPTX) generation via Agent Skills | ✅ |
+| AI-native Excel (XLSX) generation via Agent Skills | ✅ |
+| AI-native PDF generation via Agent Skills | ✅ |
+| AI-native Word document (DOCX) generation via Agent Skills | ✅ |
+| No external Python document libraries required (python-pptx, ReportLab, python-docx) | ✅ |
+
+### Files API — Artifact Management
+
+| Feature | Status |
+|---------|:------:|
+| Upload files to Anthropic cloud storage with persistent `file_id` | ✅ |
+| Pass file references directly to Claude — no re-upload per session | ✅ |
+| Download generated Agent Skill output artifacts by `file_id` | ✅ |
+| Delete artifacts from Anthropic cloud after use | ✅ |
+
+### Research Enhancement
+
+| Feature | Status |
+|---------|:------:|
+| Research Agent upgraded to native `web_search` + `web_fetch` (v2.1.0) | ✅ |
+| Playwright browser dependency removed from Research Agent | ✅ |
+| Faster, more reliable research — no browser startup overhead | ✅ |
+
+---
+
 ## Knowledge Base & Search
 
 ### Semantic Search
@@ -761,4 +810,4 @@ Each agent has a **private knowledge namespace** — it can only access its own 
 
 ---
 
-*Mezzofy AI Assistant — Powered by Claude (Anthropic) · FastAPI · PostgreSQL · Redis · Celery*
+*Mezzofy AI Assistant v2.1.0 — Powered by Claude (Anthropic) · FastAPI · PostgreSQL · Redis · Celery*

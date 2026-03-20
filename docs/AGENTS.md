@@ -1,7 +1,7 @@
 # Mezzofy AI Assistant — Agent Architecture Guide
 
-**Version:** 2.0.0
-**Last Updated:** March 19, 2026
+**Version:** 2.1.0
+**Last Updated:** March 20, 2026
 **Audience:** Developers, Administrators
 
 ---
@@ -9,10 +9,11 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Entity Model](#entity-model)
-3. [The 9 Agents](#the-9-agents)
-4. [How Agents Work Together](#how-agents-work-together)
-5. [Skills Catalogue](#skills-catalogue)
+2. [Native Anthropic API Capabilities](#native-anthropic-api-capabilities)
+3. [Entity Model](#entity-model)
+4. [The 9 Agents](#the-9-agents)
+5. [How Agents Work Together](#how-agents-work-together)
+6. [Skills Catalogue](#skills-catalogue)
 
 ---
 
@@ -21,6 +22,68 @@
 The Mezzofy AI Assistant is built on a **9-agent team architecture**. Each agent is a persistent entity stored in the PostgreSQL `agents` table with its own identity, assigned skills, LLM model configuration, private knowledge namespace, and capability boundaries.
 
 Agents are routed via `chat.py` → `router.py` → Agent class. The Management Agent doubles as an orchestrator for cross-department tasks.
+
+---
+
+## Native Anthropic API Capabilities
+
+*(v2.1.0 — March 2026)*
+
+The LLM layer has been upgraded to leverage the full native capability set of the Anthropic API. These are capabilities provided directly by Anthropic's infrastructure — no custom Python libraries, no external browser automation.
+
+### Server-Side Tools
+
+Server-side tools are executed by Anthropic's infrastructure, not by the Mezzofy backend. They are passed via `betas=["server-tool-use-2025-02-24"]` and handled by `chat_with_server_tools()` in `LLMManager`.
+
+| Tool | Anthropic Name | Description |
+|------|---------------|-------------|
+| `anthropic_web_search` | `web_search_20250305` | Real-time web search — Claude queries and synthesises live results without a browser |
+| `anthropic_web_fetch` | `web_fetch_20250124` | Fetch and read the full content of any URL, including paywalled or dynamic pages |
+| `anthropic_code_execution` | `code_execution_20250522` | Execute Python code in an Anthropic-managed sandbox — no local execution risk |
+| `anthropic_memory` | `memory` (beta) | Read and write a persistent key-value memory store per agent/user — survives across sessions |
+
+**Key design note:** Server-side tools are incompatible with the standard `ToolExecutor` pattern. Agents that use them implement a separate agentic loop via `LLMManager.chat_with_server_tools()` rather than `execute_with_tools()`.
+
+### Agent Skills (Document Generation)
+
+Agent Skills are Anthropic-hosted document generation containers. They are activated via `betas=["files-api-2025-04-14", "interleaved-thinking-2025-05-14"]` and `container={"type": "persistent", "expires_at": ...}`. No external Python libraries (python-pptx, ReportLab, python-docx) are required.
+
+| Skill | Beta Container | Output |
+|-------|---------------|--------|
+| `skill_pptx` | `files-api` + container | AI-native PowerPoint (.pptx) generation |
+| `skill_xlsx` | `files-api` + container | AI-native Excel (.xlsx) generation |
+| `skill_pdf` | `files-api` + container | AI-native PDF generation with full layout control |
+| `skill_docx` | `files-api` + container | AI-native Word document (.docx) generation |
+
+**Output:** Each skill run returns a `file_id` (Anthropic Files API reference). The artifact is retrieved via `client.beta.files.content(file_id)` and stored locally or returned to the user.
+
+### Files API
+
+The Anthropic Files API stores uploaded and generated artifacts in Anthropic's cloud under a persistent `file_id`. The `anthropic_file_id` column in the `artifacts` table (or equivalent) tracks these references.
+
+| Operation | Description |
+|-----------|-------------|
+| Upload | `client.beta.files.upload(file, mime_type)` — stores PDF, image, or document in Anthropic cloud |
+| Reference | Pass `{"type": "file", "file_id": "..."}` in messages — Claude reads the file directly |
+| Retrieve | `client.beta.files.content(file_id)` — download generated output |
+| Delete | `client.beta.files.delete(file_id)` — clean up after use |
+
+### Memory Tool
+
+The `memory` server-side tool provides persistent key-value state per agent and per user. It is distinct from the PostgreSQL `agent_task_log` — it is Anthropic-managed and optimised for lightweight agent/user preference storage that must persist across separate conversation sessions.
+
+**Use cases:** User preferences, agent-learned context, cross-session state that would otherwise be lost when a conversation ends.
+
+### LLM Layer — Dual Entry Points
+
+`LLMManager` now exposes two entry points:
+
+| Method | Used For |
+|--------|---------|
+| `execute_with_tools()` | Standard client-side tool calling (DatabaseOps, EmailOps, etc.) |
+| `chat_with_server_tools()` | Server-side tools (web_search, web_fetch, code_execution, memory) and Agent Skills |
+
+The `chat_with_server_tools()` method handles `pause_turn` stop reason, `server_tool_use` content blocks, and iterates the agentic loop until `end_turn`.
 
 ---
 
@@ -290,21 +353,23 @@ sequenceDiagram
 | **LLM Model** | `claude-sonnet-4-6` |
 | **RAG Namespace** | `research` |
 
-**Role:** Agentic web-research specialist. Runs a multi-iteration search loop using Claude's native `web_search_20250305` tool (or Kimi fallback), synthesising findings into a cited research report.
+**Role:** Agentic web-research specialist. Runs a multi-iteration search loop using Anthropic's native server-side `web_search_20250305` and `web_fetch_20250124` tools (or Kimi fallback), synthesising findings into a cited research report. As of v2.1.0, Rex no longer relies on Playwright browser automation — all web access goes through native Anthropic tools, resulting in faster, more reliable research with no browser dependency.
 
 **Trigger:** `task["agent"] == "research"` (set by `_detect_agent_type()` in `chat.py` when message contains research keywords, or message starts with `"research:"`)
 
 **Agentic loop (max 8 iterations):**
 ```
 Iteration 1..N:
-  → Send messages to Claude with web_search_20250305 tool
-  → Claude calls tool, receives search results
+  → Send messages to Claude via LLMManager.chat_with_server_tools()
+    with web_search_20250305 + web_fetch_20250124 tools enabled
+  → Claude calls tool (server-side — no local execution)
+  → Handles pause_turn stop reason, continues loop
   → Broadcasts step events (tool_call / tool_result) via Redis pub/sub → mobile
   → If stop_reason == "end_turn" OR N == max_iterations → exit loop
 → Return synthesised text as final result
 ```
 
-**Key design decision:** Does NOT use `LLMManager.execute_with_tools()` — the `web_search_20250305` tool is a server-side Anthropic built-in, incompatible with the standard `ToolExecutor` pattern. Implements its own agentic loop directly over `AnthropicClient`.
+**Key design decision:** Does NOT use `LLMManager.execute_with_tools()` — the `web_search_20250305` and `web_fetch_20250124` tools are server-side Anthropic built-ins, incompatible with the standard `ToolExecutor` pattern. Uses `LLMManager.chat_with_server_tools()` which handles `pause_turn` and `server_tool_use` content blocks natively.
 
 **Skills detail:**
 - `deep_research` — Multi-source synthesis + key fact extraction
@@ -465,7 +530,7 @@ Each agent's `memory_namespace` field in the `agents` table maps directly to the
 
 ## Skills Catalogue
 
-Full list of all 22 skills across the 10 agents:
+Full list of all 30 skills across the 10 agents (22 original + 8 new native API skills added in v2.1.0):
 
 | Skill | Agent | Version | Description | Tools |
 |-------|-------|:-------:|-------------|-------|
@@ -492,7 +557,22 @@ Full list of all 22 skills across the 10 agents:
 | `legal_research` | Legal | 1.0 | Research jurisdiction-specific laws and regulations | `research_jurisdiction_law`, `lookup_regulatory_requirements`, `check_compliance_requirements` |
 | `jurisdiction_advisory` | Legal | 1.0 | Jurisdiction advisory for SG, HK, MY, UAE, KSA, QA, Cayman | `get_jurisdiction_overview`, `compare_jurisdictions`, `recommend_jurisdiction` |
 
+### Native Anthropic API Skills *(v2.1.0)*
+
+These skills map directly to Anthropic server-side tools and Agent Skills. They are not backed by custom Python tool classes — they are invoked through `LLMManager.chat_with_server_tools()`.
+
+| Skill | Type | Version | Description | Anthropic Tool |
+|-------|------|:-------:|-------------|---------------|
+| `anthropic_web_search` | Server-side tool | 1.0 | Real-time web search via Anthropic infrastructure — no browser required | `web_search_20250305` |
+| `anthropic_web_fetch` | Server-side tool | 1.0 | Fetch and read any URL directly — replaces Playwright for content retrieval | `web_fetch_20250124` |
+| `anthropic_code_execution` | Server-side tool | 1.0 | Execute Python code in Anthropic sandbox — safe, isolated, no local risk | `code_execution_20250522` |
+| `anthropic_memory` | Server-side tool | 1.0 | Persistent key-value memory per agent/user, survives across sessions | `memory` (beta) |
+| `skill_pptx` | Agent Skill | 1.0 | AI-native PowerPoint generation — no python-pptx dependency | Files API container |
+| `skill_xlsx` | Agent Skill | 1.0 | AI-native Excel generation — no openpyxl dependency | Files API container |
+| `skill_pdf` | Agent Skill | 1.0 | AI-native PDF generation — no ReportLab dependency | Files API container |
+| `skill_docx` | Agent Skill | 1.0 | AI-native Word document generation — no python-docx dependency | Files API container |
+
 ---
 
-*Mezzofy AI Assistant — Agent Architecture Guide v2.0*
+*Mezzofy AI Assistant — Agent Architecture Guide v2.1.0*
 *For user-facing guidance, see [USER_GUIDE_AGENTIC.md](USER_GUIDE_AGENTIC.md)*
