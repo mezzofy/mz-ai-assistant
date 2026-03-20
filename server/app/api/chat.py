@@ -65,6 +65,7 @@ router = APIRouter(tags=["chat"])
 class SendTextRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    department: Optional[str] = None            # portal specifies which agent dept to use
     device_token: Optional[str] = None          # FCM registration token for push
     platform: str = "android"                   # "ios" or "android"
 
@@ -215,6 +216,10 @@ async def send_message(
         "input_type": "text",
     })
 
+    # Portal can specify which agent department to use (overrides JWT user dept for routing/attribution)
+    if body.department:
+        task["department"] = body.department
+
     # Scheduler detection runs FIRST — always synchronous, never Celery.
     # Must precede _is_long_running() because common scheduler phrases like
     # "schedule a weekly report" contain long-running keywords ("weekly", "report").
@@ -274,7 +279,7 @@ async def send_message(
                 async with _aioredis.from_url(_redis_url) as _rc:
                     await _rc.publish("admin:agent-status", json.dumps({
                         "type": "agent_status",
-                        "department": user.get("department", ""),
+                        "department": _detected_agent or body.department or user.get("department", ""),
                         "status": "queued",
                         "task_title": body.message[:80],
                         "agent_task_id": new_task_id,

@@ -138,22 +138,37 @@ async def process_result(
             )
             task_id = agent_task_id
         else:
-            # Sync path: INSERT a new completed record
+            # Sync path: INSERT a new completed record (with result JSON so polling works)
+            import json as _json
             raw_id = uuid.uuid4()
             task_ref = f"TASK-{str(raw_id)[:8].upper()}"
+            _sync_result = _json.dumps({
+                "success": success,
+                "response": content.strip() if content else "Task completed.",
+                "artifacts": [
+                    {
+                        "id": a.get("id"),
+                        "type": a.get("file_type", "file"),
+                        "name": a.get("filename", "artifact"),
+                        "download_url": a.get("download_url"),
+                    }
+                    for a in response_artifacts
+                ],
+            })
             await db.execute(
                 text(
                     "INSERT INTO agent_tasks "
-                    "(id, task_ref, user_id, session_id, department, title, status, progress, started_at, completed_at) "
-                    "VALUES (:id, :task_ref, :uid, :sid, :dept, :title, 'completed', 100, NOW(), NOW())"
+                    "(id, task_ref, user_id, session_id, department, title, status, progress, result, started_at, completed_at) "
+                    "VALUES (:id, :task_ref, :uid, :sid, :dept, :title, 'completed', 100, CAST(:result AS jsonb), NOW(), NOW())"
                 ),
                 {
                     "id": str(raw_id),
                     "task_ref": task_ref,
                     "uid": user_id,
                     "sid": str(session_id) if session_id is not None else None,
-                    "dept": department,
+                    "dept": agent_used or department,   # use actual executing agent's name for attribution
                     "title": user_message[:80],
+                    "result": _sync_result,
                 },
             )
             task_id = str(raw_id)
