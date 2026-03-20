@@ -63,7 +63,11 @@ function extractTaskResult(task: ActiveTask): string {
   if (typeof r === 'string') return r
   if (typeof r.response === 'string' && r.response) return r.response
   if (typeof r.reply === 'string' && r.reply) return r.reply
-  return JSON.stringify(r)
+  if (r.artifacts && Array.isArray(r.artifacts) && r.artifacts.length > 0) {
+    return `Task completed. ${r.artifacts.length} file(s) generated and saved.`
+  }
+  if (typeof r.message === 'string' && r.message) return r.message
+  return 'Task completed successfully.'
 }
 
 export default function AgentChatDialog({ dept, onClose }: Props) {
@@ -127,29 +131,41 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
       }
 
       try {
-        const res = await portalApi.getActiveTasks(sessionId)
-        const tasks = res.data as ActiveTask[]
-        if (!Array.isArray(tasks)) return
+        let task: ActiveTask | undefined
 
-        const done = tasks.find(t => t.status === 'completed' || t.status === 'failed')
-        if (!done) return
-
-        stopPolling()
-        setSending(false)
-
-        if (done.status === 'failed') {
-          const errMsg = done.error || 'Agent encountered an error. Please try again.'
-          setMessages(prev => {
-            const withoutLoading = prev.filter(m => !m.isLoading)
-            return [...withoutLoading, { role: 'agent', content: `⚠ ${errMsg}`, timestamp: new Date() }]
-          })
+        if (backgroundTaskIdRef.current) {
+          // Poll the specific task by ID — more reliable than active list
+          const taskRes = await portalApi.getTaskById(backgroundTaskIdRef.current)
+          task = taskRes.data as ActiveTask
+          if (!task) return
         } else {
-          const result = extractTaskResult(done)
-          setMessages(prev => {
-            const withoutLoading = prev.filter(m => !m.isLoading)
-            return [...withoutLoading, { role: 'agent', content: result, timestamp: new Date() }]
-          })
+          // Fallback: scan active task list when no task ID is available
+          const res = await portalApi.getActiveTasks(sessionId)
+          const tasks = res.data as ActiveTask[]
+          if (!Array.isArray(tasks)) return
+          task = tasks.find(t => t.status === 'completed' || t.status === 'failed')
+          if (!task) return
         }
+
+        if (task.status === 'completed' || task.status === 'failed') {
+          stopPolling()
+          setSending(false)
+
+          if (task.status === 'failed') {
+            const errMsg = task.error || 'Agent encountered an error. Please try again.'
+            setMessages(prev => {
+              const withoutLoading = prev.filter(m => !m.isLoading)
+              return [...withoutLoading, { role: 'agent', content: `⚠ ${errMsg}`, timestamp: new Date() }]
+            })
+          } else {
+            const result = extractTaskResult(task)
+            setMessages(prev => {
+              const withoutLoading = prev.filter(m => !m.isLoading)
+              return [...withoutLoading, { role: 'agent', content: result, timestamp: new Date() }]
+            })
+          }
+        }
+        // If still queued/running — keep polling (loading bubble stays)
       } catch {
         // Ignore transient poll errors — keep polling until timeout
       }
