@@ -1,50 +1,37 @@
 # Context Checkpoint: Tester Agent
-**Date:** 2026-03-19
+**Date:** 2026-03-21
 **Project:** mz-ai-assistant
-**Session:** Agent Enhancement v2.0 — Phase 9 tests
-**Task:** Task 10 from agent-enhancement-v2.0-plan.md
+**Session:** _general_response chat_with_memory refactor tests
 
 ## Completed This Session
 
-- DONE: Created `server/tests/test_agent_separation.py` — 34 tests, all passing
-  - Commit: `2bdebf1`
-  - Covers all 16 Phase 9 scenarios from docs/AGENT_ENHANCEMENT_PROMPT.md
+### Tests updated
+- `server/tests/test_input_handlers.py`
+  - Added `MagicMock` to imports
+  - `TestManagementAgentBug004.test_general_response_uses_extracted_text_when_present`: was patching `execute_with_tools`; updated to mock `chat_with_memory` (success path) and assert `tools_called=["memory"]`
+  - `TestManagementAgentBug004.test_general_response_falls_back_to_message_when_no_extracted_text`: updated to mock `chat_with_memory` raising → `execute_with_tools` called (fallback path verified)
 
-## Test Coverage Summary
+### Tests created
+- `server/tests/test_base_agent.py` — 15 new tests covering:
+  - `TestGeneralResponseSuccessPath` (5 tests): `chat_with_memory` called on success, `tools_called=["memory"]`, `text` field extraction, `content` fallback key, memory scope `user:{user_id}`, empty response default
+  - `TestGeneralResponseFallbackPath` (3 tests): `execute_with_tools` called when `chat_with_memory` raises, fallback propagates `tools_called`, `"memory"` absent from fallback result
+  - `TestSalesAgentGeneralWorkflow` (3 tests): `_general_sales_workflow` delegates to `_general_response`, full chain reaches `chat_with_memory`, `execute()` unknown message routes correctly
+  - `TestManagementAgentInheritsGeneralResponse` (2 tests): `_general_response` not in `ManagementAgent.__dict__`, resolves to `BaseAgent._general_response`
 
-| Scenario | Tests | Status |
-|---------|-------|--------|
-| 1. Users table has no agent columns | 1 | PASS |
-| 2. Agents table seeded with 9 agents | 2 | PASS |
-| 3. AgentRegistry load/get/get_orchestrator | 4 | PASS |
-| 4. find_by_skill returns correct agents | 4 | PASS |
-| 5. get_by_department returns dict with id | 2 | PASS |
-| 6. ManagementAgent dispatches cross-dept tasks | 3 | PASS |
-| 7. RAG namespace isolation — FinanceAgent | 1 | PASS |
-| 8. agent_task_log chain (parent_task_id) | 2 | PASS |
-| 9. Redis pub/sub delegation result | 1 | PASS |
-| 10. Chat API routes via route_request | 1 | PASS |
-| 11. ResearchAgent.can_handle() routing | 2 | PASS |
-| 12. CodeGenerationSkill.safety_scan() | 3 | PASS |
-| 13. CronValidationSkill.validate() | 3 | PASS |
-| 14. Static Beat jobs not in scheduled_jobs | 1 | PASS |
-| 15. plan_and_orchestrate to 3 special agents | 1 | PASS |
-| 16. Research/Developer/Scheduler RAG isolation | 3 | PASS |
+## Test Count
+- **Before:** 547
+- **After:** 562 (+15 in test_base_agent.py)
 
-Total: 34 tests, 34 passing
+## Test Results
+- All 133 tests across `test_base_agent.py`, `test_input_handlers.py`, `test_sales_agent.py`, `test_hr_agent.py`, `test_agent_separation.py` pass ✅
+- Pre-existing failure (unrelated): `test_admin_portal.py::TestDeleteUser::test_delete_user_soft_deletes` — Redis connection refused; confirmed failing before this session
+
+## Patch Target Pattern
+`patch("app.llm.llm_manager.get", return_value=mock_llm)` + `mock_llm.chat_with_memory = AsyncMock(...)` — same pattern as existing `execute_with_tools` tests in codebase.
 
 ## Key Patching Decisions
+- `chat_with_memory` patched via `app.llm.llm_manager.get()` return value (consistent with all other LLM mocking in the test suite)
+- `_build_system_prompt` mocked as `MagicMock(return_value="sys")` since it is a sync method called inside `_general_response`
+- `ManagementAgent.__dict__` introspection used to assert no `_general_response` override exists
 
-- AsyncSessionLocal: patched at app.core.database (lazy import source)
-- route_request: patched at app.api.chat (import-site rule from memory.md)
-- get_config: patched at app.core.config (lazy import source)
-- BaseAgent.__init__ requires config arg — all instantiations use TEST_CONFIG
-- safety_scan() is a public method on CodeGenerationSkill (no underscore prefix)
-
-## No Bugs Found
-
-All 16 scenarios pass. No production code issues identified.
-
-## Task 10 Status: COMPLETE
-
-Go back to Lead terminal for Gate 4 review.
+## Session Status: COMPLETE

@@ -81,7 +81,8 @@
       "Bash(do python:*)",
       "Bash(echo \"OK: $f\")",
       "Bash(echo \"FAIL: $f\")",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(xargs basename:*)"
     ]
   }
 }

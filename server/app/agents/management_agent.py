@@ -81,36 +81,6 @@ class ManagementAgent(BaseAgent):
 
     # ── Sub-workflows ─────────────────────────────────────────────────────────
 
-    async def _general_response(self, task: dict) -> dict:
-        """General question — answer via LLM with full tool access (create_txt, create_csv, etc.)."""
-        task_for_llm = {**task, "messages": task.get("conversation_history", [])}
-
-        # Use memory tool for user preferences / cached KPIs
-        messages = task_for_llm.get("messages", [])
-        if not messages or messages[-1].get("content") != task.get("message", ""):
-            messages = messages + [{"role": "user", "content": task.get("message", "")}]
-
-        memory_scope = f"user:{task.get('user_id', 'unknown')}"
-        system_prompt = llm_mod.get()._build_system_prompt(task_for_llm)
-        try:
-            llm_result = await llm_mod.get().chat_with_memory(
-                messages=messages,
-                memory_scope=memory_scope,
-                client_tools=None,
-                system=system_prompt,
-            )
-            content = llm_result.get("text") or llm_result.get("content", "")
-            if not content:
-                content = "I'm here to help. Could you clarify your request?"
-            return self._ok(content=content, tools_called=["memory"], artifacts=[])
-        except Exception as e:
-            logger.warning(f"chat_with_memory failed, falling back to execute_with_tools: {e}")
-            llm_result = await llm_mod.get().execute_with_tools(task_for_llm)
-            content = llm_result.get("content", "I'm here to help. Could you clarify your request?")
-            tools_called = llm_result.get("tools_called", [])
-            artifacts = llm_result.get("artifacts", [])
-            return self._ok(content=content, tools_called=tools_called, artifacts=artifacts)
-
     async def _kpi_dashboard_workflow(self, task: dict) -> dict:
         """Mobile: generate cross-department KPI dashboard."""
         try:

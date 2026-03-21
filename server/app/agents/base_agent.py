@@ -181,22 +181,44 @@ class BaseAgent(ABC):
 
     async def _general_response(self, task: dict) -> dict:
         """
-        General fallback — answer via LLM with full tool access.
+        General fallback — answer via LLM with persistent memory and full tool access.
 
-        Used when the request doesn't match any department-specific workflow.
-        Enables tools like create_txt, create_csv, create_pdf, send_email, etc.
-        Conversation history is available for multi-turn tool use
-        (e.g., LLM asks 'personal or shared?' → user replies → LLM calls tool).
+        Uses chat_with_memory() so all agents build user-level memory across sessions.
+        Falls back to execute_with_tools() if memory tool fails.
 
-        Note: task["messages"] is set by router._execute_with_instance() from
-        task["conversation_history"] before dispatch reaches here.
+        Memory scope: "user:{user_id}" — per-user across all departments.
         """
         from app.llm import llm_manager as llm_mod
-        llm_result = await llm_mod.get().execute_with_tools(task)
-        content = llm_result.get("content", "I'm here to help. What would you like to do?")
-        tools_called = llm_result.get("tools_called", [])
-        artifacts = llm_result.get("artifacts", [])
-        return self._ok(content=content, tools_called=tools_called, artifacts=artifacts)
+
+        task_for_llm = {**task, "messages": task.get("conversation_history", [])}
+        messages = task_for_llm.get("messages", [])
+        if not messages or messages[-1].get("content") != task.get("message", ""):
+            messages = messages + [{"role": "user", "content": task.get("message", "")}]
+
+        memory_scope = f"user:{task.get('user_id', 'unknown')}"
+        system_prompt = llm_mod.get()._build_system_prompt(task_for_llm)
+
+        try:
+            llm_result = await llm_mod.get().chat_with_memory(
+                messages=messages,
+                memory_scope=memory_scope,
+                client_tools=None,
+                system=system_prompt,
+            )
+            content = llm_result.get("text") or llm_result.get("content", "")
+            if not content:
+                content = "I'm here to help. What would you like to do?"
+            return self._ok(content=content, tools_called=["memory"], artifacts=[])
+        except Exception as e:
+            logger.warning(
+                f"{self.__class__.__name__}._general_response: "
+                f"chat_with_memory failed, falling back to execute_with_tools: {e}"
+            )
+            llm_result = await llm_mod.get().execute_with_tools(task_for_llm)
+            content = llm_result.get("content", "I'm here to help. What would you like to do?")
+            tools_called = llm_result.get("tools_called", [])
+            artifacts = llm_result.get("artifacts", [])
+            return self._ok(content=content, tools_called=tools_called, artifacts=artifacts)
 
     def _ok(self, content: str, artifacts: Optional[list] = None, tools_called: Optional[list] = None) -> dict:
         """Build a successful agent response."""

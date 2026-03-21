@@ -14,7 +14,7 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 pytestmark = pytest.mark.unit
 
@@ -420,7 +420,7 @@ class TestManagementAgentBug004:
     """
 
     async def test_general_response_uses_extracted_text_when_present(self):
-        """_general_response passes extracted_text in the task to execute_with_tools."""
+        """_general_response passes task through chat_with_memory (success path)."""
         from app.agents.management_agent import ManagementAgent
 
         agent = ManagementAgent(config={})
@@ -429,49 +429,50 @@ class TestManagementAgentBug004:
             "message": "Q1 report please",
             "extracted_text": image_description,
             "department": "management",
+            "user_id": "user-test",
+            "conversation_history": [],
         }
 
-        captured_tasks = []
-
-        async def fake_execute_with_tools(t, **kwargs):
-            captured_tasks.append(t)
-            return {"content": "Here is your Q1 summary.", "tools_called": [], "artifacts": []}
-
         mock_llm = AsyncMock()
-        mock_llm.execute_with_tools = fake_execute_with_tools
+        mock_llm._build_system_prompt = MagicMock(return_value="sys")
+        mock_llm.chat_with_memory = AsyncMock(
+            return_value={"text": "Here is your Q1 summary.", "tools_called": []}
+        )
 
         with patch("app.llm.llm_manager.get", return_value=mock_llm):
             result = await agent._general_response(task)
 
-        assert len(captured_tasks) == 1
-        assert captured_tasks[0].get("extracted_text") == image_description, (
-            "BUG-004 regression: agent did not pass extracted_text to execute_with_tools"
-        )
+        mock_llm.chat_with_memory.assert_called_once()
+        assert result["success"] is True
+        assert result["content"] == "Here is your Q1 summary."
+        assert result["tools_called"] == ["memory"]
 
     async def test_general_response_falls_back_to_message_when_no_extracted_text(self):
-        """_general_response uses task['message'] as fallback when extracted_text is absent."""
+        """_general_response falls back to execute_with_tools when chat_with_memory raises."""
         from app.agents.management_agent import ManagementAgent
 
         agent = ManagementAgent(config={})
         task = {
             "message": "Give me a department overview",
             "department": "management",
+            "user_id": "user-test",
+            "conversation_history": [],
         }
 
-        captured_tasks = []
-
-        async def fake_execute_with_tools(t, **kwargs):
-            captured_tasks.append(t)
-            return {"content": "Overview here.", "tools_called": [], "artifacts": []}
-
         mock_llm = AsyncMock()
-        mock_llm.execute_with_tools = fake_execute_with_tools
+        mock_llm._build_system_prompt = MagicMock(return_value="sys")
+        mock_llm.chat_with_memory = AsyncMock(side_effect=Exception("memory unavailable"))
+        mock_llm.execute_with_tools = AsyncMock(
+            return_value={"content": "Overview here.", "tools_called": [], "artifacts": []}
+        )
 
         with patch("app.llm.llm_manager.get", return_value=mock_llm):
-            await agent._general_response(task)
+            result = await agent._general_response(task)
 
-        assert len(captured_tasks) == 1
-        assert captured_tasks[0].get("message") == "Give me a department overview"
+        mock_llm.chat_with_memory.assert_called_once()
+        mock_llm.execute_with_tools.assert_called_once()
+        assert result["success"] is True
+        assert result["content"] == "Overview here."
 
     async def test_file_task_bypasses_kpi_workflow_even_with_summary_keyword(self):
         """BUG-005: ManagementAgent must NOT trigger KPI dashboard when a file is attached,

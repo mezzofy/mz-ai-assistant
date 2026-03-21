@@ -345,11 +345,5 @@ class SalesAgent(BaseAgent):
         return await self._general_sales_workflow(task)
 
     async def _general_sales_workflow(self, task: dict) -> dict:
-        """Fallback: route to LLM with sales context and all tools."""
-        llm = llm_mod.get()
-        result = await llm.execute_with_tools(task)
-        return self._ok(
-            content=result.get("content", ""),
-            tools_called=result.get("tools_called", []),
-            artifacts=result.get("artifacts", []),
-        )
+        """Fallback: route to LLM with persistent memory and full tool access."""
+        return await self._general_response(task)
