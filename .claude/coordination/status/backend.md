@@ -1,32 +1,33 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-21
-**Session:** 30 — brand logo integration
-**Context:** ~30% at checkpoint
-**Reason:** Task complete
+**Session:** 31 — BUG-023 push notification log fix
+**Context:** ~15% at checkpoint
+**Reason:** BUG-023 fix complete
 
 ## Completed This Session
+- ✅ BUG-023 fixed — `notification_log` never populated because `log_notification()` was guarded by `if result.get("success"):` in `send_push()` → `server/app/tools/communication/push_ops.py`
 
-- ✅ TASK 1: Appended `## Logo Files` section to `server/knowledge/brand/guidelines.md` — documents both logo variants, placement rules per format
-- ✅ TASK 2: Updated `_load_brand_guidelines_text()` in `server/app/llm/llm_manager.py` — now appends logo availability note when logo files exist on disk
-- ✅ TASK 3: Replaced `_MEZZOFY_HEADER` string in `server/app/tools/document/pdf_ops.py` with `_get_logo_base64()` helper + `_build_mezzofy_header()` function; call site updated from `.format()` to function call
-- ✅ TASK 4: Added `_get_logo_path()` to `server/app/tools/document/pptx_ops.py`; logo inserted on cover slide (bottom-left, light), content/table/two_column slides (top-right in orange bar, light), thank_you slide (centered bottom, light)
-- ✅ TASK 5: Added `_get_logo_path()` to `server/app/tools/document/docx_ops.py`; header replaced from text-only "Mezzofy AI Assistant" to logo image (dark variant) with text fallback
+## Root Cause
+`push_ops.py` module-level `send_push()` called `log_notification()` only when FCM returned success. Any FCM failure (expired token, misconfigured credentials, test environment) silently skipped the DB insert, so `notification_log` stayed empty and the Notification History screen showed nothing — even though the device received the push.
+
+## Fix Applied
+**File:** `server/app/tools/communication/push_ops.py`
+
+Removed the `if result.get("success"):` guard around `log_notification()`. Replaced with an unconditional call wrapped in its own `try/except` so a DB failure cannot break push delivery.
+
+## No Changes Needed in tasks.py
+Both `_run_chat_task` and `_run_agent_task` in `server/app/tasks/tasks.py` already import and call the module-level `send_push()` function — not `PushOps._send_push` directly. Fix A was sufficient; tasks.py is unchanged.
 
 ## Files Modified
+- `server/app/tools/communication/push_ops.py` (modified — unconditional `log_notification()` call in `send_push()`)
 
-- `server/knowledge/brand/guidelines.md` (modified — appended Logo Files section)
-- `server/app/llm/llm_manager.py` (modified — `_load_brand_guidelines_text` appends logo note)
-- `server/app/tools/document/pdf_ops.py` (modified — `_get_logo_base64`, `_build_mezzofy_header`, replaced call site)
-- `server/app/tools/document/pptx_ops.py` (modified — `_get_logo_path`, logo on cover/content/two_column/table/thank_you slides)
-- `server/app/tools/document/docx_ops.py` (modified — `_get_logo_path`, logo in document header)
-
-## Decisions Made
-
-- Logo path formula `Path(__file__).parent.parent.parent.parent / "knowledge" / "brand" / filename` used consistently across all three document tools — resolves correctly from `app/tools/document/` up to server root
-- DOCX header: used `hdr_para.add_run()` (not `hdr_para.runs[0]`) to avoid index error on empty header paragraph; `Inches` and `RGBColor` were already imported in the `_create_docx` try block — no duplicate imports needed
-- PPTX `Inches` was already imported at the top of `_create_pptx` via `from pptx.util import Inches, Pt, Emu` — logo code uses that import without re-importing
-- All fallbacks are silent (log warning, render text fallback) — no exceptions propagate
+## Previous Session Summary (session 30 — brand logo integration)
+- `server/knowledge/brand/guidelines.md` — appended Logo Files section
+- `server/app/llm/llm_manager.py` — `_load_brand_guidelines_text` appends logo note
+- `server/app/tools/document/pdf_ops.py` — `_get_logo_base64`, `_build_mezzofy_header`
+- `server/app/tools/document/pptx_ops.py` — logo on cover/content/two_column/table/thank_you slides
+- `server/app/tools/document/docx_ops.py` — logo in document header
 
 ## Resume Instructions
-
-No resume needed — all tasks complete.
+No resume needed for BUG-023 — fix complete.
+Deploy: git push → EC2 git pull → sudo systemctl restart mezzofy-api mezzofy-celery

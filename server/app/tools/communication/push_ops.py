@@ -258,8 +258,12 @@ async def send_push(
         f"send_push: user={user_id} platform={platform} "
         f"success={result.get('success')} msg={result.get('output', {}).get('message_id')}"
     )
-    if result.get("success"):
+    # Log to notification history regardless of FCM result so every attempted
+    # notification appears in the Notification History screen (BUG-023 fix).
+    try:
         await log_notification(user_id=user_id, title=title, body=body, data=data)
+    except Exception as _log_err:
+        logger.warning(f"log_notification failed for user={user_id}: {_log_err}")
     return {
         "success": result.get("success", False),
         "message_id": result.get("output", {}).get("message_id"),
