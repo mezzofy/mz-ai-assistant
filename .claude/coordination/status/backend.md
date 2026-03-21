@@ -1,25 +1,31 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-21
-**Session:** 32 — Wire chat_with_memory() to all department agents
-**Context:** ~15% at checkpoint
+**Session:** 33 — Agent persona names + team roster + persona routing
+**Context:** ~20% at checkpoint
 **Reason:** Change request complete
 
 ## Completed This Session
-- ✅ Moved chat_with_memory() into BaseAgent._general_response() with execute_with_tools() fallback — all agents now inherit memory
-- ✅ Deleted ManagementAgent._general_response() override — base class now provides it
-- ✅ Simplified SalesAgent._general_sales_workflow() to delegate to self._general_response()
+
+- ✅ Added `_AGENT_PERSONA_MAP` constant to `llm_manager.py` (after `_ATTACHED_IMAGE_DIRECTIVE`)
+- ✅ Added `_AGENT_TEAM_ROSTER` constant to `llm_manager.py` (after `_AGENT_PERSONA_MAP`)
+- ✅ Updated `_build_system_prompt()` in `llm_manager.py` to inject `self_identity` + `_AGENT_TEAM_ROSTER` prefix before the formatted system prompt
+- ✅ Added `_PERSONA_ROUTING` dict to `chat.py` (after `_SCHEDULER_KEYWORDS`)
+- ✅ Added `_PERSONA_ROUTE_VERBS` list to `chat.py` (after `_PERSONA_ROUTING`)
+- ✅ Added `_detect_persona_routing()` helper function to `chat.py` (before `_detect_agent_type()`)
+- ✅ Replaced `_detect_agent_type()` body in `chat.py` to call `_detect_persona_routing()` first (highest priority), then fall through to existing keyword/prefix routing
 
 ## Files Modified
-- `server/app/agents/base_agent.py` (modified — _general_response() now calls chat_with_memory() with fallback; memory scope: "user:{user_id}")
-- `server/app/agents/management_agent.py` (modified — deleted _general_response() override; top-level llm_mod import retained, still needed by other methods)
-- `server/app/agents/sales_agent.py` (modified — _general_sales_workflow() delegates to self._general_response(); top-level llm_mod import retained, still needed by _pitch_deck_workflow)
+- `server/app/llm/llm_manager.py` (added 2 module-level constants + 2 lines in `_build_system_prompt()`)
+- `server/app/api/chat.py` (added 2 constants + new `_detect_persona_routing()` + replaced `_detect_agent_type()`)
 
 ## Decisions Made
-- llm_mod top-level import kept in both management_agent.py and sales_agent.py — both still use it in other methods
-- Did NOT modify legal_agent.py, scheduler_agent.py, research_agent.py, developer_agent.py per task spec
+- `_detect_persona_routing()` scans both name-prefix ("leo: ...") and directed-verb ("ask leo ...", "route to leo") patterns
+- False-positive guard: "the max items" → None because "max" has no verb prefix and doesn't start with "max:"
+- No agent `*.py` files in `server/app/agents/` were modified
+- No test files were modified
 
-## Previous Session Summary (session 31 — BUG-023 push notification log fix)
-- `server/app/tools/communication/push_ops.py` — unconditional log_notification() call in send_push()
+## Previous Session Summary (session 32 — chat_with_memory() wired to all agents)
+- `server/app/agents/base_agent.py`, `management_agent.py`, `sales_agent.py`
 
 ## Resume Instructions
 No resume needed — change request complete.

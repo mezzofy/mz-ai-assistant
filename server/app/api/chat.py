@@ -134,6 +134,27 @@ _SCHEDULER_KEYWORDS = {
     "shared folder",
 }
 
+# Maps persona name → agent routing key for name-based routing
+_PERSONA_ROUTING: dict[str, str] = {
+    "leo": "legal",
+    "rex": "research",
+    "dev": "developer",
+    "sched": "scheduler",
+    "max": "management",
+    "fiona": "finance",
+    "sam": "sales",
+    "maya": "marketing",
+    "suki": "support",
+    "hana": "hr",
+}
+
+# Verb phrases that indicate intent to route to a named agent
+_PERSONA_ROUTE_VERBS = [
+    "ask ", "talk to ", "route to ", "send to ", "let ", "have ",
+    "get ", "use ", "ping ", "tell ", "forward to ", "hand to ",
+    "hand off to ", "pass to ",
+]
+
 _CALENDAR_SIGNALS = {
     "meeting", "appointment", "call", "catch-up", "catch up",
     "lunch", "dinner", "interview", "event", "calendar",
@@ -169,18 +190,47 @@ def _is_legal_request(message: str) -> bool:
     return any(trigger in lower for trigger in LEGAL_TRIGGERS)
 
 
+def _detect_persona_routing(message: str) -> str | None:
+    """
+    Detect if the user is addressing a specific agent by persona name.
+
+    Supports:
+      - Name prefix:     "leo: review this contract" / "leo : ..."
+      - Directed phrase: "ask Leo to draft an NDA" / "route to Rex" / "have Sam find leads"
+
+    Returns the agent routing key (e.g. "legal", "research", "sales") or None.
+    """
+    lower = message.lower().strip()
+    for persona, routing_key in _PERSONA_ROUTING.items():
+        # 1. Name prefix syntax: "leo: ..." or "leo : ..."
+        if lower.startswith(f"{persona}:") or lower.startswith(f"{persona} :"):
+            return routing_key
+        # 2. Directed phrase: "ask leo ...", "route to leo", "talk to leo ..."
+        for verb in _PERSONA_ROUTE_VERBS:
+            if f"{verb}{persona}" in lower:
+                return routing_key
+    return None
+
+
 def _detect_agent_type(message: str) -> str | None:
     """
-    Detect whether a message should be routed to a specific power-user agent.
+    Detect whether a message should be routed to a specific agent.
 
-    Returns "research", "developer", "legal", or None (fall through to department routing).
-    Prefix syntax ("research: ...", "developer: ...", "legal: ...") takes priority.
+    Returns an agent routing key ("research", "developer", "legal", "scheduler",
+    "management", "finance", "sales", "marketing", "support", "hr") or None.
 
-    Legal detection runs BEFORE _is_long_running() — legal phrases like "review this
-    NDA" or "draft a contract" may contain long-running keywords but must always route
-    to LegalAgent for synchronous handling. Same pattern as SchedulerAgent routing.
+    Priority order:
+    1. Persona-name routing ("leo: ...", "ask Rex to ...", "route to Sam")
+    2. Prefix routing ("research: ...", "developer: ...", "legal: ...")
+    3. Keyword routing (research/developer/legal keyword lists)
     """
+    # 1. Persona name routing — explicit agent addressing (highest priority)
+    persona_route = _detect_persona_routing(message)
+    if persona_route:
+        return persona_route
+
     lower = message.lower()
+    # 2 & 3. Existing keyword/prefix routing
     if lower.startswith("research:") or any(kw in lower for kw in _RESEARCH_KEYWORDS):
         return "research"
     if lower.startswith("developer:") or any(kw in lower for kw in _DEVELOPER_KEYWORDS):

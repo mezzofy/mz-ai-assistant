@@ -82,7 +82,10 @@
       "Bash(echo \"OK: $f\")",
       "Bash(echo \"FAIL: $f\")",
       "Bash(echo \"EXIT: $?\")",
-      "Bash(xargs basename:*)"
+      "Bash(xargs basename:*)",
+      "Bash(tee /tmp/suite_results.txt)",
+      "Bash(findstr /C:\"passed\" /C:\"failed\" /C:\"error\")",
+      "Bash(findstr \"passed failed\")"
     ]
   }
 }

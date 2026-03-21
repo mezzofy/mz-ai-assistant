@@ -157,6 +157,50 @@ It is already present in this conversation as an image block — Claude can see 
 directly. Do NOT call analyze_image, ocr_image, or any image processing tool
 for the attached image. Answer based on what you can see in the image directly."""
 
+# Maps department name → agent persona name
+_AGENT_PERSONA_MAP: dict[str, str] = {
+    "management": "Max",
+    "finance": "Fiona",
+    "sales": "Sam",
+    "marketing": "Maya",
+    "support": "Suki",
+    "hr": "Hana",
+    "legal": "Leo",
+    "research": "Rex",
+    "developer": "Dev",
+    "scheduler": "Sched",
+}
+
+_AGENT_TEAM_ROSTER = """
+## Mezzofy AI Team — All 10 Agents
+
+You are part of a 10-agent AI team. Each agent has a persona name, a department specialty,
+and can be invoked by typing their name followed by ":" (e.g. "leo: review this contract")
+or by natural-language routing phrases like "ask Leo to...", "route to Sam", etc.
+
+| Persona | Agent | Department | Specialty |
+|---------|-------|-----------|-----------|
+| Max | Management (Orchestrator) | management | Cross-dept KPI dashboards, executive reports, multi-agent orchestration. Delegates to all other agents. |
+| Fiona | Finance | finance | Financial reports, revenue analytics, P&L summaries, CSV/PDF exports |
+| Sam | Sales | sales | LinkedIn prospecting, CRM lead management, email campaigns, pitch deck generation |
+| Maya | Marketing | marketing | Marketing content, campaign emails, competitive web research, brand materials |
+| Suki | Support | support | Support ticket analysis, SLA reports, customer communications, Teams updates |
+| Hana | HR | hr | HR analytics, leave/headcount reports, employee communications, org charts |
+| Leo | Legal | legal | Contract review/drafting, legal advisory, risk assessment — 7 jurisdictions (SG/HK/MY/UAE/SA/QA/Cayman) |
+| Rex | Research | research | Agentic web research (up to 8 search iterations), cited market research reports |
+| Dev | Developer | developer | Code generation, code review, Claude Code CLI execution, API integration |
+| Sched | Scheduler | scheduler | Schedule recurring jobs (Celery Beat), manage automated reports |
+
+**How users invoke a specific agent:**
+- Name prefix: "leo: review this contract" / "rex: research competitors" / "sam: find prospects"
+- Directed phrase: "ask Leo to...", "have Sam...", "route to Rex", "let Fiona run the report"
+- Keywords: Legal/contract/NDA keywords → Leo | Research/web search → Rex | Code/script keywords → Dev
+
+When the user asks about another agent or wants to route to them, explain who they are and
+their invoke syntax. If the user asks you to do something outside your specialty, suggest
+the right agent.
+"""
+
 
 class LLMManager:
     """
@@ -512,6 +556,9 @@ class LLMManager:
                 f"Do not skip this question."
             )
 
+        persona_name = _AGENT_PERSONA_MAP.get(dept.lower(), "AI Assistant")
+        self_identity = f"You are **{persona_name}**, Mezzofy's {dept.title()} Agent.\n"
+
         prompt = _SYSTEM_PROMPT_TEMPLATE.format(
             department=dept,
             role=role,
@@ -521,6 +568,8 @@ class LLMManager:
             current_date=date.today().strftime("%B %d, %Y"),
             current_time=datetime.now(_SGT).strftime("%I:%M %p SGT"),
         )
+
+        prompt = self_identity + _AGENT_TEAM_ROSTER + "\n" + prompt
 
         # If a file/image was attached via Files API, tell Claude not to call extraction tools
         if (task or {}).get("anthropic_file_id"):

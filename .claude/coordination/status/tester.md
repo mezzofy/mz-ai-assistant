@@ -1,7 +1,32 @@
 # Context Checkpoint: Tester Agent
-**Date:** 2026-03-21
+**Date:** 2026-03-22
 **Project:** mz-ai-assistant
-**Session:** _general_response chat_with_memory refactor tests
+**Session:** Agent roster + persona routing tests
+
+## Completed This Session (2026-03-22)
+
+### Tests created
+- `server/tests/test_agent_roster_routing.py` — **53 new tests** covering:
+  - `TestAgentPersonaMap` (12 tests): all 10 dept→persona map entries, unknown-dept fallback, entry count
+  - `TestSystemPromptRoster` (13 tests): `LLMManager._build_system_prompt()` self-identity per dept, roster header, all 10 persona names present, roster before template content, custom system_prompt bypass
+  - `TestPersonaRouting` (20 tests): `_detect_persona_routing()` — all 10 name-prefix variants (`leo:`, `rex:`, etc.), 5 directed-phrase variants, 5 false-positive safety tests (must return None)
+  - `TestDetectAgentTypeWithPersona` (8 tests): `_detect_agent_type()` persona routing priority, existing prefix routing, existing keyword routing, no-match case
+
+### Test Results
+- New test file: **53/53 passed**
+- Full suite (excluding known infra-dependent files): **501 passed, 17 failed**
+- All 17 failures confirmed **pre-existing** (Redis connection errors in test_auth.py + test_e2e_mobile.py, Outlook import errors in test_outlook_ops.py, live API call in test_integration_research_task.py) — verified via `git stash` before/after comparison
+- **Zero regressions** from the two backend changes (`llm_manager.py` + `chat.py`)
+
+### What was tested
+1. `server/app/llm/llm_manager.py` — `_AGENT_PERSONA_MAP`, `_AGENT_TEAM_ROSTER`, `_build_system_prompt()` persona injection
+2. `server/app/api/chat.py` — `_PERSONA_ROUTING`, `_PERSONA_ROUTE_VERBS`, `_detect_persona_routing()`, `_detect_agent_type()` priority order
+
+## Session Status: COMPLETE
+
+---
+
+## Previous Session (2026-03-21)
 
 ## Completed This Session
 
