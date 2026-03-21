@@ -137,7 +137,7 @@ export const sendArtifactApi = (
 export interface TaskSummary {
   id: string;
   session_id: string | null;
-  title: string;
+  content: string;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
   queue_name: string;
   created_at: string;

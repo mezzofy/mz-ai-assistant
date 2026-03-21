@@ -158,8 +158,8 @@ async def process_result(
             await db.execute(
                 text(
                     "INSERT INTO agent_tasks "
-                    "(id, task_ref, user_id, session_id, department, title, status, progress, result, started_at, completed_at) "
-                    "VALUES (:id, :task_ref, :uid, :sid, :dept, :title, 'completed', 100, CAST(:result AS jsonb), NOW(), NOW())"
+                    "(id, task_ref, user_id, session_id, department, content, status, progress, result, started_at, completed_at) "
+                    "VALUES (:id, :task_ref, :uid, :sid, :dept, :content, 'completed', 100, CAST(:result AS jsonb), NOW(), NOW())"
                 ),
                 {
                     "id": str(raw_id),
@@ -167,7 +167,7 @@ async def process_result(
                     "uid": user_id,
                     "sid": str(session_id) if session_id is not None else None,
                     "dept": agent_used or department,   # use actual executing agent's name for attribution
-                    "title": user_message[:80],
+                    "content": user_message[:80],
                     "result": _sync_result,
                 },
             )

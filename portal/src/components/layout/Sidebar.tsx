@@ -6,7 +6,7 @@ import clsx from 'clsx'
 
 const NAV_ITEMS = [
   { path: '/mission-control/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/mission-control/tasks', label: 'Tasks', icon: ListTodo },
+  { path: '/mission-control/tasks', label: 'Messages', icon: ListTodo },
   { path: '/mission-control/scheduler', label: 'Scheduler', icon: CalendarClock },
   { path: '/mission-control/agents', label: 'Agents', icon: Bot },
   { path: '/mission-control/files', label: 'Files', icon: FolderOpen },

@@ -266,7 +266,7 @@ async def get_agent_status(
                     AS tasks_today,
                 COUNT(*) FILTER (WHERE status = 'running')
                     AS running_count,
-                MAX(title) FILTER (WHERE status = 'running')
+                MAX(content) FILTER (WHERE status = 'running')
                     AS current_task
             FROM agent_tasks
             GROUP BY department
@@ -340,11 +340,11 @@ async def get_job_history(
     """Last 50 run records for a scheduled job."""
     result = await db.execute(
         text("""
-            SELECT id, title, status, started_at, completed_at,
+            SELECT id, content, status, started_at, completed_at,
                    EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 AS duration_ms,
                    current_step, error, created_at
             FROM agent_tasks
-            WHERE (details->>'job_id' = :job_id OR title ILIKE :pattern)
+            WHERE (details->>'job_id' = :job_id OR content ILIKE :pattern)
             ORDER BY created_at DESC
             LIMIT 50
         """),
@@ -355,7 +355,7 @@ async def get_job_history(
     for r in rows:
         history.append({
             "id": str(r.id),
-            "title": r.title,
+            "content": r.content,
             "status": r.status,
             "started_at": r.started_at.isoformat() if r.started_at else None,
             "completed_at": r.completed_at.isoformat() if r.completed_at else None,
@@ -1276,7 +1276,7 @@ async def list_tasks(
     result = await db.execute(
         text(f"""
             SELECT
-                t.id, t.title, t.status, t.department,
+                t.id, t.content, t.status, t.department,
                 t.created_at, t.started_at, t.completed_at,
                 EXTRACT(EPOCH FROM (t.completed_at - t.started_at)) * 1000 AS duration_ms,
                 t.error, t.result AS details,
@@ -1307,7 +1307,7 @@ async def list_tasks(
     for r in rows:
         tasks.append({
             "id": str(r.id),
-            "title": r.title,
+            "content": r.content,
             "status": r.status,
             "department": r.department,
             "created_at": r.created_at.isoformat() if r.created_at else None,

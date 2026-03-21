@@ -105,7 +105,7 @@ export interface Agent {
 
 export interface AgentTask {
   id: string
-  title: string | null
+  content: string | null
   status: string
   department: string | null
   created_at: string

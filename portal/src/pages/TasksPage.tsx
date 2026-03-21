@@ -33,7 +33,7 @@ export default function TasksPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            Tasks
+            Messages
           </h1>
           <span className="text-sm" style={{ color: '#6B7280' }}>
             {data?.total !== undefined ? `${data.total} total` : ''}
@@ -67,8 +67,8 @@ export default function TasksPage() {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b text-left" style={{ color: '#6B7280', borderColor: '#1E2A3A' }}>
-              <th className="px-4 py-3">Task ID</th>
-              <th className="py-3">Title</th>
+              <th className="px-4 py-3">Message ID</th>
+              <th className="py-3">Content</th>
               <th className="py-3">Dept</th>
               <th className="py-3">Status</th>
               <th className="py-3">Triggered By</th>
@@ -89,7 +89,7 @@ export default function TasksPage() {
                     {t.id.slice(0, 8)}...
                   </td>
                   <td className="py-2.5 max-w-[200px]">
-                    <span className="text-gray-200 truncate block" title={t.title || undefined}>{t.title || '\u2014'}</span>
+                    <span className="text-gray-200 truncate block" title={t.content || undefined}>{t.content || '\u2014'}</span>
                     {t.error && <span className="text-xs text-red-400 truncate block" title={t.error}>{t.error.slice(0, 60)}</span>}
                   </td>
                   <td className="py-2.5 text-gray-400">{t.department || '\u2014'}</td>
@@ -126,7 +126,7 @@ export default function TasksPage() {
               )
             })}
             {!isLoading && tasks.length === 0 && (
-              <tr><td colSpan={8} className="py-12 text-center" style={{ color: '#6B7280' }}>No tasks</td></tr>
+              <tr><td colSpan={8} className="py-12 text-center" style={{ color: '#6B7280' }}>No messages</td></tr>
             )}
           </tbody>
         </table>
@@ -135,7 +135,7 @@ export default function TasksPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-xs" style={{ color: '#6B7280' }}>
-          <span>Page {page} of {totalPages} · {data?.total || 0} total tasks</span>
+          <span>Page {page} of {totalPages} · {data?.total || 0} total messages</span>
           <div className="flex gap-2">
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}

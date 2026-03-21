@@ -1,7 +1,46 @@
 # Context Checkpoint: Tester Agent
 **Date:** 2026-03-22
 **Project:** mz-ai-assistant
-**Session:** Agent roster + persona routing tests
+**Session:** title→content rename verification
+
+## Completed This Session (2026-03-22 — rename verification)
+
+### Step 1: Remaining `title` references in backend files
+- `server/app/api/tasks.py` — Clean. No title references.
+- `server/app/api/admin_portal.py` — **FOUND** one missed instance: `MAX(title)` at line 269 in SQL for `/api/admin-portal/agents/status`. Fixed to `MAX(content)`.
+- `server/app/api/chat.py` — `"task_title"` at line 327 is a dict key in task_payload, not a column reference. Safe.
+- `server/app/tasks/tasks.py` — `title=` at lines 317, 567, 582 are push notification title parameters (not column refs). Safe.
+- `server/app/context/processor.py` — Clean. No title references.
+
+### Step 2: Test file fixes
+Updated `server/tests/test_task_management.py` — 5 changes:
+- `_make_task_row` defaults: `"title"` key → `"content"`
+- `_make_task_row(... title="User A's task")` → `content=`
+- `required_fields` list: `"title"` → `"content"`
+- Concurrent task rows (lines 473–474): `title=` → `content=`
+- Retry test row (line 651): `title=` → `content=`
+
+### Step 3: Test results
+- `tests/test_task_management.py` — **26 passed**
+- Full suite (excluding infrastructure tests + admin portal): **26 passed, 1 warning**
+- Admin portal tests (excluding pre-existing Redis failure): **7 passed**
+- Pre-existing failure: `TestDeleteUser::test_delete_user_soft_deletes` — Redis `localhost:6379` refused. NOT related to rename.
+
+### Step 4: Portal TypeScript
+- `portal/src/types/index.ts` line 108: `content: string | null` — correct
+- `portal/src/pages/TasksPage.tsx` line 92: uses `t.content` — correct
+
+### Step 5: Mobile TypeScript
+- `APP/src/api/chat.ts` lines 41, 140: `content: string` — correct
+- `APP/src/screens/HistoryScreen.tsx` line 229: `Message ID:` badge — correct
+
+### Files Modified
+- `server/app/api/admin_portal.py` (fixed `MAX(title)` → `MAX(content)` in SQL)
+- `server/tests/test_task_management.py` (5 title→content fixes)
+
+---
+
+# Previous Session: Agent roster + persona routing tests
 
 ## Completed This Session (2026-03-22)
 

@@ -52,7 +52,7 @@ def _make_task_row(**kwargs) -> SimpleNamespace:
         "task_ref": f"TASK-{str(uuid.uuid4())[:8].upper()}",
         "session_id": str(uuid.uuid4()),
         "department": "finance",
-        "title": "Research the top 5 competitors",
+        "content": "Research the top 5 competitors",
         "status": "queued",
         "progress": 0,
         "current_step": None,
@@ -251,7 +251,7 @@ class TestTaskListAPI:
         The SQL query includes WHERE user_id = :uid — only User A's tasks
         appear when User A authenticates.  Verifies uid param is User A's id.
         """
-        task = _make_task_row(status="queued", title="User A's task")
+        task = _make_task_row(status="queued", content="User A's task")
         mock_db = _mock_db_for_rows(task)
 
         with db_override(mock_db):
@@ -327,7 +327,7 @@ class TestTaskListAPI:
         assert response.status_code == 200
         t = response.json()["tasks"][0]
         required_fields = [
-            "id", "task_ref", "session_id", "title", "status",
+            "id", "task_ref", "session_id", "content", "status",
             "progress", "current_step", "started_at", "completed_at", "created_at",
         ]
         for field in required_fields:
@@ -470,8 +470,8 @@ class TestConcurrentTasks:
         """GET /tasks/active returns both running tasks for the same user."""
         session_a = str(uuid.uuid4())
         session_b = str(uuid.uuid4())
-        task_a = _make_task_row(session_id=session_a, status="running", title="Research task A")
-        task_b = _make_task_row(session_id=session_b, status="running", title="Generate PDF task B")
+        task_a = _make_task_row(session_id=session_a, status="running", content="Research task A")
+        task_b = _make_task_row(session_id=session_b, status="running", content="Generate PDF task B")
 
         mock_db = _mock_db_for_rows(task_a, task_b)
 
@@ -648,7 +648,7 @@ class TestTaskEdgeCases:
             task_ref="TASK-FAIL0001",
             session_id=str(uuid.uuid4()),
             department="finance",
-            title="Research that failed",
+            content="Research that failed",
             status="failed",
             queue_name="background",
         )

@@ -232,7 +232,7 @@ def run_migrations(conn):
             user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
             session_id      TEXT,
             department      TEXT,
-            title           TEXT NOT NULL,
+            content         TEXT NOT NULL,
             plan            JSONB DEFAULT '[]',
             status          TEXT DEFAULT 'queued'
                             CHECK (status IN ('queued','running','completed','failed','cancelled')),
@@ -655,6 +655,25 @@ def run_migrations(conn):
         print("  ✅ support_tickets table found — ticket ingestion task will be active")
     else:
         print("  ⚠️  support_tickets table NOT found — ticket ingestion task will skip gracefully")
+
+    # v1.48.0 — rename agent_tasks.title → agent_tasks.content
+    try:
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'agent_tasks' AND column_name = 'title'
+                ) THEN
+                    ALTER TABLE agent_tasks RENAME COLUMN title TO content;
+                END IF;
+            END $$;
+        """)
+        conn.commit()
+        print("  ✅ v1.48.0: agent_tasks.title renamed to content (or already done)")
+    except Exception as e:
+        print(f"  ⚠️  Warning: title→content rename: {e}")
+        conn.rollback()
 
     conn.commit()
     cur.close()

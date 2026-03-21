@@ -226,7 +226,7 @@ export const HistoryScreen: React.FC<{navigation: any}> = ({navigation}) => {
                             {backgroundColor: c + '22', borderColor: c + '55'},
                           ]}>
                           <Text style={[styles.taskBadgeText, {color: c}]}>
-                            {'Task ID: '}{t.id.slice(0, 8).toUpperCase()}{'  '}{t.status.toUpperCase()}
+                            {'Message ID: '}{t.id.slice(0, 8).toUpperCase()}{'  '}{t.status.toUpperCase()}
                           </Text>
                         </View>
                       );

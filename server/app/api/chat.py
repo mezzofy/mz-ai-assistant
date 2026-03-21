@@ -302,8 +302,8 @@ async def send_message(
             await db.execute(
                 text(
                     "INSERT INTO agent_tasks "
-                    "(id, task_ref, user_id, session_id, department, title, status, queue_name, notify_on_done) "
-                    "VALUES (:id, :ref, :uid, :sid, :dept, :title, 'queued', :qname, true)"
+                    "(id, task_ref, user_id, session_id, department, content, status, queue_name, notify_on_done) "
+                    "VALUES (:id, :ref, :uid, :sid, :dept, :content, 'queued', :qname, true)"
                 ),
                 {
                     "id": new_task_id,
@@ -311,7 +311,7 @@ async def send_message(
                     "uid": user["user_id"],
                     "sid": resolved_session_id,   # ← real session ID, never null
                     "dept": _detected_agent or user.get("department", ""),  # ← resolved agent dept, not login user dept
-                    "title": body.message[:80],
+                    "content": body.message[:80],
                     "qname": queue_name_value,
                 },
             )

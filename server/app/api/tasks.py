@@ -56,7 +56,7 @@ async def list_tasks(
     if status:
         result = await db.execute(
             text(
-                "SELECT id, task_ref, session_id, department, title, status, "
+                "SELECT id, task_ref, session_id, department, content, status, "
                 "progress, current_step, error, notify_on_done, queue_name, "
                 "started_at, completed_at, created_at "
                 "FROM agent_tasks "
@@ -68,7 +68,7 @@ async def list_tasks(
     else:
         result = await db.execute(
             text(
-                "SELECT id, task_ref, session_id, department, title, status, "
+                "SELECT id, task_ref, session_id, department, content, status, "
                 "progress, current_step, error, notify_on_done, queue_name, "
                 "started_at, completed_at, created_at "
                 "FROM agent_tasks "
@@ -92,7 +92,7 @@ async def list_active_tasks(
     """Return queued/running tasks plus tasks completed or failed in the last 5 minutes."""
     result = await db.execute(
         text(
-            "SELECT id, task_ref, session_id, department, title, status, "
+            "SELECT id, task_ref, session_id, department, content, status, "
             "progress, current_step, result, error, notify_on_done, queue_name, "
             "started_at, completed_at, created_at "
             "FROM agent_tasks "
@@ -120,7 +120,7 @@ async def get_task(
     """Get full detail for a single task. Returns 404 if not owned by current user."""
     result = await db.execute(
         text(
-            "SELECT id, task_ref, session_id, department, title, plan, status, "
+            "SELECT id, task_ref, session_id, department, content, plan, status, "
             "progress, current_step, result, error, notify_on_done, queue_name, "
             "started_at, completed_at, created_at "
             "FROM agent_tasks "
@@ -199,7 +199,7 @@ async def retry_task(
     """
     result = await db.execute(
         text(
-            "SELECT id, task_ref, session_id, department, title, status, queue_name "
+            "SELECT id, task_ref, session_id, department, content, status, queue_name "
             "FROM agent_tasks "
             "WHERE id = :id AND user_id = :uid"
         ),
@@ -217,7 +217,7 @@ async def retry_task(
 
     # Build task data for re-dispatch
     task_data = {
-        "message": row.title,
+        "message": row.content,
         "user_id": user["user_id"],
         "department": row.department or user.get("department", ""),
         "session_id": row.session_id,
@@ -244,8 +244,8 @@ async def retry_task(
     await db.execute(
         text(
             "INSERT INTO agent_tasks "
-            "(id, task_ref, user_id, session_id, department, title, status, queue_name) "
-            "VALUES (:id, :task_ref, :user_id, :session_id, :department, :title, 'queued', :queue_name)"
+            "(id, task_ref, user_id, session_id, department, content, status, queue_name) "
+            "VALUES (:id, :task_ref, :user_id, :session_id, :department, :content, 'queued', :queue_name)"
         ),
         {
             "id": new_task_id,
@@ -253,7 +253,7 @@ async def retry_task(
             "user_id": user["user_id"],
             "session_id": row.session_id,
             "department": row.department,
-            "title": row.title,
+            "content": row.content,
             "queue_name": row.queue_name or "default",
         },
     )
@@ -306,7 +306,7 @@ def _row_to_dict(row, include_result: bool = False) -> dict:
         "task_ref": row.task_ref,
         "session_id": row.session_id,
         "department": row.department,
-        "title": row.title,
+        "content": row.content,
         "status": row.status,
         "progress": row.progress,
         "current_step": row.current_step,

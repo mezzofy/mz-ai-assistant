@@ -631,9 +631,9 @@ async def _update_agent_task_status(agent_task_id: str, new_status: str):
                 ),
                 {"status": new_status, "id": agent_task_id},
             )
-            # Fetch department + title for the Redis publish
+            # Fetch department + content for the Redis publish
             row = await db.execute(
-                text("SELECT department, title FROM agent_tasks WHERE id = :id"),
+                text("SELECT department, content FROM agent_tasks WHERE id = :id"),
                 {"id": agent_task_id},
             )
             task_row = row.fetchone()
@@ -649,7 +649,7 @@ async def _update_agent_task_status(agent_task_id: str, new_status: str):
                     "type": "agent_status",
                     "department": task_row.department if task_row else "",
                     "status": new_status,
-                    "task_title": task_row.title if task_row else "",
+                    "task_title": task_row.content if task_row else "",
                     "agent_task_id": agent_task_id,
                 }))
         except Exception as _pub_err:
@@ -676,7 +676,7 @@ async def _update_agent_task_done(agent_task_id: str, result: dict):
                 {"result": json.dumps(result), "id": agent_task_id},
             )
             row = await db.execute(
-                text("SELECT department, title FROM agent_tasks WHERE id = :id"),
+                text("SELECT department, content FROM agent_tasks WHERE id = :id"),
                 {"id": agent_task_id},
             )
             task_row = row.fetchone()
@@ -691,7 +691,7 @@ async def _update_agent_task_done(agent_task_id: str, result: dict):
                     "type": "agent_status",
                     "department": task_row.department if task_row else "",
                     "status": "completed",
-                    "task_title": task_row.title if task_row else "",
+                    "task_title": task_row.content if task_row else "",
                     "agent_task_id": agent_task_id,
                 }))
         except Exception as _pub_err:
@@ -716,7 +716,7 @@ async def _update_agent_task_failed(agent_task_id: str, error_msg: str):
                 {"error": error_msg, "id": agent_task_id},
             )
             row = await db.execute(
-                text("SELECT department, title FROM agent_tasks WHERE id = :id"),
+                text("SELECT department, content FROM agent_tasks WHERE id = :id"),
                 {"id": agent_task_id},
             )
             task_row = row.fetchone()
@@ -732,7 +732,7 @@ async def _update_agent_task_failed(agent_task_id: str, error_msg: str):
                     "type": "agent_status",
                     "department": task_row.department if task_row else "",
                     "status": "failed",
-                    "task_title": task_row.title if task_row else "",
+                    "task_title": task_row.content if task_row else "",
                     "agent_task_id": agent_task_id,
                 }))
         except Exception as _pub_err:

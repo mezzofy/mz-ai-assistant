@@ -1,4 +1,33 @@
 # Context Checkpoint: Frontend Agent
+**Date:** 2026-03-22
+**Session:** 11
+
+## Completed This Session (Session 11)
+
+- ✅ Renamed `AgentTask.title` → `AgentTask.content` in `portal/src/types/index.ts`
+- ✅ Updated all `t.title` → `t.content` references in `portal/src/pages/TasksPage.tsx`
+- ✅ Changed page heading "Tasks" → "Messages" in `TasksPage.tsx`
+- ✅ Changed column header "Task ID" → "Message ID" in `TasksPage.tsx`
+- ✅ Changed column header "Title" → "Content" in `TasksPage.tsx`
+- ✅ Changed empty-state text "No tasks" → "No messages" in `TasksPage.tsx`
+- ✅ Changed pagination text "total tasks" → "total messages" in `TasksPage.tsx`
+- ✅ Changed sidebar nav label "Tasks" → "Messages" in `portal/src/components/layout/Sidebar.tsx`
+
+## Files Modified (Session 11)
+- `portal/src/types/index.ts` — `AgentTask.title: string | null` renamed to `AgentTask.content: string | null`
+- `portal/src/pages/TasksPage.tsx` — Heading, column headers, `t.title` refs, empty/pagination text updated
+- `portal/src/components/layout/Sidebar.tsx` — Nav label "Tasks" → "Messages"
+
+## Files NOT Changed (confirmed no task-related title fields)
+- `portal/src/api/portal.ts` — No `title` field mapping; passes through raw API response
+- `portal/src/hooks/useAgentOfficeWS.ts` — `task_title` is a WS live-status field (separate from `AgentTask` interface); left untouched per scope
+
+## Decisions Made (Session 11)
+- URL `/mission-control/tasks` kept unchanged (display label only changed, not the route)
+- `useAgentOfficeWS.ts` `task_title` field not renamed — it is a WebSocket real-time overlay field, not part of `AgentTask` interface
+
+---
+
 **Date:** 2026-03-20
 **Session:** 10
 

@@ -1,4 +1,22 @@
 # Context Checkpoint: Mobile Agent
+**Date:** 2026-03-22
+**Session:** TaskSummary.title → content rename + "Task ID" → "Message ID" label
+**Context:** ~10% at checkpoint
+**Reason:** Task complete
+
+## Completed This Session (2026-03-22)
+- Renamed `TaskSummary.title: string` → `content: string` in `APP/src/api/chat.ts` to match backend `agent_tasks` column rename
+- Renamed UI badge label `'Task ID: '` → `'Message ID: '` in `APP/src/screens/HistoryScreen.tsx` (task badge text, line 229)
+- `APP/src/screens/ChatScreen.tsx` — no changes needed: task bar uses `activeTask.id` + `activeTask.status` only, no "Task ID" text, no `.title` on task objects
+- Broad search confirmed: no remaining `'Task ID'`/`"Task ID"` strings in `APP/src/`; all `.title` hits are stylesheet refs or unrelated `item.title` on notification objects
+
+## Files Modified
+- `APP/src/api/chat.ts` — `TaskSummary.title` → `TaskSummary.content`
+- `APP/src/screens/HistoryScreen.tsx` — badge text `'Task ID: '` → `'Message ID: '`
+
+---
+
+# Context Checkpoint: Mobile Agent
 **Date:** 2026-03-20
 **Session:** Background task LLM response display (v1.44.0)
 **Context:** ~20% at checkpoint
