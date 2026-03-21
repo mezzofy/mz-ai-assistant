@@ -30,6 +30,16 @@ _WHITE = (0xFF, 0xFF, 0xFF)    # #ffffff
 _LIGHT_GRAY = (0xF3, 0xF4, 0xF6)  # slide background
 
 
+def _get_logo_path(filename: str):
+    """
+    Resolve a logo file from knowledge/brand/.
+    Returns Path if it exists, None otherwise.
+    Path: 4 levels up from app/tools/document/ → server root → knowledge/brand/
+    """
+    logo_path = Path(__file__).parent.parent.parent.parent / "knowledge" / "brand" / filename
+    return logo_path if logo_path.exists() else None
+
+
 def _get_artifact_dir(config: dict) -> Path:
     base = config.get("storage", {}).get("local_path", "/data/artifacts")
     path = Path(base) / "pptx"
@@ -255,6 +265,17 @@ class PPTXOps(BaseTool):
         # Bottom bar
         _add_orange_bar(cover_slide, top_inches=7.35, height_inches=0.15)
 
+        # Logo bottom-left on cover slide (black bg → light logo)
+        _logo = _get_logo_path("logo_light.png")
+        if _logo:
+            from pptx.util import Inches
+            cover_slide.shapes.add_picture(
+                str(_logo),
+                Inches(0.3),
+                prs.slide_height - Inches(0.8),
+                height=Inches(0.5),
+            )
+
         # ── CONTENT SLIDES ─────────────────────────────────────────────────
         for slide_def in slides:
             slide_type = slide_def.get("type", "content")
@@ -288,9 +309,30 @@ class PPTXOps(BaseTool):
                         color=_ORANGE, alignment=PP_ALIGN.CENTER,
                     )
 
+                # Logo centered on thank you slide (black bg → light logo)
+                _logo = _get_logo_path("logo_light.png")
+                if _logo:
+                    slide.shapes.add_picture(
+                        str(_logo),
+                        (prs.slide_width - Inches(2.5)) // 2,
+                        prs.slide_height - Inches(1.2),
+                        height=Inches(0.7),
+                    )
+
             elif slide_type == "table" and slide_def.get("table_data"):
                 slide = prs.slides.add_slide(slide_layouts[6])
                 _add_orange_bar(slide, 0.0, 0.08)
+
+                # Logo top-right in orange header bar (orange bg → light logo)
+                _logo = _get_logo_path("logo_light.png")
+                if _logo:
+                    _logo_h = Inches(0.35)
+                    slide.shapes.add_picture(
+                        str(_logo),
+                        prs.slide_width - Inches(1.5),
+                        (Inches(0.7) - _logo_h) // 2,
+                        height=_logo_h,
+                    )
 
                 # Heading
                 h_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12.3), Inches(0.7))
@@ -322,6 +364,17 @@ class PPTXOps(BaseTool):
                 slide = prs.slides.add_slide(slide_layouts[6])
                 _add_orange_bar(slide, 0.0, 0.08)
 
+                # Logo top-right in orange header bar (orange bg → light logo)
+                _logo = _get_logo_path("logo_light.png")
+                if _logo:
+                    _logo_h = Inches(0.35)
+                    slide.shapes.add_picture(
+                        str(_logo),
+                        prs.slide_width - Inches(1.5),
+                        (Inches(0.7) - _logo_h) // 2,
+                        height=_logo_h,
+                    )
+
                 h_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12.3), Inches(0.7))
                 _set_text(h_box.text_frame, heading, 24, bold=True, color=_ORANGE)
 
@@ -343,6 +396,17 @@ class PPTXOps(BaseTool):
             else:  # default: content
                 slide = prs.slides.add_slide(slide_layouts[6])
                 _add_orange_bar(slide, 0.0, 0.08)
+
+                # Logo top-right in orange header bar (orange bg → light logo)
+                _logo = _get_logo_path("logo_light.png")
+                if _logo:
+                    _logo_h = Inches(0.35)
+                    slide.shapes.add_picture(
+                        str(_logo),
+                        prs.slide_width - Inches(1.5),
+                        (Inches(0.7) - _logo_h) // 2,
+                        height=_logo_h,
+                    )
 
                 h_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12.3), Inches(0.7))
                 _set_text(h_box.text_frame, heading, 24, bold=True, color=_ORANGE)

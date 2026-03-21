@@ -26,6 +26,16 @@ logger = logging.getLogger("mezzofy.tools.docx")
 _ORANGE_HEX = "F97316"
 
 
+def _get_logo_path(filename: str):
+    """
+    Resolve a logo file from knowledge/brand/.
+    Returns Path if it exists, None otherwise.
+    Path: 4 levels up from app/tools/document/ → server root → knowledge/brand/
+    """
+    logo_path = Path(__file__).parent.parent.parent.parent / "knowledge" / "brand" / filename
+    return logo_path if logo_path.exists() else None
+
+
 def _get_artifact_dir(config: dict) -> Path:
     base = config.get("storage", {}).get("local_path", "/data/artifacts")
     path = Path(base) / "docx"
@@ -183,15 +193,18 @@ class DocxOps(BaseTool):
             style.font.color.rgb = orange
 
         # --- Header ---
+        logo_path = _get_logo_path("logo_dark.png")  # white background → dark logo
         section = doc.sections[0]
         header = section.header
-        header_para = header.paragraphs[0]
-        header_para.text = "Mezzofy AI Assistant"
-        header_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        header_run = header_para.runs[0]
-        header_run.font.color.rgb = orange
-        header_run.font.size = Pt(9)
-        header_run.font.bold = True
+        hdr_para = header.paragraphs[0]
+        hdr_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        hdr_run = hdr_para.add_run()
+        if logo_path:
+            hdr_run.add_picture(str(logo_path), width=Inches(1.2))
+        else:
+            hdr_run.text = "Mezzofy AI Assistant"
+            hdr_run.font.color.rgb = RGBColor(0xF9, 0x73, 0x16)
+            hdr_run.font.bold = True
 
         # --- Title ---
         title_para = doc.add_heading(title, level=0)

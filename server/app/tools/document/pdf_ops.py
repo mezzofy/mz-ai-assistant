@@ -54,10 +54,37 @@ tr:nth-child(even) { background-color: #fef3ea; }
 .footer-brand { color: #f97316; font-weight: bold; font-size: 9pt; }
 """
 
-_MEZZOFY_HEADER = """
+def _get_logo_base64(filename: str) -> str:
+    """
+    Load a logo image from knowledge/brand/ and return a base64 data URI.
+    Returns empty string if file not found — callers must handle the fallback.
+    Path: 4 levels up from app/tools/document/ → server root → knowledge/brand/
+    """
+    import base64
+    logo_path = Path(__file__).parent.parent.parent.parent / "knowledge" / "brand" / filename
+    if not logo_path.exists():
+        return ""
+    try:
+        data = logo_path.read_bytes()
+        b64 = base64.b64encode(data).decode("ascii")
+        return f"data:image/png;base64,{b64}"
+    except Exception as e:
+        logger.warning(f"Failed to load logo '{filename}': {e}")
+        return ""
+
+
+def _build_mezzofy_header(document_type: str) -> str:
+    """Build the branded PDF page header, using logo image when available."""
+    logo_uri = _get_logo_base64("logo_dark.png")  # white background — use dark logo
+    logo_html = (
+        f'<img src="{logo_uri}" style="height:32px; vertical-align:middle;" alt="Mezzofy">'
+        if logo_uri else
+        '<span style="font-size:22pt; font-weight:bold; color:#f97316;">Mezzofy</span>'
+    )
+    return f"""
 <div style="display:flex; justify-content:space-between; align-items:center;
             border-bottom:3px solid #f97316; padding-bottom:10px; margin-bottom:20px;">
-    <div style="font-size:22pt; font-weight:bold; color:#f97316;">Mezzofy</div>
+    {logo_html}
     <div style="font-size:9pt; color:#666;">{document_type}</div>
 </div>
 """
@@ -236,7 +263,7 @@ class PDFOps(BaseTool):
         if extra_css:
             css += "\n" + extra_css
 
-        header_html = _MEZZOFY_HEADER.format(document_type=document_type)
+        header_html = _build_mezzofy_header(document_type)
 
         full_html = f"""<!DOCTYPE html>
 <html lang="en">
