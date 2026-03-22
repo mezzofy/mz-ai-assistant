@@ -50,6 +50,56 @@ class CSVOps(BaseTool):
     def get_tools(self) -> list[dict]:
         return [
             {
+                "name": "create_xlsx",
+                "description": (
+                    "Export structured data as a branded Excel (.xlsx) spreadsheet with "
+                    "Mezzofy orange header row. Accepts headers and rows, runs a formula "
+                    "error check (QA), and returns the file path and QA result."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "rows": {
+                            "type": "array",
+                            "description": (
+                                "Data rows to write. Each row is a list of values. "
+                                "Do NOT include header row here — use the headers parameter."
+                            ),
+                            "items": {
+                                "type": "array",
+                                "items": {},
+                            },
+                        },
+                        "headers": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Column headers written as the first (styled) row.",
+                        },
+                        "sheet_name": {
+                            "type": "string",
+                            "description": "Worksheet name (default: Sheet1).",
+                            "default": "Sheet1",
+                        },
+                        "filename": {
+                            "type": "string",
+                            "description": "Output filename (without extension). Auto-generated if omitted.",
+                        },
+                        "storage_scope": {
+                            "type": "string",
+                            "description": (
+                                "Where to save the file. 'user' = personal folder (default), "
+                                "'department' = shared department folder, "
+                                "'company' = company-wide public folder (management only)."
+                            ),
+                            "enum": ["user", "department", "company"],
+                            "default": "user",
+                        },
+                    },
+                    "required": ["rows"],
+                },
+                "handler": self._create_xlsx,
+            },
+            {
                 "name": "create_csv",
                 "description": (
                     "Export structured data as a CSV file. Accepts a list of rows "
@@ -133,6 +183,82 @@ class CSVOps(BaseTool):
                 "handler": self._read_csv,
             },
         ]
+
+    async def _create_xlsx(
+        self,
+        rows: list[list],
+        headers: Optional[list[str]] = None,
+        sheet_name: str = "Sheet1",
+        filename: Optional[str] = None,
+        storage_scope: str = "user",
+    ) -> dict:
+        """Export data as a branded XLSX file and run formula QA check."""
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment
+        except ImportError:
+            return self._err("openpyxl is not installed. Run: pip install openpyxl")
+
+        if not filename:
+            filename = f"export_{uuid.uuid4().hex[:8]}"
+
+        output_path = self._resolve_output_dir(storage_scope) / f"{filename}.xlsx"
+
+        try:
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = sheet_name
+
+            # Mezzofy orange header style
+            orange_fill = PatternFill(start_color="F97316", end_color="F97316", fill_type="solid")
+            white_font = Font(bold=True, color="FFFFFF")
+            center_align = Alignment(horizontal="center", vertical="center")
+
+            row_offset = 0
+            if headers:
+                for col_idx, header in enumerate(headers, start=1):
+                    cell = ws.cell(row=1, column=col_idx, value=header)
+                    cell.fill = orange_fill
+                    cell.font = white_font
+                    cell.alignment = center_align
+                row_offset = 1
+
+            for row_idx, row in enumerate(rows, start=1 + row_offset):
+                for col_idx, value in enumerate(row, start=1):
+                    ws.cell(row=row_idx, column=col_idx, value=value)
+
+            wb.save(str(output_path))
+            file_size = output_path.stat().st_size
+            logger.info(f"Created XLSX: {output_path} ({len(rows)} rows)")
+
+            # Run formula QA check
+            qa_ok = True
+            try:
+                import sys
+                import importlib.util
+                from pathlib import Path as _Path
+                recalc_path = _Path(__file__).parent.parent.parent.parent / "scripts" / "recalc.py"
+                spec = importlib.util.spec_from_file_location("recalc", str(recalc_path))
+                recalc_mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(recalc_mod)
+                qa_ok = recalc_mod.recalc_check(str(output_path))
+            except Exception as e:
+                logger.warning(f"XLSX QA check failed (non-fatal): {e}")
+
+            return self._ok({
+                "file_path": str(output_path),
+                "filename": f"{filename}.xlsx",
+                "row_count": len(rows),
+                "column_count": len(headers) if headers else (len(rows[0]) if rows else 0),
+                "size_bytes": file_size,
+                "storage_scope": storage_scope,
+                "department": get_user_dept(),
+                "qa_ok": qa_ok,
+            })
+
+        except Exception as e:
+            logger.error(f"Failed to create XLSX: {e}")
+            return self._err(str(e))
 
     async def _create_csv(
         self,

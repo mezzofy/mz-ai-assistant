@@ -294,6 +294,13 @@ class PDFOps(BaseTool):
             self._create_pdf_reportlab(title, html_content, output_path)
 
         file_size = output_path.stat().st_size if output_path.exists() else 0
+
+        qa_images = []
+        try:
+            qa_images = self._qa_pdf(str(output_path))
+        except Exception as e:
+            logger.warning(f"QA loop failed (non-fatal): {e}")
+
         return self._ok({
             "file_path": str(output_path),
             "filename": f"{filename}.pdf",
@@ -301,6 +308,7 @@ class PDFOps(BaseTool):
             "title": title,
             "storage_scope": storage_scope,
             "department": get_user_dept(),
+            "qa_images": qa_images,
         })
 
     def _create_pdf_reportlab(self, title: str, html_content: str, output_path: Path) -> None:
@@ -351,6 +359,17 @@ class PDFOps(BaseTool):
             ),
         ]
         doc.build(story)
+
+    def _qa_pdf(self, pdf_path: str) -> list[str]:
+        """Render PDF pages → JPEG via pdftoppm, return base64 list."""
+        import subprocess, base64, glob, tempfile, os
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(
+                ["pdftoppm", "-jpeg", "-r", "150", pdf_path, os.path.join(tmp, "page")],
+                check=True, capture_output=True
+            )
+            images = sorted(glob.glob(os.path.join(tmp, "page-*.jpg")))
+            return [base64.b64encode(open(img, "rb").read()).decode() for img in images]
 
     async def _read_pdf(self, file_path: str, max_pages: Optional[int] = None) -> dict:
         """Extract text from a PDF file."""

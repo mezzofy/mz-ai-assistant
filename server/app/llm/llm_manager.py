@@ -578,6 +578,24 @@ class LLMManager:
             else:
                 prompt += _ATTACHED_FILE_DIRECTIVE
 
+        # Inject brand guidelines for document generation tasks
+        _DOC_KEYWORDS = [
+            "pptx", "pdf", "docx", "xlsx", "presentation", "report", "document",
+            "slide", "spreadsheet", "word", "powerpoint", "excel",
+        ]
+        message_lower = ((task or {}).get("message", "") or "").lower()
+        if any(kw in message_lower for kw in _DOC_KEYWORDS):
+            import os as _os
+            brand_path = _os.path.normpath(
+                _os.path.join(_os.path.dirname(__file__), "../../knowledge/brand/guidelines.md")
+            )
+            try:
+                with open(brand_path) as f:
+                    brand_guidelines = f.read()
+                prompt += f"\n\n## Brand Guidelines (MANDATORY for this document)\n\n{brand_guidelines}"
+            except FileNotFoundError:
+                pass
+
         return prompt
 
     def _contains_chinese(self, text: str) -> bool:

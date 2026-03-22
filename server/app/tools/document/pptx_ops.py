@@ -438,6 +438,12 @@ class PPTXOps(BaseTool):
         prs.save(str(output_path))
         file_size = output_path.stat().st_size
 
+        qa_images = []
+        try:
+            qa_images = self._qa_pptx(str(output_path))
+        except Exception as e:
+            logger.warning(f"QA loop failed (non-fatal): {e}")
+
         logger.info(f"Created PPTX: {output_path} ({len(slides)+1} slides)")
         return self._ok({
             "file_path": str(output_path),
@@ -447,7 +453,30 @@ class PPTXOps(BaseTool):
             "title": title,
             "storage_scope": storage_scope,
             "department": get_user_dept(),
+            "qa_images": qa_images,
         })
+
+    def _qa_pptx(self, pptx_path: str) -> list[str]:
+        """Convert PPTX → PDF via soffice, render pages → JPEG via pdftoppm, return base64 list."""
+        import subprocess, base64, glob, tempfile, os
+        with tempfile.TemporaryDirectory() as tmp:
+            # Step 1: soffice PPTX → PDF
+            subprocess.run(
+                ["soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp, pptx_path],
+                check=True, capture_output=True
+            )
+            pdf_files = glob.glob(os.path.join(tmp, "*.pdf"))
+            if not pdf_files:
+                return []
+            pdf_path = pdf_files[0]
+            # Step 2: pdftoppm PDF → JPEG slide-N.jpg
+            subprocess.run(
+                ["pdftoppm", "-jpeg", "-r", "150", pdf_path, os.path.join(tmp, "slide")],
+                check=True, capture_output=True
+            )
+            # Step 3: collect and base64-encode all slide images
+            images = sorted(glob.glob(os.path.join(tmp, "slide-*.jpg")))
+            return [base64.b64encode(open(img, "rb").read()).decode() for img in images]
 
     async def _read_pptx(self, file_path: str) -> dict:
         """Extract text from a PPTX file."""

@@ -277,6 +277,12 @@ class DocxOps(BaseTool):
         doc.save(str(output_path))
         file_size = output_path.stat().st_size
 
+        qa_images = []
+        try:
+            qa_images = self._qa_docx(str(output_path))
+        except Exception as e:
+            logger.warning(f"QA loop failed (non-fatal): {e}")
+
         logger.info(f"Created DOCX: {output_path}")
         return self._ok({
             "file_path": str(output_path),
@@ -286,7 +292,26 @@ class DocxOps(BaseTool):
             "sections_count": len(sections),
             "storage_scope": storage_scope,
             "department": get_user_dept(),
+            "qa_images": qa_images,
         })
+
+    def _qa_docx(self, docx_path: str) -> list[str]:
+        """Convert DOCX → PDF via soffice, render pages → JPEG via pdftoppm, return base64 list."""
+        import subprocess, base64, glob, tempfile, os
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(
+                ["soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp, docx_path],
+                check=True, capture_output=True
+            )
+            pdf_files = glob.glob(os.path.join(tmp, "*.pdf"))
+            if not pdf_files:
+                return []
+            subprocess.run(
+                ["pdftoppm", "-jpeg", "-r", "150", pdf_files[0], os.path.join(tmp, "page")],
+                check=True, capture_output=True
+            )
+            images = sorted(glob.glob(os.path.join(tmp, "page-*.jpg")))
+            return [base64.b64encode(open(img, "rb").read()).decode() for img in images]
 
     async def _read_docx(self, file_path: str) -> dict:
         """Extract text from a Word document."""
