@@ -312,7 +312,7 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
                           border: `1px solid ${deptColor}20`,
                           fontStyle: 'italic',
                         }
-                      : { background: '#1E2A3A', color: '#E5E7EB', borderBottomLeftRadius: '4px', border: `1px solid ${deptColor}20` }
+                      : { background: '#1E2A3A', color: '#E5E7EB', borderBottomLeftRadius: '4px', border: `1px solid ${deptColor}20`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }
                 }
               >
                 {msg.isLoading ? (
@@ -320,8 +320,6 @@ export default function AgentChatDialog({ dept, onClose }: Props) {
                     <span className="animate-pulse">⏳</span>
                     {' '}{msg.content}
                   </span>
-                ) : msg.isBackground ? (
-                  <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
                 ) : (
                   msg.content
                 )}
