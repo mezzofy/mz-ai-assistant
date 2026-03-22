@@ -363,11 +363,22 @@ class ManagementAgent(BaseAgent):
 
         message = task.get("message", "").lower()
         _CROSS_DEPT_KEYWORDS = {
-            "compare", "versus", " vs ", "across departments", "all departments",
-            "cross-department", "cross department",
+            # Comparison signals
+            "compare", "versus", " vs ", "compared to", "comparison between",
+            # Explicit multi-department phrases
+            "across departments", "all departments", "every department",
+            "cross-department", "cross department", "multiple departments",
+            "both departments", "combined report",
+            # Explicit "and <dept>" / "<dept> and" pairs
             "and sales", "and finance", "and marketing", "and support", "and hr",
             "sales and", "finance and", "marketing and", "support and", "hr and",
-            "both departments", "multiple departments", "every department",
+            # Natural conjunction patterns (Gap 4)
+            "sales & finance", "sales & support", "sales & marketing", "sales & hr",
+            "finance & sales", "finance & support", "finance & marketing", "finance & hr",
+            "support & sales", "support & finance", "support & marketing", "support & hr",
+            "from hr and", "from finance and", "from sales and", "from support and",
+            "from marketing and",
+            "hr and finance", "hr and sales", "hr and support", "hr and marketing",
         }
         return any(kw in message for kw in _CROSS_DEPT_KEYWORDS)
 
@@ -492,12 +503,50 @@ class ManagementAgent(BaseAgent):
                 )
                 step_results[step_num] = {"task_id": delegation.get("task_id", ""), "status": "queued"}
 
-        # ── Step 4: Synthesise results ────────────────────────────────────────
-        completed_summaries = [
-            f"Step {k}: {v.get('result_summary', '(in progress)')}"
-            for k, v in sorted(step_results.items())
-            if v.get("result_summary")
+        # ── Step 4a: Collect results from parallel (fire-and-forget) steps ──────
+        # Parallel steps were queued without awaiting. Resolve them now so the
+        # synthesis has complete data. Use a shorter timeout since sequential
+        # steps have already consumed most of the budget.
+        import asyncio as _asyncio
+        parallel_task_ids = [
+            (step_num, info["task_id"])
+            for step_num, info in step_results.items()
+            if info.get("status") == "queued" and info.get("task_id")
         ]
+        if parallel_task_ids:
+            parallel_results = await _asyncio.gather(
+                *[
+                    self.await_delegation(task_id, timeout_seconds=180)
+                    for _, task_id in parallel_task_ids
+                ],
+                return_exceptions=True,
+            )
+            for (step_num, _), result in zip(parallel_task_ids, parallel_results):
+                if isinstance(result, Exception):
+                    step_results[step_num] = {
+                        "status": "failed",
+                        "result_summary": "",
+                        "error": str(result),
+                    }
+                else:
+                    step_results[step_num] = result
+
+        # ── Step 4b: Synthesise results ───────────────────────────────────────
+        # Build per-step lines, distinguishing success / failed / still-pending
+        synthesis_lines = []
+        for k, v in sorted(step_results.items()):
+            status = v.get("status", "unknown")
+            if status == "completed" and v.get("result_summary"):
+                synthesis_lines.append(f"Step {k} [completed]: {v['result_summary']}")
+            elif status == "failed":
+                err = v.get("error") or v.get("error_message") or "unknown error"
+                synthesis_lines.append(f"Step {k} [FAILED]: {err}")
+            elif v.get("result_summary"):
+                synthesis_lines.append(f"Step {k}: {v['result_summary']}")
+            else:
+                synthesis_lines.append(f"Step {k} [in progress — results pending]")
+
+        completed_summaries = synthesis_lines
         synthesis_content = ""
         if completed_summaries:
             synthesis_prompt = (

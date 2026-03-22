@@ -898,7 +898,15 @@ async def _run_delegated_agent_task(
     from app.core.config import get_config
     config = get_config()
     task_data["_config"] = config
-    task_data.setdefault("permissions", ["all"])
+    # Gap 3 fix: honour the originating user's permissions rather than granting
+    # blanket ["all"] to every delegated sub-task. Scheduler/webhook tasks that
+    # arrive without an explicit permissions list keep ["all"] (system-level ops).
+    source = task_data.get("source", "")
+    if "permissions" not in task_data or not task_data.get("permissions"):
+        if source in ("scheduler", "webhook"):
+            task_data["permissions"] = ["all"]
+        else:
+            task_data["permissions"] = []  # deny-by-default for user-originated tasks
     task_data.setdefault("attachments", [])
     task_data.setdefault("conversation_history", [])
 

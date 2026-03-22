@@ -4,7 +4,7 @@
 
 **Priority:** P1 — Chat is completely broken for all users
 **Raised by:** Lead Agent (investigation)
-**Status:** OPEN — awaiting user action (key replacement or limit increase needed)
+**Status:** ✅ RESOLVED (2026-03-23) — User increased spending limit on existing Anthropic account
 
 ### Root Cause
 
