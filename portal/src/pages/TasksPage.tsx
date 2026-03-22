@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import type { AgentTask } from '../types'
 
@@ -22,9 +22,10 @@ function CopyBtn({ text }: { text: string }) {
 }
 
 export default function TasksPage() {
-  const qc = useQueryClient()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [deptFilter, setDeptFilter] = useState<string>('')
+  const [triggeredByFilter, setTriggeredByFilter] = useState<string>('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
@@ -33,13 +34,22 @@ export default function TasksPage() {
     refetchInterval: 10000,
   })
 
-  const killMutation = useMutation({
-    mutationFn: (taskId: string) => portalApi.killTask(taskId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-  })
-
   const tasks: AgentTask[] = data?.tasks || []
   const totalPages = data?.total_pages || 1
+
+  const departments = Array.from(new Set(tasks.map(t => t.department).filter(Boolean))) as string[]
+  const triggeredByUsers = Array.from(
+    new Set(tasks.map(t => t.triggered_by_name || t.triggered_by_email?.split('@')[0]).filter(Boolean))
+  ) as string[]
+
+  const filteredTasks = tasks.filter(t => {
+    if (deptFilter && t.department !== deptFilter) return false
+    if (triggeredByFilter) {
+      const label = t.triggered_by_name || t.triggered_by_email?.split('@')[0] || ''
+      if (label !== triggeredByFilter) return false
+    }
+    return true
+  })
 
   const statusColor = (s: string) => {
     if (s === 'completed') return { background: 'rgba(0,212,170,0.1)', color: '#00D4AA' }
@@ -58,7 +68,7 @@ export default function TasksPage() {
             {data?.total !== undefined ? `${data.total} total` : ''}
           </span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap items-center">
           {['', 'running', 'completed', 'failed'].map((s) => (
             <button
               key={s}
@@ -72,6 +82,24 @@ export default function TasksPage() {
               {s || 'All'}
             </button>
           ))}
+          <select
+            value={deptFilter}
+            onChange={(e) => { setDeptFilter(e.target.value); setPage(1) }}
+            className="px-3 py-2 rounded-lg text-sm"
+            style={{ background: '#1E2A3A', color: '#6B7280', border: 'none' }}
+          >
+            <option value="">All Depts</option>
+            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <select
+            value={triggeredByFilter}
+            onChange={(e) => { setTriggeredByFilter(e.target.value); setPage(1) }}
+            className="px-3 py-2 rounded-lg text-sm"
+            style={{ background: '#1E2A3A', color: '#6B7280', border: 'none' }}
+          >
+            <option value="">All Users</option>
+            {triggeredByUsers.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
         </div>
       </div>
 
@@ -92,15 +120,14 @@ export default function TasksPage() {
               <th className="py-3">Status</th>
               <th className="py-3">Triggered By</th>
               <th className="py-3">Created</th>
-              <th className="py-3">Duration</th>
-              <th className="py-3 pr-4">Action</th>
+              <th className="py-3 pr-4">Duration</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={8} className="py-12 text-center" style={{ color: '#6B7280' }}>Loading...</td></tr>
+              <tr><td colSpan={7} className="py-12 text-center" style={{ color: '#6B7280' }}>Loading...</td></tr>
             )}
-            {tasks.map((t) => {
+            {filteredTasks.map((t) => {
               const sc = statusColor(t.status)
               return (
                 <React.Fragment key={t.id}>
@@ -128,28 +155,13 @@ export default function TasksPage() {
                     <td className="py-2.5 text-gray-400">
                       {t.created_at ? new Date(t.created_at).toLocaleString() : '\u2014'}
                     </td>
-                    <td className="py-2.5 text-gray-400 font-mono">
+                    <td className="py-2.5 pr-4 text-gray-400 font-mono">
                       {t.duration_ms ? `${(t.duration_ms / 1000).toFixed(1)}s` : '\u2014'}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      {t.status === 'running' && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); killMutation.mutate(t.id) }}
-                          disabled={killMutation.isPending}
-                          title="Kill task"
-                          className="p-1.5 rounded transition-colors hover:bg-red-500/20 disabled:opacity-40"
-                          style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                          </svg>
-                        </button>
-                      )}
                     </td>
                   </tr>
                   {expandedId === t.id && (
                     <tr style={{ borderColor: '#1E2A3A' }}>
-                      <td colSpan={8} className="px-4 pb-3" style={{ background: '#0A0E1A' }}>
+                      <td colSpan={7} className="px-4 pb-3" style={{ background: '#0A0E1A' }}>
                         <div className="pt-2 space-y-2">
                           {/* Full Task ID */}
                           <div className="flex items-center text-xs" style={{ color: '#6B7280' }}>
@@ -165,14 +177,35 @@ export default function TasksPage() {
                           )}
                           {/* Raw result */}
                           {t.details && (
-                            <details>
-                              <summary className="text-xs cursor-pointer select-none" style={{ color: '#6B7280' }}>
-                                Raw Result
-                              </summary>
-                              <pre className="mt-1 p-2 rounded overflow-x-auto text-xs font-mono" style={{ background: '#1E293B', color: '#94A3B8', maxHeight: '200px', overflowY: 'auto' }}>
-                                {JSON.stringify(t.details, null, 2)}
-                              </pre>
-                            </details>
+                            <div className="space-y-2">
+                              {typeof (t.details as Record<string, unknown>).response === 'string' && (
+                                <div>
+                                  <div className="text-xs mb-1" style={{ color: '#6B7280' }}>Response</div>
+                                  <div
+                                    className="text-xs p-2 rounded"
+                                    style={{
+                                      background: '#1E293B',
+                                      color: '#E2E8F0',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-word',
+                                      maxHeight: '300px',
+                                      overflowY: 'auto',
+                                    }}
+                                  >
+                                    {(t.details as Record<string, unknown>).response as string}
+                                  </div>
+                                </div>
+                              )}
+                              <details>
+                                <summary className="text-xs cursor-pointer select-none" style={{ color: '#6B7280' }}>
+                                  Raw JSON
+                                </summary>
+                                <pre className="mt-1 p-2 rounded overflow-x-auto text-xs font-mono"
+                                  style={{ background: '#1E293B', color: '#94A3B8', maxHeight: '200px', overflowY: 'auto' }}>
+                                  {JSON.stringify(t.details, null, 2)}
+                                </pre>
+                              </details>
+                            </div>
                           )}
                           {!t.error && !t.details && (
                             <span className="text-xs" style={{ color: '#6B7280' }}>No result data available.</span>
@@ -184,8 +217,8 @@ export default function TasksPage() {
                 </React.Fragment>
               )
             })}
-            {!isLoading && tasks.length === 0 && (
-              <tr><td colSpan={8} className="py-12 text-center" style={{ color: '#6B7280' }}>No messages</td></tr>
+            {!isLoading && filteredTasks.length === 0 && (
+              <tr><td colSpan={7} className="py-12 text-center" style={{ color: '#6B7280' }}>No messages</td></tr>
             )}
           </tbody>
         </table>
