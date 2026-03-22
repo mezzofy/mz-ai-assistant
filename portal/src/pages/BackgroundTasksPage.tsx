@@ -218,12 +218,32 @@ function TaskCard({ task, onKill, onDelete }: {
             </div>
           )}
           {task.details && (
-            <details className="text-xs">
-              <summary className="cursor-pointer" style={{ color: '#94A3B8' }}>Raw result</summary>
-              <pre className="mt-1 p-2 rounded overflow-x-auto text-xs font-mono" style={{ background: '#1E293B', color: '#94A3B8' }}>
-                {JSON.stringify(task.details, null, 2)}
-              </pre>
-            </details>
+            <div className="space-y-2 text-xs">
+              {typeof (task.details as Record<string, unknown>).response === 'string' && (
+                <div>
+                  <div className="mb-1" style={{ color: '#6B7280' }}>Response</div>
+                  <div
+                    className="p-2 rounded"
+                    style={{
+                      background: '#1E293B',
+                      color: '#E2E8F0',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      maxHeight: '300px',
+                      overflowY: 'auto',
+                    }}
+                  >
+                    {(task.details as Record<string, unknown>).response as string}
+                  </div>
+                </div>
+              )}
+              <details>
+                <summary className="cursor-pointer" style={{ color: '#94A3B8' }}>Raw JSON</summary>
+                <pre className="mt-1 p-2 rounded overflow-x-auto font-mono" style={{ background: '#1E293B', color: '#94A3B8', maxHeight: '200px', overflowY: 'auto' }}>
+                  {JSON.stringify(task.details, null, 2)}
+                </pre>
+              </details>
+            </div>
           )}
         </div>
       )}
