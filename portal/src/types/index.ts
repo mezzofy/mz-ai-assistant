@@ -105,9 +105,12 @@ export interface Agent {
 
 export interface AgentTask {
   id: string
+  task_ref: string | null
   content: string | null
   status: string
   department: string | null
+  progress: number | null
+  current_step: string | null
   created_at: string
   started_at: string | null
   completed_at: string | null
@@ -143,6 +146,15 @@ export interface AuthState {
   access_token: string | null
   user: { user_id: string; email: string; name: string; role: string } | null
   isAuthenticated: boolean
+}
+
+export interface TaskStats {
+  all: number
+  queued: number
+  running: number
+  completed: number
+  failed: number
+  cancelled: number
 }
 
 export interface ActiveTask {

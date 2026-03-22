@@ -1276,7 +1276,8 @@ async def list_tasks(
     result = await db.execute(
         text(f"""
             SELECT
-                t.id, t.content, t.status, t.department,
+                t.id, t.task_ref, t.content, t.status, t.department,
+                t.progress, t.current_step,
                 t.created_at, t.started_at, t.completed_at,
                 EXTRACT(EPOCH FROM (t.completed_at - t.started_at)) * 1000 AS duration_ms,
                 t.error, t.result AS details,
@@ -1307,9 +1308,12 @@ async def list_tasks(
     for r in rows:
         tasks.append({
             "id": str(r.id),
+            "task_ref": r.task_ref,
             "content": r.content,
             "status": r.status,
             "department": r.department,
+            "progress": r.progress,
+            "current_step": r.current_step,
             "created_at": r.created_at.isoformat() if r.created_at else None,
             "started_at": r.started_at.isoformat() if r.started_at else None,
             "completed_at": r.completed_at.isoformat() if r.completed_at else None,
@@ -1327,6 +1331,158 @@ async def list_tasks(
         "per_page": per_page,
         "total_pages": (total + per_page - 1) // per_page,
     }
+
+
+@router.get("/tasks/stats")
+async def get_task_stats(
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Count agent tasks grouped by status."""
+    result = await db.execute(
+        text("SELECT status, COUNT(*) AS cnt FROM agent_tasks GROUP BY status")
+    )
+    rows = result.fetchall()
+    stats = {"all": 0, "queued": 0, "running": 0, "completed": 0, "failed": 0, "cancelled": 0}
+    for row in rows:
+        if row.status in stats:
+            stats[row.status] = int(row.cnt)
+        stats["all"] += int(row.cnt)
+    return stats
+
+
+@router.get("/tasks/scheduled")
+async def list_scheduled_tasks_admin(
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """List all scheduled jobs across all users (admin view)."""
+    result = await db.execute(
+        text("""
+            SELECT sj.id, sj.name, sj.agent, sj.workflow_name, sj.schedule,
+                   sj.next_run, sj.last_run, sj.is_active, sj.deliver_to,
+                   u.email AS user_email, u.name AS user_name
+            FROM scheduled_jobs sj
+            LEFT JOIN users u ON u.id = sj.user_id
+            ORDER BY sj.created_at DESC
+        """)
+    )
+    rows = result.fetchall()
+    return {
+        "jobs": [
+            {
+                "id": str(r.id),
+                "name": r.name,
+                "agent": r.agent,
+                "workflow_name": r.workflow_name,
+                "schedule": r.schedule,
+                "next_run": r.next_run.isoformat() if r.next_run else None,
+                "last_run": r.last_run.isoformat() if r.last_run else None,
+                "is_active": r.is_active,
+                "deliver_to": r.deliver_to if isinstance(r.deliver_to, dict) else {},
+                "user_email": r.user_email,
+                "user_name": r.user_name,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/tasks/scheduled/{job_id}/run", status_code=status.HTTP_202_ACCEPTED)
+async def run_scheduled_task_now(
+    job_id: str,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger a scheduled job immediately (admin). Enqueues a Celery task."""
+    result = await db.execute(
+        text(
+            "SELECT id, name, agent, message, workflow_name, schedule, deliver_to, user_id "
+            "FROM scheduled_jobs WHERE id = :id"
+        ),
+        {"id": job_id},
+    )
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Scheduled job not found")
+
+    deliver_to = row.deliver_to if isinstance(row.deliver_to, dict) else {}
+    task_data = {
+        "agent": row.agent,
+        "source": "scheduler",
+        "department": row.agent,
+        "user_id": str(row.user_id),
+        "message": row.message,
+        "workflow_name": row.workflow_name,
+        "_job_name": row.name,
+        "deliver_to": deliver_to,
+        "_job_id": job_id,
+        "input_type": "text",
+        "permissions": ["all"],
+        "attachments": [],
+        "conversation_history": [],
+    }
+
+    from app.tasks.tasks import process_agent_task
+    celery_task = process_agent_task.delay(task_data)
+
+    from app.webhooks.scheduler import compute_next_run
+    next_run_dt = compute_next_run(row.schedule)
+    await db.execute(
+        text("UPDATE scheduled_jobs SET last_run = NOW(), next_run = :next_run WHERE id = :id"),
+        {"id": job_id, "next_run": next_run_dt},
+    )
+    await db.commit()
+
+    logger.info(f"Admin {current_user.get('email')} triggered job {job_id} → Celery task {celery_task.id}")
+    return {"task_id": celery_task.id, "status": "queued"}
+
+
+@router.post("/tasks/scheduled/{job_id}/pause")
+async def pause_scheduled_task(
+    job_id: str,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Pause a scheduled job by setting is_active=False."""
+    result = await db.execute(
+        text("SELECT id FROM scheduled_jobs WHERE id = :id"),
+        {"id": job_id},
+    )
+    if not result.fetchone():
+        raise HTTPException(status_code=404, detail="Scheduled job not found")
+
+    await db.execute(
+        text("UPDATE scheduled_jobs SET is_active = FALSE WHERE id = :id"),
+        {"id": job_id},
+    )
+    await db.commit()
+    return {"id": job_id, "is_active": False}
+
+
+@router.post("/tasks/scheduled/{job_id}/resume")
+async def resume_scheduled_task(
+    job_id: str,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Resume a paused scheduled job and recompute next_run."""
+    result = await db.execute(
+        text("SELECT id, schedule FROM scheduled_jobs WHERE id = :id"),
+        {"id": job_id},
+    )
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Scheduled job not found")
+
+    from app.webhooks.scheduler import compute_next_run
+    next_run_dt = compute_next_run(row.schedule)
+    await db.execute(
+        text("UPDATE scheduled_jobs SET is_active = TRUE, next_run = :next_run WHERE id = :id"),
+        {"id": job_id, "next_run": next_run_dt},
+    )
+    await db.commit()
+    return {"id": job_id, "is_active": True, "next_run": next_run_dt.isoformat()}
 
 
 @router.post("/tasks/{task_id}/kill")
@@ -1372,6 +1528,38 @@ async def kill_task(
     )
     await db.commit()
     return {"killed": True, "task_id": task_id}
+
+
+@router.delete("/tasks/{task_id}")
+async def delete_task(
+    task_id: str,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Hard-delete a task from history and forget its Celery result."""
+    result = await db.execute(
+        text("SELECT id, task_ref FROM agent_tasks WHERE id = :id"),
+        {"id": task_id},
+    )
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Forget Celery result to free result backend memory
+    try:
+        from celery.result import AsyncResult
+        AsyncResult(row.task_ref).forget()
+    except Exception:
+        pass  # Non-fatal — result may already be expired
+
+    await db.execute(
+        text("DELETE FROM agent_tasks WHERE id = :id"),
+        {"id": task_id},
+    )
+    await db.commit()
+
+    logger.info(f"Admin {current_user.get('email')} deleted task {task_id}")
+    return {"deleted": True, "task_id": task_id}
 
 
 # ── Scheduler — Update Job ───────────────────────────────────────────────────

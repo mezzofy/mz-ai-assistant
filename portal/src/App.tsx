@@ -13,6 +13,7 @@ import FilesPage from './pages/FilesPage'
 import TasksPage from './pages/TasksPage'
 import UsersPage from './pages/UsersPage'
 import CRMPage from './pages/CRMPage'
+import BackgroundTasksPage from './pages/BackgroundTasksPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="files" element={<FilesPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="crm" element={<CRMPage />} />
+            <Route path="background-tasks" element={<BackgroundTasksPage />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/mission-control/login" replace />} />

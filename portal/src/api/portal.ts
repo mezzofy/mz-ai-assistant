@@ -36,6 +36,12 @@ export const portalApi = {
     client.get('/api/admin-portal/tasks', { params: { page, per_page: 20, ...(status ? { status } : {}) } }),
   killTask: (taskId: string) =>
     client.post(`/api/admin-portal/tasks/${taskId}/kill`),
+  getTaskStats: () => client.get('/api/admin-portal/tasks/stats'),
+  deleteTask: (taskId: string) => client.delete(`/api/admin-portal/tasks/${taskId}`),
+  getScheduledTasksAdmin: () => client.get('/api/admin-portal/tasks/scheduled'),
+  runScheduledTask: (jobId: string) => client.post(`/api/admin-portal/tasks/scheduled/${jobId}/run`),
+  pauseScheduledTask: (jobId: string) => client.post(`/api/admin-portal/tasks/scheduled/${jobId}/pause`),
+  resumeScheduledTask: (jobId: string) => client.post(`/api/admin-portal/tasks/scheduled/${jobId}/resume`),
 
   // Files
   getFiles: (params?: { user_id?: string; type?: string; page?: number }) =>

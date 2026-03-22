@@ -1,12 +1,14 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut } from 'lucide-react'
+import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity } from 'lucide-react'
 import clsx from 'clsx'
+import { portalApi } from '../../api/portal'
 
 const NAV_ITEMS = [
   { path: '/mission-control/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/mission-control/tasks', label: 'Messages', icon: ListTodo },
+  { path: '/mission-control/background-tasks', label: 'Background Tasks', icon: Activity, badge: true },
   { path: '/mission-control/scheduler', label: 'Scheduler', icon: CalendarClock },
   { path: '/mission-control/agents', label: 'Agents', icon: Bot },
   { path: '/mission-control/files', label: 'Files', icon: FolderOpen },
@@ -16,6 +18,27 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const [activeBgCount, setActiveBgCount] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchStats = async () => {
+      try {
+        const res = await portalApi.getTaskStats()
+        if (!cancelled) {
+          setActiveBgCount((res.data.running ?? 0) + (res.data.queued ?? 0))
+        }
+      } catch {
+        // silently ignore — badge just won't show
+      }
+    }
+    fetchStats()
+    const interval = setInterval(fetchStats, 10000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [])
 
   return (
     <aside
@@ -61,7 +84,15 @@ export default function Sidebar() {
             }
           >
             <item.icon size={16} />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {item.badge && activeBgCount > 0 && (
+              <span
+                className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: '#f97316', color: 'white', minWidth: '20px', textAlign: 'center' }}
+              >
+                {activeBgCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
