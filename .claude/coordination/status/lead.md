@@ -1,38 +1,52 @@
 # Context Checkpoint: Lead Agent
-**Date:** 2026-03-19
-**Session:** Portal v1.41.0 Planning
-**Task:** Add Leo (Legal Agent) + agentic metadata to Mission Control Portal
+**Date:** 2026-03-23
+**Session:** Portal v1.41.0 Review
+**Task:** Spawn Backend + Frontend agents, review outputs, quality gate
 
 ---
 
-## Assessment Complete
+## Completed This Session
 
-### Current State
-- Portal v1.33.0 deployed to EC2 with 9 agents (no Leo)
-- `AGENT_REGISTRY` in `admin_portal.py` is hardcoded with simplified skills (not matching AGENTS.md)
-- `AgentOffice.tsx` canvas has 9 agent positions (no legal dept)
-- `AgentsPage.tsx` shows only: name, dept, skills, tasks, memory — no persona/tools/llm_model
-- Leo backend NOT yet implemented (separate plan: `legal-agent-backend-plan.md`)
+- ✅ Spawned Backend agent → replaced AGENT_REGISTRY in admin_portal.py (10 agents, Ops class names)
+- ✅ Spawned Frontend agent → confirmed types/AgentOffice/AgentsPage all correct (minor pill class fix)
+- ✅ Verification agent → confirmed Leo position, no overlaps, all card fields present
+- ✅ Quality gate: PASS
+- ✅ Review written to `.claude/coordination/plans/portal-v1.41.0-review.md`
+- ✅ memory.md updated
 
-### Files Needing Changes
-- `server/app/api/admin_portal.py` — Replace AGENT_REGISTRY (lines ~459–469) with 10-agent full spec
-- `portal/src/types/index.ts` — Extend Agent interface (add persona, description, tools_allowed, llm_model, is_orchestrator)
-- `portal/src/components/AgentOffice.tsx` — Add legal dept at position (550, 190) + scales sprite
-- `portal/src/pages/AgentsPage.tsx` — Enhanced cards (persona, description, type badge, tools, LLM footer)
+## Files Changed This Session
 
----
+- `server/app/api/admin_portal.py` — AGENT_REGISTRY replaced (10 agents, proper Ops names)
+- `portal/src/pages/AgentsPage.tsx` — Minor: `line-clamp-2` Tailwind class, removed `inline-block` from pills
 
-## Plan Written
-- `.claude/coordination/plans/portal-v1.41.0-agents-update-plan.md`
+## Key Finding
 
-## Quality Gate Criteria
-- All 10 agent cards visible in Agents page
-- Leo sprite appears in AgentOffice canvas at (550, 190)
-- Each card shows: persona, description, type badge (ORCHESTRATOR/SPECIAL/DEPT), skills, tools, llm_model
-- AGENT_REGISTRY matches docs/AGENTS.md exactly
-- No regressions in memory upload/delete
+Most frontend work was already done in prior sessions. The main actual change was backend AGENT_REGISTRY. The plan's Leo position (550,190 row 2) was already overridden by a prior frontend session that placed Leo at (80,355) in row 3 — confirmed correct, no overlaps, fits 3-row canvas layout.
 
-## Next Step After Completion
-- Lead reviews both agent outputs against verification checklist
-- Deploy to EC2 (git pull + service restart + portal rebuild)
-- Update memory.md with completion note
+## Deploy Needed
+
+```bash
+# Push from local first (GitHub Desktop or git push)
+# Then on EC2:
+git pull
+cd portal && npm install && npm run build
+sudo cp -r dist/* /var/www/mission-control/
+sudo systemctl restart mezzofy-api.service
+```
+
+No migration. No Celery restart needed.
+
+## Next Possible Tasks
+
+- Leo legal agent backend implementation — plan at `legal-agent-backend-plan.md`
+- Orchestration gap fix tests (Tester agent)
+- Any new user request
+
+## Resume Instructions
+
+After /clear, load in order:
+1. CLAUDE.md
+2. .claude/agents/lead.md
+3. .claude/coordination/memory.md
+4. .claude/coordination/status/lead.md
+Then ask user what to work on next.

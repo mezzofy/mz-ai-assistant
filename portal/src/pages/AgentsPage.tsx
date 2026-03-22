@@ -123,7 +123,7 @@ export default function AgentsPage() {
 
             {/* Description */}
             {agent.description && (
-              <p className="text-xs leading-relaxed" style={{ color: '#9CA3AF', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              <p className="text-xs leading-relaxed line-clamp-2" style={{ color: '#9CA3AF' }}>
                 {agent.description}
               </p>
             )}
@@ -136,7 +136,7 @@ export default function AgentsPage() {
                   {agent.skills.map((skill) => (
                     <span
                       key={skill}
-                      className="inline-block px-2 py-0.5 rounded text-xs"
+                      className="px-2 py-0.5 rounded text-xs"
                       style={{ background: '#1E2A3A', color: '#9CA3AF' }}
                     >
                       {skill}
@@ -154,7 +154,7 @@ export default function AgentsPage() {
                   {agent.tools_allowed.map((tool) => (
                     <span
                       key={tool}
-                      className="inline-block px-2 py-0.5 rounded text-xs"
+                      className="px-2 py-0.5 rounded text-xs"
                       style={{ background: 'rgba(249,115,22,0.08)', color: '#f97316', border: '1px solid rgba(249,115,22,0.15)' }}
                     >
                       {tool}
@@ -164,8 +164,8 @@ export default function AgentsPage() {
               </div>
             )}
 
-            {/* LLM model + Memory toggle */}
-            <div className="flex items-center justify-between border-t pt-2 mt-auto" style={{ borderColor: '#1E2A3A' }}>
+            {/* Footer: LLM model + Memory toggle */}
+            <div className="flex items-center justify-between border-t pt-2" style={{ borderColor: '#1E2A3A' }}>
               {agent.llm_model && (
                 <span className="text-xs font-mono" style={{ color: '#6B7280' }}>
                   {agent.llm_model}
