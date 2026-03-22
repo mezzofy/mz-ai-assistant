@@ -788,7 +788,7 @@ def get_agent_by_id(agent_id: str):
     """
     Map an agent_id string to an instantiated Python agent class.
 
-    AGENT_ID_MAP covers all 9 agents (6 department + 3 special-purpose).
+    AGENT_ID_MAP covers all 10 agents (6 department + 4 special-purpose).
     Raises ValueError if agent_id is not in the map.
     """
     global _AGENT_ID_MAP
@@ -802,6 +802,7 @@ def get_agent_by_id(agent_id: str):
         from app.agents.research_agent import ResearchAgent
         from app.agents.developer_agent import DeveloperAgent
         from app.agents.scheduler_agent import SchedulerAgent
+        from app.agents.legal_agent import LegalAgent
         from app.core.config import get_config
         _config = get_config()
         _AGENT_ID_MAP = {
@@ -814,6 +815,7 @@ def get_agent_by_id(agent_id: str):
             "agent_research": ResearchAgent(_config),
             "agent_developer": DeveloperAgent(_config),
             "agent_scheduler": SchedulerAgent(_config),
+            "agent_legal": LegalAgent(_config),
         }
     if agent_id not in _AGENT_ID_MAP:
         raise ValueError(
