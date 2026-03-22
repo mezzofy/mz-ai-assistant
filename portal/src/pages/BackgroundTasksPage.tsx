@@ -388,7 +388,7 @@ export default function BackgroundTasksPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Activity size={20} style={{ color: '#f97316' }} />
-            <h1 className="text-lg font-semibold">Background Tasks</h1>
+            <h1 className="text-lg font-semibold">Tasks</h1>
           </div>
           <button
             onClick={() => setAutoRefresh((v) => !v)}

@@ -7,8 +7,8 @@ import { portalApi } from '../../api/portal'
 
 const NAV_ITEMS = [
   { path: '/mission-control/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/mission-control/background-tasks', label: 'Tasks', icon: Activity, badge: true },
   { path: '/mission-control/tasks', label: 'Messages', icon: ListTodo },
-  { path: '/mission-control/background-tasks', label: 'Background Tasks', icon: Activity, badge: true },
   { path: '/mission-control/scheduler', label: 'Scheduler', icon: CalendarClock },
   { path: '/mission-control/agents', label: 'Agents', icon: Bot },
   { path: '/mission-control/files', label: 'Files', icon: FolderOpen },

@@ -3,10 +3,29 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import type { AgentTask } from '../types'
 
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }}
+      className="ml-1.5 text-xs px-1.5 py-0.5 rounded transition-colors"
+      style={{ background: '#1E2A3A', color: copied ? '#00D4AA' : '#6B7280' }}
+    >
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  )
+}
+
 export default function TasksPage() {
   const qc = useQueryClient()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['tasks', page, statusFilter],
@@ -84,45 +103,85 @@ export default function TasksPage() {
             {tasks.map((t) => {
               const sc = statusColor(t.status)
               return (
-                <tr key={t.id} className="border-t" style={{ borderColor: '#1E2A3A' }}>
-                  <td className="px-4 py-2.5 font-mono" style={{ color: '#6B7280' }}>
-                    {t.id.slice(0, 8)}...
-                  </td>
-                  <td className="py-2.5 max-w-[200px]">
-                    <span className="text-gray-200 truncate block" title={t.content || undefined}>{t.content || '\u2014'}</span>
-                    {t.error && <span className="text-xs text-red-400 truncate block" title={t.error}>{t.error.slice(0, 60)}</span>}
-                  </td>
-                  <td className="py-2.5 text-gray-400">{t.department || '\u2014'}</td>
-                  <td className="py-2.5">
-                    <span className="px-2 py-0.5 rounded-full text-xs" style={sc}>
-                      {t.status}
-                    </span>
-                  </td>
-                  <td className="py-2.5 text-gray-400">
-                    {t.triggered_by_name || t.triggered_by_email?.split('@')[0] || '\u2014'}
-                  </td>
-                  <td className="py-2.5 text-gray-400">
-                    {t.created_at ? new Date(t.created_at).toLocaleString() : '\u2014'}
-                  </td>
-                  <td className="py-2.5 text-gray-400 font-mono">
-                    {t.duration_ms ? `${(t.duration_ms / 1000).toFixed(1)}s` : '\u2014'}
-                  </td>
-                  <td className="py-2.5 pr-4">
-                    {t.status === 'running' && (
-                      <button
-                        onClick={() => killMutation.mutate(t.id)}
-                        disabled={killMutation.isPending}
-                        title="Kill task"
-                        className="p-1.5 rounded transition-colors hover:bg-red-500/20 disabled:opacity-40"
-                        style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        </svg>
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                <React.Fragment key={t.id}>
+                  <tr
+                    className="border-t cursor-pointer hover:bg-white/[0.02] transition-colors"
+                    style={{ borderColor: '#1E2A3A' }}
+                    onClick={() => setExpandedId(id => id === t.id ? null : t.id)}
+                  >
+                    <td className="px-4 py-2.5 font-mono" style={{ color: '#6B7280' }}>
+                      {t.id.slice(0, 8)}...
+                    </td>
+                    <td className="py-2.5 max-w-[200px]">
+                      <span className="text-gray-200 truncate block" title={t.content || undefined}>{t.content || '\u2014'}</span>
+                      {t.error && <span className="text-xs text-red-400 truncate block" title={t.error}>{t.error.slice(0, 60)}</span>}
+                    </td>
+                    <td className="py-2.5 text-gray-400">{t.department || '\u2014'}</td>
+                    <td className="py-2.5">
+                      <span className="px-2 py-0.5 rounded-full text-xs" style={sc}>
+                        {t.status}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-gray-400">
+                      {t.triggered_by_name || t.triggered_by_email?.split('@')[0] || '\u2014'}
+                    </td>
+                    <td className="py-2.5 text-gray-400">
+                      {t.created_at ? new Date(t.created_at).toLocaleString() : '\u2014'}
+                    </td>
+                    <td className="py-2.5 text-gray-400 font-mono">
+                      {t.duration_ms ? `${(t.duration_ms / 1000).toFixed(1)}s` : '\u2014'}
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      {t.status === 'running' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); killMutation.mutate(t.id) }}
+                          disabled={killMutation.isPending}
+                          title="Kill task"
+                          className="p-1.5 rounded transition-colors hover:bg-red-500/20 disabled:opacity-40"
+                          style={{ color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                          </svg>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {expandedId === t.id && (
+                    <tr style={{ borderColor: '#1E2A3A' }}>
+                      <td colSpan={8} className="px-4 pb-3" style={{ background: '#0A0E1A' }}>
+                        <div className="pt-2 space-y-2">
+                          {/* Full Task ID */}
+                          <div className="flex items-center text-xs" style={{ color: '#6B7280' }}>
+                            <span>Message ID:</span>
+                            <span className="ml-1.5 font-mono" style={{ color: '#94A3B8' }}>{t.id}</span>
+                            <CopyBtn text={t.id} />
+                          </div>
+                          {/* Full error */}
+                          {t.error && (
+                            <div className="text-xs font-mono p-2 rounded" style={{ background: '#1E0A0A', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+                              {t.error}
+                            </div>
+                          )}
+                          {/* Raw result */}
+                          {t.details && (
+                            <details>
+                              <summary className="text-xs cursor-pointer select-none" style={{ color: '#6B7280' }}>
+                                Raw Result
+                              </summary>
+                              <pre className="mt-1 p-2 rounded overflow-x-auto text-xs font-mono" style={{ background: '#1E293B', color: '#94A3B8', maxHeight: '200px', overflowY: 'auto' }}>
+                                {JSON.stringify(t.details, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                          {!t.error && !t.details && (
+                            <span className="text-xs" style={{ color: '#6B7280' }}>No result data available.</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               )
             })}
             {!isLoading && tasks.length === 0 && (
