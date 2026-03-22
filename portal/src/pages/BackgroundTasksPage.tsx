@@ -99,11 +99,11 @@ function TaskCard({ task, onKill, onDelete }: {
   const [expanded, setExpanded] = useState(false)
 
   const canKill = task.status === 'queued' || task.status === 'running'
-  const canDownload = task.status === 'completed' && task.details &&
+  const canDownload = task.status === 'completed' && !!(task.details &&
     (
       (task.details as Record<string, unknown>).file_path ||
       (task.details as Record<string, unknown>).output_path
-    )
+    ))
 
   const timeAgo = (iso: string | null) => {
     if (!iso) return ''
