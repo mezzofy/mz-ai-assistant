@@ -84,7 +84,6 @@ class ResearchAgent(BaseAgent):
         tools = [
             {"type": "web_search_20260209", "name": "web_search"},
             {"type": "web_fetch_20250910",  "name": "web_fetch"},
-            {"type": "code_execution_20250825", "name": "code_execution"},
         ]
         final_text = ""
 
