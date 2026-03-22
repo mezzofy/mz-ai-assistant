@@ -86,7 +86,8 @@
       "Bash(tee /tmp/suite_results.txt)",
       "Bash(findstr /C:\"passed\" /C:\"failed\" /C:\"error\")",
       "Bash(findstr \"passed failed\")",
-      "Bash(grep -E \"\\\\.\\(py\\)$\")"
+      "Bash(grep -E \"\\\\.\\(py\\)$\")",
+      "Bash(gradlew.bat assembleRelease)"
     ]
   }
 }
