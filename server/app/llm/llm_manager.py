@@ -62,7 +62,7 @@ WEB_SEARCH_TOOL = {
 }
 
 WEB_FETCH_TOOL = {
-    "type": "web_fetch_20250124",
+    "type": "web_fetch_20250910",
     "name": "web_fetch",
 }
 

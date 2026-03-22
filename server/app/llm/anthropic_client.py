@@ -282,7 +282,7 @@ class AnthropicClient:
 
         Server tools (Anthropic executes — no local implementation needed):
           - web_search:      {"type": "web_search_20260209", "name": "web_search"}
-          - web_fetch:       {"type": "web_fetch_20250124",  "name": "web_fetch"}
+          - web_fetch:       {"type": "web_fetch_20250910",  "name": "web_fetch"}
           - code_execution:  {"type": "code_execution_20250825", "name": "code_execution"}
           - memory:          {"type": "memory", "name": "memory"}
 

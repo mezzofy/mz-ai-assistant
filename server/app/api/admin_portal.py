@@ -475,14 +475,14 @@ AGENT_REGISTRY = [
         "name": "Sales Agent", "persona": "Sam", "department": "sales",
         "description": "CRM lead management, LinkedIn prospecting, sales email outreach, and pitch deck generation.",
         "skills": ["linkedin_prospecting", "email_outreach", "pitch_deck_generation", "web_research"],
-        "tools_allowed": ["CRMOps", "LinkedInOps", "EmailOps", "skill_pptx", "skill_pdf", "web_fetch_20250124"],
+        "tools_allowed": ["CRMOps", "LinkedInOps", "EmailOps", "skill_pptx", "skill_pdf", "web_fetch_20250910"],
         "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
     },
     {
         "name": "Marketing Agent", "persona": "Maya", "department": "marketing",
         "description": "Marketing content creation, campaign email delivery, and competitive web research.",
         "skills": ["content_generation", "web_research"],
-        "tools_allowed": ["EmailOps", "web_search_20260209", "web_fetch_20250124", "skill_pdf", "skill_pptx", "skill_docx"],
+        "tools_allowed": ["EmailOps", "web_search_20260209", "web_fetch_20250910", "skill_pdf", "skill_pptx", "skill_docx"],
         "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
     },
     {
@@ -503,14 +503,14 @@ AGENT_REGISTRY = [
         "name": "Legal Agent", "persona": "Leo", "department": "legal",
         "description": "International business law specialist — contract review and drafting for SG, HK, MY, UAE, KSA, QA, and Cayman Islands.",
         "skills": ["document_review", "contract_drafting", "legal_research", "jurisdiction_advisory"],
-        "tools_allowed": ["skill_docx", "skill_pdf", "EmailOps", "TeamsOps", "web_search_20260209", "web_fetch_20250124", "memory"],
+        "tools_allowed": ["skill_docx", "skill_pdf", "EmailOps", "TeamsOps", "web_search_20260209", "web_fetch_20250910", "memory"],
         "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
     },
     {
         "name": "Research Agent", "persona": "Rex", "department": "research",
         "description": "Agentic web-research specialist. Multi-iteration search loop using Claude native web_search, web_fetch, and code_execution tools.",
         "skills": ["web_research", "data_analysis", "deep_research", "source_verification"],
-        "tools_allowed": ["web_search_20260209", "web_fetch_20250124", "code_execution_20250825"],
+        "tools_allowed": ["web_search_20260209", "web_fetch_20250910", "code_execution_20250825"],
         "llm_model": "claude-sonnet-4-6", "is_orchestrator": False,
     },
     {

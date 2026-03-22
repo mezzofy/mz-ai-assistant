@@ -1,6 +1,6 @@
 """
 ResearchAgent — Agentic web-search loop using Claude's native web_search_20260209,
-web_fetch_20250124, and code_execution_20250825 tools, or Kimi's $web_search equivalent.
+web_fetch_20250910, and code_execution_20250825 tools, or Kimi's $web_search equivalent.
 
 Dispatched via POST /chat/send when the message starts with "research:" or
 contains research-intent keywords. Runs as a Celery background task.
@@ -29,7 +29,7 @@ class ResearchAgent(BaseAgent):
     Web-search agentic loop agent.
 
     can_handle: task["agent"] == "research"
-    execute:    Runs Claude (web_search_20260209 + web_fetch_20250124 + code_execution_20250825) or Kimi ($web_search) in a loop
+    execute:    Runs Claude (web_search_20260209 + web_fetch_20250910 + code_execution_20250825) or Kimi ($web_search) in a loop
                 until end_turn/stop or max iterations reached.
     """
 
@@ -83,7 +83,7 @@ class ResearchAgent(BaseAgent):
         # Native Anthropic built-in tools — _format_tools() will pass through unchanged
         tools = [
             {"type": "web_search_20260209", "name": "web_search"},
-            {"type": "web_fetch_20250124",  "name": "web_fetch"},
+            {"type": "web_fetch_20250910",  "name": "web_fetch"},
             {"type": "code_execution_20250825", "name": "code_execution"},
         ]
         final_text = ""
