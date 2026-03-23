@@ -89,7 +89,8 @@
       "Bash(grep -E \"\\\\.\\(py\\)$\")",
       "Bash(gradlew.bat assembleRelease)",
       "Read(//c/Mezzofy/workspace/mz-ai-assistant/**)",
-      "Bash(echo \"temp: $TEMP\")"
+      "Bash(echo \"temp: $TEMP\")",
+      "Bash(psql -U mezzofy_ai -d mezzofy_ai -c \"\\\\d agents\")"
     ]
   }
 }
