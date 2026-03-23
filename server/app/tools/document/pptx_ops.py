@@ -197,7 +197,7 @@ class PPTXOps(BaseTool):
         subtitle: Optional[str] = None,
         filename: Optional[str] = None,
         storage_scope: str = "user",
-        template: Optional[str] = None,
+        template: str = "default",
     ) -> dict:
         """Generate a branded PPTX presentation."""
         try:
@@ -229,6 +229,8 @@ class PPTXOps(BaseTool):
             prs.slide_height = Inches(7.5)
 
         slide_layouts = prs.slide_layouts
+        # Clamp blank layout index — templates may have fewer layouts than the default 11
+        _blank_idx = min(6, len(slide_layouts) - 1)
 
         # Slide layout indices: 0=Title Slide, 1=Title+Content, 5=Blank
         def _set_text(tf, text: str, size: int = 18, bold: bool = False,
@@ -255,7 +257,7 @@ class PPTXOps(BaseTool):
             bar.line.fill.background()
 
         # ── COVER SLIDE ───────────────────────────────────────────────────
-        cover_layout = slide_layouts[6]  # Blank
+        cover_layout = slide_layouts[_blank_idx]  # Blank
         cover_slide = prs.slides.add_slide(cover_layout)
 
         # Background (blank mode only — templates supply their own)
@@ -308,7 +310,7 @@ class PPTXOps(BaseTool):
             notes_text = slide_def.get("notes", "")
 
             if slide_type == "thank_you":
-                slide = prs.slides.add_slide(slide_layouts[6])  # Blank
+                slide = prs.slides.add_slide(slide_layouts[_blank_idx])  # Blank
                 _bg = slide.background.fill
                 _bg.solid()
                 _bg.fore_color.rgb = RGBColor(*_BLACK)
@@ -344,7 +346,7 @@ class PPTXOps(BaseTool):
                     )
 
             elif slide_type == "table" and slide_def.get("table_data"):
-                slide = prs.slides.add_slide(slide_layouts[6])
+                slide = prs.slides.add_slide(slide_layouts[_blank_idx])
                 _add_orange_bar(slide, 0.0, 0.08)
 
                 # Logo top-right in orange header bar (orange bg → light logo)
@@ -385,7 +387,7 @@ class PPTXOps(BaseTool):
                             tf.paragraphs[0].runs[0].font.bold = True
 
             elif slide_type == "two_column":
-                slide = prs.slides.add_slide(slide_layouts[6])
+                slide = prs.slides.add_slide(slide_layouts[_blank_idx])
                 _add_orange_bar(slide, 0.0, 0.08)
 
                 # Logo top-right in orange header bar (orange bg → light logo)
@@ -418,7 +420,7 @@ class PPTXOps(BaseTool):
                 div.line.fill.background()
 
             else:  # default: content
-                slide = prs.slides.add_slide(slide_layouts[6])
+                slide = prs.slides.add_slide(slide_layouts[_blank_idx])
                 _add_orange_bar(slide, 0.0, 0.08)
 
                 # Logo top-right in orange header bar (orange bg → light logo)

@@ -129,6 +129,15 @@ class DocxOps(BaseTool):
                             "enum": ["user", "department", "company"],
                             "default": "user",
                         },
+                        "template": {
+                            "type": "string",
+                            "description": (
+                                "Template name to apply ('default', 'contract', 'report'). "
+                                "The template must exist in knowledge/templates/docx/. "
+                                "Falls back to blank branded style if omitted or not found."
+                            ),
+                            "enum": ["default", "contract", "report"],
+                        },
                     },
                     "required": ["title", "sections"],
                 },
@@ -154,6 +163,11 @@ class DocxOps(BaseTool):
             },
         ]
 
+    def _resolve_template_path(self, template_name: str) -> Path:
+        """Resolve a .docx template from knowledge/templates/docx/."""
+        base = Path(__file__).parent.parent.parent.parent / "knowledge" / "templates" / "docx"
+        return base / f"{template_name}.docx"
+
     async def _create_docx(
         self,
         title: str,
@@ -161,6 +175,7 @@ class DocxOps(BaseTool):
         author: Optional[str] = None,
         filename: Optional[str] = None,
         storage_scope: str = "user",
+        template: str = "default",
     ) -> dict:
         """Generate a branded Word document."""
         try:
@@ -179,7 +194,14 @@ class DocxOps(BaseTool):
 
         output_path = self._resolve_output_dir(storage_scope) / f"{filename}.docx"
 
-        doc = Document()
+        template_path = self._resolve_template_path(template)
+        if template_path.exists():
+            doc = Document(str(template_path))
+            logger.info(f"Loaded DOCX template: {template_path.name}")
+        else:
+            if template:
+                logger.warning(f"DOCX template '{template}' not found, using blank style")
+            doc = Document()
 
         # Document properties
         if author:
@@ -189,8 +211,11 @@ class DocxOps(BaseTool):
         # Customize built-in heading styles with Mezzofy orange
         orange = RGBColor(0xF9, 0x73, 0x16)
         for style_name in ("Heading 1", "Heading 2", "Heading 3"):
-            style = doc.styles[style_name]
-            style.font.color.rgb = orange
+            try:
+                style = doc.styles[style_name]
+                style.font.color.rgb = orange
+            except KeyError:
+                pass  # Template may not define all heading styles
 
         # --- Header ---
         logo_path = _get_logo_path("logo_dark.png")  # white background → dark logo
@@ -219,14 +244,14 @@ class DocxOps(BaseTool):
             item_type = item.get("type", "paragraph")
             content = item.get("content", "")
 
-            if item_type == "heading1":
-                doc.add_heading(content, level=1)
-
-            elif item_type == "heading2":
-                doc.add_heading(content, level=2)
-
-            elif item_type == "heading3":
-                doc.add_heading(content, level=3)
+            if item_type in ("heading1", "heading2", "heading3"):
+                level = {"heading1": 1, "heading2": 2, "heading3": 3}[item_type]
+                try:
+                    doc.add_heading(content, level=level)
+                except KeyError:
+                    # Template lacks the heading style — fall back to bold paragraph
+                    p = doc.add_paragraph(content)
+                    p.runs[0].bold = True if p.runs else None
 
             elif item_type == "paragraph":
                 doc.add_paragraph(content)
@@ -236,7 +261,10 @@ class DocxOps(BaseTool):
                 for line in lines:
                     line = line.lstrip("•-* ").strip()
                     if line:
-                        doc.add_paragraph(line, style="List Bullet")
+                        try:
+                            doc.add_paragraph(line, style="List Bullet")
+                        except KeyError:
+                            doc.add_paragraph(f"• {line}")
 
             elif item_type == "table":
                 table_data = item.get("table_data", [])
@@ -246,7 +274,10 @@ class DocxOps(BaseTool):
                 rows = len(table_data)
                 cols = max(len(r) for r in table_data)
                 table = doc.add_table(rows=rows, cols=cols)
-                table.style = "Table Grid"
+                try:
+                    table.style = "Table Grid"
+                except KeyError:
+                    pass  # Template may not define Table Grid style
 
                 for r_idx, row in enumerate(table_data):
                     for c_idx, cell_text in enumerate(row):

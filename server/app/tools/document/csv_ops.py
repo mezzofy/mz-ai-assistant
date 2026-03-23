@@ -94,6 +94,15 @@ class CSVOps(BaseTool):
                             "enum": ["user", "department", "company"],
                             "default": "user",
                         },
+                        "template": {
+                            "type": "string",
+                            "description": (
+                                "Template name to apply ('default', 'data_report'). "
+                                "The template must exist in knowledge/templates/xlsx/. "
+                                "Falls back to blank branded style if omitted or not found."
+                            ),
+                            "enum": ["default", "data_report"],
+                        },
                     },
                     "required": ["rows"],
                 },
@@ -184,6 +193,11 @@ class CSVOps(BaseTool):
             },
         ]
 
+    def _resolve_template_path(self, template_name: str) -> Path:
+        """Resolve a .xlsx template from knowledge/templates/xlsx/."""
+        base = Path(__file__).parent.parent.parent.parent / "knowledge" / "templates" / "xlsx"
+        return base / f"{template_name}.xlsx"
+
     async def _create_xlsx(
         self,
         rows: list[list],
@@ -191,6 +205,7 @@ class CSVOps(BaseTool):
         sheet_name: str = "Sheet1",
         filename: Optional[str] = None,
         storage_scope: str = "user",
+        template: str = "default",
     ) -> dict:
         """Export data as a branded XLSX file and run formula QA check."""
         try:
@@ -204,10 +219,27 @@ class CSVOps(BaseTool):
 
         output_path = self._resolve_output_dir(storage_scope) / f"{filename}.xlsx"
 
+        template_path = self._resolve_template_path(template)
         try:
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.title = sheet_name
+            try:
+                _using_template = template_path.exists()
+                if _using_template:
+                    wb = openpyxl.load_workbook(str(template_path))
+                    ws = wb.active
+                    ws.title = sheet_name
+                    logger.info(f"Loaded XLSX template: {template_path.name}")
+                else:
+                    if template:
+                        logger.warning(f"XLSX template '{template}' not found, using blank style")
+                    wb = openpyxl.Workbook()
+                    ws = wb.active
+                    ws.title = sheet_name
+            except Exception as e:
+                logger.warning(f"Failed to load XLSX template '{template}': {e} — using blank style")
+                _using_template = False
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = sheet_name
 
             # Mezzofy orange header style
             orange_fill = PatternFill(start_color="F97316", end_color="F97316", fill_type="solid")
@@ -234,7 +266,6 @@ class CSVOps(BaseTool):
             # Run formula QA check
             qa_ok = True
             try:
-                import sys
                 import importlib.util
                 from pathlib import Path as _Path
                 recalc_path = _Path(__file__).parent.parent.parent.parent / "scripts" / "recalc.py"
