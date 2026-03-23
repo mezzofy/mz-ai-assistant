@@ -379,16 +379,30 @@ class ManagementAgent(BaseAgent):
             "across departments", "all departments", "every department",
             "cross-department", "cross department", "multiple departments",
             "both departments", "combined report",
-            # Explicit "and <dept>" / "<dept> and" pairs
+            # Explicit "and <dept>" / "<dept> and" pairs (existing agents)
             "and sales", "and finance", "and marketing", "and support", "and hr",
             "sales and", "finance and", "marketing and", "support and", "hr and",
-            # Natural conjunction patterns (Gap 4)
+            # Agent names added in v2.0 (research, developer, legal)
+            "and research", "and developer", "and legal",
+            "research and", "developer and", "legal and",
+            "research & ", "developer & ", "legal & ",
+            " & research", " & developer", " & legal",
+            # Natural conjunction patterns
             "sales & finance", "sales & support", "sales & marketing", "sales & hr",
             "finance & sales", "finance & support", "finance & marketing", "finance & hr",
             "support & sales", "support & finance", "support & marketing", "support & hr",
             "from hr and", "from finance and", "from sales and", "from support and",
             "from marketing and",
             "hr and finance", "hr and sales", "hr and support", "hr and marketing",
+            # Whole-company / all-teams requests
+            "each department", "each team", "every team", "all teams",
+            "whole company", "entire company", "entire organization", "whole organization",
+            "full company", "across the company", "across the organization", "across teams",
+            "business overview", "company overview", "company-wide", "org-wide",
+            "all agents", "each agent",
+            # Implicit multi-agent signals
+            "coordinate", "collaborate", "full picture", "big picture",
+            "consolidated", "combined view", "360 view", "360-degree",
         }
         return any(kw in message for kw in _CROSS_DEPT_KEYWORDS)
 
@@ -406,6 +420,20 @@ class ManagementAgent(BaseAgent):
         from app.agents.agent_registry import agent_registry as _registry
 
         active_agents = _registry.all_active()
+        if not active_agents:
+            logger.error(
+                "plan_and_orchestrate: AgentRegistry has no agents — cannot create plan. "
+                "Check if agents table exists in DB (run scripts/migrate.py)."
+            )
+            return self._ok(
+                content=(
+                    "I need to coordinate multiple teams for this request, but my agent "
+                    "roster isn't loaded. Please ask an administrator to verify the agents "
+                    "database table exists (run scripts/migrate.py on the server)."
+                ),
+                tools_called=["plan_and_orchestrate"],
+            )
+
         plan = await plan_manager.create_plan(
             goal=task.get("message", ""),
             user_id=task.get("user_id", ""),

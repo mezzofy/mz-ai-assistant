@@ -92,10 +92,10 @@ class AgentRegistry:
                     f"{list(self._agents.keys())}"
                 )
         except Exception as e:
-            # Table may not exist yet (pre-migration) — warn but don't crash
-            logger.warning(
-                f"AgentRegistry.load() failed — agents table may not exist yet. "
-                f"Delegation and orchestration will be unavailable. Error: {e}"
+            # Table may not exist yet (pre-migration) — log as ERROR so it's visible
+            logger.error(
+                f"AgentRegistry.load() FAILED — plans and orchestration will NOT work "
+                f"until the agents table exists. Run: python scripts/migrate.py. Error: {e}"
             )
             self._loaded = False
 
@@ -151,6 +151,14 @@ class AgentRegistry:
     def is_loaded(self) -> bool:
         """Return True if load() has been called successfully."""
         return self._loaded
+
+    def status(self) -> dict:
+        """Return registry health status — useful for health checks and diagnostics."""
+        return {
+            "loaded": self._loaded,
+            "agent_count": len(self._agents),
+            "agent_ids": list(self._agents.keys()),
+        }
 
 
 # Module-level singleton — initialized at app startup

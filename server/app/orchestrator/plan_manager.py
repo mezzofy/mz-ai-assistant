@@ -99,7 +99,14 @@ class PlanManager:
 
         Returns the saved ExecutionPlan.
         """
+        import re
         import anthropic
+
+        if not available_agents:
+            raise ValueError(
+                "create_plan: available_agents is empty — AgentRegistry not loaded. "
+                "Run scripts/migrate.py to seed the agents table."
+            )
 
         # Build agent list for the prompt
         agent_list = json.dumps([
@@ -161,6 +168,13 @@ class PlanManager:
                 )
                 raw = response.content[0].text if response.content else "{}"
 
+                # Strip markdown code fences (```json ... ```) if present
+                raw_stripped = raw.strip()
+                if raw_stripped.startswith("```"):
+                    raw_stripped = re.sub(r"^```[a-z]*\n?", "", raw_stripped)
+                    raw_stripped = re.sub(r"\n?```$", "", raw_stripped.strip())
+                raw = raw_stripped
+
                 # Extract JSON object from response
                 start = raw.find("{")
                 end = raw.rfind("}") + 1
@@ -179,6 +193,17 @@ class PlanManager:
                             break
                     if plan_data is None:
                         break
+
+                # Validate agent IDs — replace unknown IDs with agent_management
+                if plan_data is not None:
+                    known_ids = {a.get("id") for a in available_agents}
+                    for s in plan_data.get("steps", []):
+                        if s.get("agent_id") not in known_ids:
+                            logger.warning(
+                                f"create_plan: step '{s['step_id']}' references unknown agent "
+                                f"'{s.get('agent_id')}' — replacing with agent_management"
+                            )
+                            s["agent_id"] = "agent_management"
 
                 if plan_data is not None:
                     break  # Valid plan — stop retrying
