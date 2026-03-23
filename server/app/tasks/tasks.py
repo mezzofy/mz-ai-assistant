@@ -13,6 +13,7 @@ Celery workers run in separate processes; async agent code is called via asyncio
 import asyncio
 import logging
 import os
+from typing import Optional
 
 from app.tasks.celery_app import celery_app
 from celery.signals import worker_process_init, worker_ready
@@ -897,6 +898,7 @@ async def _run_delegated_agent_task(
     log_id: str,
 ) -> dict:
     """Async core for process_delegated_agent_task."""
+    import json as _json
     from app.core.config import get_config
     config = get_config()
     task_data["_config"] = config
@@ -911,6 +913,26 @@ async def _run_delegated_agent_task(
             task_data["permissions"] = []  # deny-by-default for user-originated tasks
     task_data.setdefault("attachments", [])
     task_data.setdefault("conversation_history", [])
+
+    # ── v2.5: Uniform agent interface — extract orchestrator contract fields ──
+    plan_id = task_data.get("_plan_id", "")
+    step_id = task_data.get("_step_id", "")
+    context = task_data.get("_context", {})       # prior step outputs (dict)
+    instructions = task_data.get("_instructions", "")
+    feedback = task_data.get("_feedback", "")     # retry feedback from orchestrator
+
+    # Prepend context block if provided
+    if context and isinstance(context, dict):
+        context_block = f"Context from prior steps:\n{_json.dumps(context, indent=2)}\n\n"
+        task_data["message"] = context_block + task_data.get("message", "")
+
+    # Prepend step-specific instructions if provided
+    if instructions:
+        task_data["message"] = f"[Instructions]: {instructions}\n\n" + task_data.get("message", "")
+
+    # Prepend retry feedback if provided
+    if feedback:
+        task_data["message"] = f"[Feedback from prior attempt]: {feedback}\n\n" + task_data.get("message", "")
 
     # Restore user context
     from app.core.user_context import set_user_context
@@ -941,7 +963,6 @@ async def _run_delegated_agent_task(
         # Publish result to Redis so await_delegation() polling can pick it up
         if parent_task_id:
             try:
-                import json as _json
                 import redis.asyncio as aioredis
                 from app.core.config import get_config as _gc
                 _cfg = _gc()
@@ -960,6 +981,17 @@ async def _run_delegated_agent_task(
             except Exception as redis_err:
                 logger.debug(f"Redis pub/sub publish failed (non-fatal): {redis_err}")
 
+        # ── v2.5: Normalise output to uniform contract ────────────────────────
+        normalised = _normalise_agent_output(result)
+
+        # ── v2.5: Notify orchestrator if this task is part of a plan ─────────
+        if plan_id and step_id:
+            try:
+                from app.tasks.orchestrator_tasks import handle_step_completion
+                handle_step_completion.delay(plan_id, step_id, normalised)
+            except Exception as _oc_err:
+                logger.warning(f"handle_step_completion.delay failed (non-fatal): {_oc_err}")
+
         return result
     except Exception as exc:
         duration_ms = int((time.time() - start_time) * 1000)
@@ -967,6 +999,28 @@ async def _run_delegated_agent_task(
             log_id, "failed", error=str(exc), duration_ms=duration_ms
         )
         raise
+
+
+def _normalise_agent_output(result: dict, quality_estimate: float = 0.8) -> dict:
+    """Wrap agent result in the uniform output contract used by the orchestrator."""
+    return {
+        "status": "completed" if result.get("success") else "failed",
+        "result": result,
+        "summary": result.get("content", "")[:500],
+        "deliverable": _extract_deliverable(result.get("artifacts", [])),
+        "quality_score": quality_estimate,
+        "issues": [] if result.get("success") else [result.get("content", "error")],
+    }
+
+
+def _extract_deliverable(artifacts: list) -> Optional[dict]:
+    """Return the first artifact dict from the artifacts list, or None."""
+    if not artifacts or not isinstance(artifacts, list):
+        return None
+    first = artifacts[0] if artifacts else None
+    if isinstance(first, dict):
+        return first
+    return None
 
 
 async def _update_delegated_task_log(

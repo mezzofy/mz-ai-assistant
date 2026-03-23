@@ -37,6 +37,7 @@ from app.core.database import check_db_connection
 from app.core.config import load_config
 from app.api import auth, chat, files, folders, admin, llm, tasks, ms_oauth, notifications as notifications_api
 from app.api import admin_portal
+from app.api import plans as plans_api
 from app.api import linkedin as linkedin_api
 from app.api.sales_leads import router as sales_leads_router
 from app.webhooks import webhooks, scheduler as scheduler_router
@@ -172,6 +173,7 @@ app.include_router(sales_leads_router)
 app.include_router(linkedin_api.router,     prefix="/linkedin")
 app.include_router(notifications_api.router, prefix="/notifications")
 app.include_router(admin_portal.router, prefix="/api/admin-portal", tags=["admin-portal"])
+app.include_router(plans_api.router,    prefix="/api",              tags=["plans"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

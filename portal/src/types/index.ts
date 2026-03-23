@@ -172,3 +172,40 @@ export interface ActiveTask {
   completed_at?: string | null
   error?: string | null
 }
+
+export interface Plan {
+  plan_id: string
+  goal: string
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
+  steps_total: number
+  steps_completed: number
+  agents: string[]
+  created_at: string
+  completed_at?: string
+  duration_ms?: number
+}
+
+export interface PlanStep {
+  step_id: string
+  step_number: number
+  agent_id: string
+  description: string
+  status: string
+  quality_score?: number
+  summary?: string
+  issues?: string[]
+  review?: Record<string, unknown>
+  retry_count: number
+  started_at?: string
+  completed_at?: string
+  instructions?: string
+  output?: Record<string, unknown>
+}
+
+export interface PlanDetail extends Plan {
+  steps: PlanStep[]
+  shared_context?: Record<string, unknown>
+  final_output?: string
+  goal_summary?: string
+  execution_mode?: string
+}

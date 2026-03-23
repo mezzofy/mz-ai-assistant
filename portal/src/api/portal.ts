@@ -1,4 +1,23 @@
 import client from './client'
+import type { Plan, PlanDetail, PlanStep } from '../types'
+
+export async function getPlans(userId?: string, status?: string, limit = 20): Promise<Plan[]> {
+  const params: Record<string, unknown> = { limit }
+  if (userId) params.user_id = userId
+  if (status) params.status = status
+  const res = await client.get('/api/plans', { params })
+  return res.data
+}
+
+export async function getPlanDetail(planId: string): Promise<PlanDetail> {
+  const res = await client.get(`/api/plans/${planId}`)
+  return res.data
+}
+
+export async function getPlanStep(planId: string, stepId: string): Promise<PlanStep> {
+  const res = await client.get(`/api/plans/${planId}/steps/${stepId}`)
+  return res.data
+}
 
 export const portalApi = {
   // Dashboard

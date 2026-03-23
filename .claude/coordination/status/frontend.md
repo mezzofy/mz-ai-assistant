@@ -1,4 +1,58 @@
 # Context Checkpoint: Frontend Agent
+**Date:** 2026-03-23
+**Session:** 12 — CR Orchestrator Upgrade v2.5 Task 8
+
+## Completed This Session (Session 12)
+
+### Task 8 — "Agent Plans" Tab (CR-orchestrator-upgrade-v2.5)
+
+**Types added to `portal/src/types/index.ts`:**
+- `Plan` — plan_id, goal, status, steps_total, steps_completed, agents, created_at, completed_at, duration_ms
+- `PlanStep` — step_id, step_number, agent_id, description, status, quality_score, summary, issues, review, retry_count, started_at, completed_at, instructions, output
+- `PlanDetail extends Plan` — steps[], shared_context, final_output, goal_summary, execution_mode
+
+**API functions added to `portal/src/api/portal.ts`:**
+- `getPlans(userId?, status?, limit)` → GET /api/plans
+- `getPlanDetail(planId)` → GET /api/plans/{planId}
+- `getPlanStep(planId, stepId)` → GET /api/plans/{planId}/steps/{stepId}
+
+**"Agent Plans" tab added to `portal/src/pages/BackgroundTasksPage.tsx`:**
+- Tab type extended: 'active' | 'scheduled' | 'plans'
+- PlanStatusBadge: PENDING (grey) | IN_PROGRESS (pulsing orange) | COMPLETED (black ✓) | FAILED (red ✗)
+- StepIcon: CheckCircle (completed) | ArrowRight (in progress) | RotateCcw (retrying) | Clock (pending) | AlertCircle (failed)
+- qualityDot: ≥0.8 green, ≥0.6 orange, <0.6 red
+- ExpandSection: collapsible inline sections
+- PlanStepRow: step timeline with icon, agent name, description, retry badge, quality dot, expandable Output + Review
+- PlanDetailPanel: full plan detail, step timeline, final output card; polls 5s while IN_PROGRESS
+- PlanRow: status badge, truncated goal (60 chars), steps fraction, agents, date, duration, progress bar, View Detail button
+- PlansTab: status filter, refresh, empty/loading/error states, expand-in-place detail, auto-polls 5s when IN_PROGRESS
+- All existing tabs (Active Tasks, Scheduled Tasks) preserved exactly
+- TypeScript: `npx tsc --noEmit` — 0 errors ✅
+
+## Files Modified (Session 12)
+- `portal/src/types/index.ts` (modified — Plan, PlanStep, PlanDetail appended after ActiveTask)
+- `portal/src/api/portal.ts` (modified — getPlans, getPlanDetail, getPlanStep added as standalone exports)
+- `portal/src/pages/BackgroundTasksPage.tsx` (modified — full rewrite preserving existing code, adds Plans tab)
+
+## Deviations from Spec
+- None. All spec requirements implemented.
+- Part A and Part B completed in single session (spec estimated 2 sessions).
+- Detail view is expand-in-place (spec said "slide-over or expand-in-place" — expand-in-place chosen for mobile-first consistency).
+
+## Quality Gate
+- [x] Plan, PlanDetail, PlanStep types in types/index.ts
+- [x] getPlans, getPlanDetail, getPlanStep in portal.ts
+- [x] "Agent Plans" tab — list view works
+- [x] Status badges correct colors (pulsing orange IN_PROGRESS)
+- [x] Progress bar shows completion fraction
+- [x] View Detail: step timeline with ✓/→/○/✗/↻ icons
+- [x] View Output + View Review expandable
+- [x] Auto-refresh 5s polling for IN_PROGRESS
+- [x] Existing tabs not broken
+- [x] No TypeScript errors
+
+---
+
 **Date:** 2026-03-22
 **Session:** 11
 

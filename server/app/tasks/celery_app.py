@@ -24,6 +24,7 @@ celery_app = Celery(
     # Task modules auto-discovered; explicit list avoids scanning all app/
     include=[
         "app.tasks.tasks",
+        "app.tasks.orchestrator_tasks",
         "app.tasks.webhook_tasks",
         "app.tasks.sales_lead_tasks",
     ],

@@ -384,210 +384,37 @@ class ManagementAgent(BaseAgent):
 
     async def plan_and_orchestrate(self, task: dict) -> dict:
         """
-        Orchestrate a multi-agent task plan.
+        v2.5: Thin dispatcher — delegates full orchestration to PlanManager +
+        orchestrator_tasks Celery pipeline.
 
-        Step 1 — Plan decomposition: LLM breaks down the task into sub-tasks,
-                  each assigned to the most capable specialist agent.
-        Step 2 — Log the plan in agent_task_log.
-        Step 3 — Execute plan: parallel steps fire-and-forget; sequential
-                  steps are awaited before the next step runs.
-        Step 4 — Synthesise: collect all sub-task result_summaries via LLM.
-        Step 5 — Deliver: Teams #management + email to requestor.
-
-        Returns the synthesised executive summary.
+        Creates an ExecutionPlan via PlanManager (Claude API decomposes the goal),
+        fires execute_plan_task.delay() and returns immediately. The user receives
+        WebSocket progress notifications as each step completes, and a final
+        synthesised response when all steps are done.
         """
+        from app.orchestrator.plan_manager import plan_manager
         from app.agents.agent_registry import agent_registry as _registry
-        message = task.get("message", "")
-        user_id = task.get("user_id", "")
 
-        # ── Step 1: LLM decomposes task ───────────────────────────────────────
         active_agents = _registry.all_active()
-        agent_summary = [
-            {"id": a["id"], "department": a["department"],
-             "skills": a.get("skills", [])}
-            for a in active_agents
-        ]
-
-        today = date.today().strftime("%Y-%m-%d")
-        decompose_prompt = (
-            f"You are the Management Agent (orchestrator) for Mezzofy.\n"
-            f"Today is {today}.\n\n"
-            f"Break down this task into sub-tasks, each assigned to exactly one "
-            f"specialist agent. Return ONLY valid JSON — an array of objects:\n"
-            f'[{{"step": 1, "agent_id": "agent_sales", "task_description": "...", '
-            f'"depends_on_step": null}}, ...]\n\n'
-            f"Available agents:\n{agent_summary}\n\n"
-            f"Task: {message}"
+        plan = await plan_manager.create_plan(
+            goal=task.get("message", ""),
+            user_id=task.get("user_id", ""),
+            session_id=task.get("session_id", ""),
+            task=task,
+            available_agents=active_agents,
         )
 
-        plan_json = []
-        try:
-            llm_result = await llm_mod.get().chat(
-                messages=[{"role": "user", "content": decompose_prompt}],
-                task_context=task,
-            )
-            import json as _json
-            raw = llm_result.get("content", "[]")
-            # Extract JSON array from the response
-            start = raw.find("[")
-            end = raw.rfind("]") + 1
-            if start >= 0 and end > start:
-                plan_json = _json.loads(raw[start:end])
-        except Exception as e:
-            logger.warning(f"plan_and_orchestrate: LLM decomposition failed: {e}")
-            # Fallback: return as KPI dashboard workflow
-            return await self._kpi_dashboard_workflow(task)
+        # Fire-and-forget: Celery takes over the full PLAN→DELEGATE→AGGREGATE cycle
+        from app.tasks.orchestrator_tasks import execute_plan_task
+        execute_plan_task.delay(plan.plan_id)
 
-        if not plan_json or not isinstance(plan_json, list):
-            logger.info("plan_and_orchestrate: empty plan, falling back to KPI workflow")
-            return await self._kpi_dashboard_workflow(task)
-
-        # ── Step 2: Log the plan ──────────────────────────────────────────────
-        orchestration_task_id = await self.log_task_start(task)
-        if orchestration_task_id:
-            try:
-                import json as _json2
-                from app.core.database import AsyncSessionLocal
-                from sqlalchemy import text
-                async with AsyncSessionLocal() as db:
-                    await db.execute(
-                        text("""
-                            UPDATE agent_task_log
-                            SET task_plan = :plan::jsonb
-                            WHERE id = :id
-                        """),
-                        {"plan": _json2.dumps(plan_json), "id": orchestration_task_id},
-                    )
-                    await db.commit()
-            except Exception as e:
-                logger.warning(f"plan_and_orchestrate: failed to save task_plan: {e}")
-
-        # ── Step 3: Execute plan ──────────────────────────────────────────────
-        step_results: dict[int, dict] = {}
-        for step in sorted(plan_json, key=lambda s: s.get("step", 0)):
-            step_num = step.get("step", 0)
-            target_agent_id = step.get("agent_id", "")
-            task_desc = step.get("task_description", message)
-            depends_on = step.get("depends_on_step")
-
-            # Build sub-task
-            sub_task = {
-                **{k: v for k, v in task.items()
-                   if k not in ("_config", "_progress_callback")},
-                "message": task_desc,
-                "source": "agent_delegation",
-                "_requesting_agent_id": "agent_management",
-                "_parent_task_id": orchestration_task_id,
-            }
-
-            if depends_on is not None:
-                # Sequential — await the dependency's delegation result
-                prior = step_results.get(depends_on, {})
-                prior_summary = prior.get("result_summary", "")
-                if prior_summary:
-                    sub_task["message"] = (
-                        f"{task_desc}\n\nContext from prior step: {prior_summary[:500]}"
-                    )
-                delegation = await self.delegate_task(
-                    target_agent_id, sub_task, orchestration_task_id
-                )
-                if delegation.get("task_id"):
-                    awaited = await self.await_delegation(
-                        delegation["task_id"], timeout_seconds=180
-                    )
-                    step_results[step_num] = awaited
-            else:
-                # Parallel — fire and forget (no await)
-                delegation = await self.delegate_task(
-                    target_agent_id, sub_task, orchestration_task_id
-                )
-                step_results[step_num] = {"task_id": delegation.get("task_id", ""), "status": "queued"}
-
-        # ── Step 4a: Collect results from parallel (fire-and-forget) steps ──────
-        # Parallel steps were queued without awaiting. Resolve them now so the
-        # synthesis has complete data. Use a shorter timeout since sequential
-        # steps have already consumed most of the budget.
-        import asyncio as _asyncio
-        parallel_task_ids = [
-            (step_num, info["task_id"])
-            for step_num, info in step_results.items()
-            if info.get("status") == "queued" and info.get("task_id")
-        ]
-        if parallel_task_ids:
-            parallel_results = await _asyncio.gather(
-                *[
-                    self.await_delegation(task_id, timeout_seconds=180)
-                    for _, task_id in parallel_task_ids
-                ],
-                return_exceptions=True,
-            )
-            for (step_num, _), result in zip(parallel_task_ids, parallel_results):
-                if isinstance(result, Exception):
-                    step_results[step_num] = {
-                        "status": "failed",
-                        "result_summary": "",
-                        "error": str(result),
-                    }
-                else:
-                    step_results[step_num] = result
-
-        # ── Step 4b: Synthesise results ───────────────────────────────────────
-        # Build per-step lines, distinguishing success / failed / still-pending
-        synthesis_lines = []
-        for k, v in sorted(step_results.items()):
-            status = v.get("status", "unknown")
-            if status == "completed" and v.get("result_summary"):
-                synthesis_lines.append(f"Step {k} [completed]: {v['result_summary']}")
-            elif status == "failed":
-                err = v.get("error") or v.get("error_message") or "unknown error"
-                synthesis_lines.append(f"Step {k} [FAILED]: {err}")
-            elif v.get("result_summary"):
-                synthesis_lines.append(f"Step {k}: {v['result_summary']}")
-            else:
-                synthesis_lines.append(f"Step {k} [in progress — results pending]")
-
-        completed_summaries = synthesis_lines
-        synthesis_content = ""
-        if completed_summaries:
-            synthesis_prompt = (
-                f"You are the COO of Mezzofy. Synthesise these sub-task results "
-                f"into a single executive summary (max 500 words):\n\n"
-                + "\n".join(completed_summaries)
-            )
-            try:
-                synth_result = await llm_mod.get().chat(
-                    messages=[{"role": "user", "content": synthesis_prompt}],
-                    task_context=task,
-                )
-                synthesis_content = synth_result.get("content", "")
-            except Exception as e:
-                logger.warning(f"plan_and_orchestrate: synthesis LLM failed: {e}")
-                synthesis_content = "\n".join(completed_summaries)
-        else:
-            synthesis_content = (
-                f"Orchestration plan dispatched to {len(plan_json)} specialist agents. "
-                f"Results will be delivered when sub-tasks complete."
-            )
-
-        # ── Step 5: Deliver ───────────────────────────────────────────────────
-        try:
-            await self._deliver_to_teams(
-                channel="#management",
-                message=f"🤖 Orchestrated Task Complete\n\n{synthesis_content[:500]}",
-            )
-        except Exception as e:
-            logger.warning(f"plan_and_orchestrate: Teams delivery failed: {e}")
-
-        # Update log: completed
-        if orchestration_task_id:
-            await self.log_task_complete(
-                orchestration_task_id,
-                {"content": synthesis_content, "artifacts": []},
-            )
-
+        # Return immediately — user will receive WS updates as steps complete
         return self._ok(
-            content=synthesis_content,
-            tools_called=["plan_and_orchestrate", "delegate_task"],
+            content=(
+                f"I'm working on that. I'll send you updates as each step completes. "
+                f"Plan ID: {plan.plan_id}"
+            ),
+            tools_called=["plan_and_orchestrate"],
         )
 
     def _extract_date_range(self, message: str) -> str:
