@@ -472,7 +472,7 @@ class PPTXOps(BaseTool):
             # Step 1: soffice PPTX → PDF
             result = subprocess.run(
                 [_SOFFICE, "--headless", "--norestore", "--nofirststartwizard",
-                 f"--env:UserInstallation={lo_profile}",
+                 f"-env:UserInstallation={lo_profile}",
                  "--convert-to", "pdf", "--outdir", tmp, pptx_path],
                 check=True, capture_output=True, env=_ENV
             )

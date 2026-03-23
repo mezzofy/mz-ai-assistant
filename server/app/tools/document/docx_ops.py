@@ -308,7 +308,7 @@ class DocxOps(BaseTool):
             lo_profile = f"file://{tmp}/lo_profile"
             result = subprocess.run(
                 [_SOFFICE, "--headless", "--norestore", "--nofirststartwizard",
-                 f"--env:UserInstallation={lo_profile}",
+                 f"-env:UserInstallation={lo_profile}",
                  "--convert-to", "pdf", "--outdir", tmp, docx_path],
                 check=True, capture_output=True, env=_ENV
             )
