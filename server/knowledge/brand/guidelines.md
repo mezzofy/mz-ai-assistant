@@ -199,9 +199,29 @@ function addFooter(slide, color = "AAAAAA") {
 }
 ```
 
+### python-pptx Fallback — Brand Constants
+```python
+# Use these when generating with python-pptx (fallback path)
+ORANGE       = "F97316"   # pptx hex — no leading #
+BLACK        = "000000"
+WHITE        = "FFFFFF"
+LIGHT_ORANGE = "FEF3EA"
+GREY         = "888888"
+FONT_FACE    = "Inter"
+
+from pptx.util import Pt, Inches
+from pptx.dml.color import RGBColor
+
+def rgb(hex_str):
+    """Convert 6-char hex string to RGBColor."""
+    return RGBColor(int(hex_str[0:2],16), int(hex_str[2:4],16), int(hex_str[4:6],16))
+```
+Apply the same colours and font face from the slide inventory above.
+Slide size: `prs.slide_width = Inches(13.33); prs.slide_height = Inches(7.50)`
+
 ### QA Loop (PPTX)
 ```bash
-python scripts/office/soffice.py --headless --convert-to pdf output.pptx
+soffice --headless --norestore --env:UserInstallation=file:///tmp/lo_qa --convert-to pdf output.pptx
 rm -f slide-*.jpg
 pdftoppm -jpeg -r 150 output.pdf slide
 ls -1 "$PWD"/slide-*.jpg
@@ -373,16 +393,40 @@ function makeTable(headers, rows) {
 }
 ```
 
+### python-docx Fallback — Brand Constants
+```python
+# Use these when generating with python-docx (fallback path)
+from docx.shared import Pt, Inches, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
+
+ORANGE       = RGBColor(0xF9, 0x73, 0x16)
+BLACK        = RGBColor(0x00, 0x00, 0x00)
+WHITE        = RGBColor(0xFF, 0xFF, 0xFF)
+LIGHT_ORANGE = RGBColor(0xFE, 0xF3, 0xEA)
+GREY         = RGBColor(0x88, 0x88, 0x88)
+FONT_NAME    = "Arial"
+
+# Page margins: all 1.0"
+# H1/H2 colour: ORANGE, bold
+# Table header fill: F97316 (ShadingType.CLEAR, NOT SOLID)
+# Table alternating rows: FFFFFF / FEF3EA
+```
+
 ### QA Loop (DOCX)
 ```bash
 # 1. Structural validation
-python scripts/office/validate.py output.docx
+python - <<'EOF'
+from docx import Document
+doc = Document("output.docx")
+print(f"OK — {len(doc.paragraphs)} paragraphs, {len(doc.tables)} tables, {len(doc.sections)} sections")
+EOF
 
 # 2. Check for placeholder text
 python -m markitdown output.docx | grep -iE "lorem|ipsum|TODO|xxx|\[insert"
 
 # 3. Visual inspection
-python scripts/office/soffice.py --headless --convert-to pdf output.docx
+soffice --headless --norestore --env:UserInstallation=file:///tmp/lo_qa --convert-to pdf output.docx
 rm -f page-*.jpg && pdftoppm -jpeg -r 150 output.pdf page
 ls -1 "$PWD"/page-*.jpg
 # Then: view each page-N.jpg
@@ -504,6 +548,9 @@ python scripts/recalc.py output.xlsx
 - [ ] Total rows: black background (`FF000000`), white bold text
 - [ ] Sheet tabs: descriptive Title Case — not "Sheet1", "Sheet2"
 - [ ] `freeze_panes = "A2"` on all data sheets
+- [ ] `freeze_panes = "A2"` applied on every data sheet — scroll down to verify header stays visible
+- [ ] Sheet tab names are descriptive Title Case — not "Sheet1", "Sheet2", "Sheet3"
+- [ ] Column widths explicitly set — no column at default 8.43 units width
 
 ---
 
@@ -711,3 +758,17 @@ Check every page for:
 | No `data_only=True` when saving a workbook — destroys all formulas | XLSX |
 | No Comic Sans, Times New Roman, or decorative fonts | All |
 | No low-resolution images or clipart | All |
+
+---
+
+## 9. Integration Note
+
+This file is loaded at runtime by `app/llm/llm_manager.py → _load_brand_guidelines_text()`
+and injected into the system prompt for every `generate_document_with_skill()` call
+(Anthropic Skills API for pptx / docx / xlsx / pdf).
+
+When editing this file:
+- Keep measurements exact — the AI uses these values directly in code
+- Code examples are authoritative — the AI copies them, not just reads them
+- JavaScript examples apply to the Anthropic Skills sandbox (pptxgenjs / docx.js)
+- Python examples apply to the local fallback path (python-pptx / python-docx / openpyxl / reportlab)

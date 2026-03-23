@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """XLSX formula recalculation checker — verifies no #REF!, #VALUE!, #NAME? errors."""
+import json
 import sys
 import openpyxl
 
@@ -7,6 +8,7 @@ import openpyxl
 def recalc_check(xlsx_path: str) -> bool:
     """
     Open an XLSX file in data_only mode and scan all cells for formula errors.
+    Prints JSON result to stdout.
     Returns True if no errors found, False otherwise.
     """
     wb = openpyxl.load_workbook(xlsx_path, data_only=True)
@@ -17,11 +19,9 @@ def recalc_check(xlsx_path: str) -> bool:
                 if isinstance(cell.value, str) and cell.value.startswith("#"):
                     errors.append(f"{sheet.title}!{cell.coordinate}: {cell.value}")
     if errors:
-        print("XLSX formula errors found:")
-        for e in errors:
-            print(f"  {e}")
+        print(json.dumps({"status": "error", "total_errors": len(errors), "errors": errors}))
         return False
-    print(f"XLSX OK — no formula errors in {xlsx_path}")
+    print(json.dumps({"status": "success", "total_errors": 0}))
     return True
 
 
