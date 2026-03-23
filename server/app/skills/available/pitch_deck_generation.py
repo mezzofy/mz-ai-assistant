@@ -60,11 +60,17 @@ class PitchDeckGenerationSkill:
                 include_case_studies=include_case_studies,
             )
 
+            # Map {title, content} → {type, heading, body} expected by create_pptx
+            slides = [
+                {"type": "content", "heading": s["title"], "body": s["content"]}
+                for s in sections
+            ]
+
             # Delegate PPTX creation to PptxOps
             result = await self._pptx.execute(
-                "create_presentation",
+                "create_pptx",
                 title=f"Mezzofy — {customer_name}",
-                sections=sections,
+                slides=slides,
             )
             logger.info(
                 f"PitchDeckGenerationSkill.create_pitch_deck: "
