@@ -332,12 +332,6 @@ def _orchestrator_review(plan_id: str, step_id: str) -> dict:
         "Be lenient on first attempt."
     )
 
-    try:
-        from app.core.database import engine
-        engine.sync_engine.dispose()
-    except Exception:
-        pass
-
     review_result = asyncio.run(_call_claude_for_review(review_prompt))
 
     # Save review to step
@@ -482,12 +476,6 @@ def orchestrator_synthesise(plan_id: str):
         "Rules: No raw JSON. No 'step_1' references. Brand voice: direct, results-focused."
     )
 
-    try:
-        from app.core.database import engine
-        engine.sync_engine.dispose()
-    except Exception:
-        pass
-
     final_response = asyncio.run(_call_claude_synthesis(synthesis_prompt))
 
     # Persist final state
@@ -500,12 +488,6 @@ def orchestrator_synthesise(plan_id: str):
     _send_ws_to_user(plan.user_id, plan.session_id, final_response, deliverables)
 
     # Append to conversation history
-    try:
-        from app.core.database import engine as _eng
-        _eng.sync_engine.dispose()
-    except Exception:
-        pass
-
     try:
         asyncio.run(_append_to_conversation(plan.session_id, final_response, plan_id, deliverables))
     except Exception as e:
