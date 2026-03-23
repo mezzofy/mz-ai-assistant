@@ -146,6 +146,15 @@ class PPTXOps(BaseTool):
                             "enum": ["user", "department", "company"],
                             "default": "user",
                         },
+                        "template": {
+                            "type": "string",
+                            "description": (
+                                "Template name to apply ('default', 'pitch_deck', 'quarterly_review'). "
+                                "The template must exist in knowledge/templates/pptx/. "
+                                "Falls back to blank branded style if omitted or not found."
+                            ),
+                            "enum": ["default", "pitch_deck", "quarterly_review"],
+                        },
                     },
                     "required": ["title", "slides"],
                 },
@@ -176,6 +185,11 @@ class PPTXOps(BaseTool):
         from pptx.dml.color import RGBColor
         return RGBColor(*rgb_tuple)
 
+    def _resolve_template_path(self, template_name: str) -> "Path":
+        """Resolve a .pptx template from knowledge/templates/pptx/."""
+        base = Path(__file__).parent.parent.parent.parent / "knowledge" / "templates" / "pptx"
+        return base / f"{template_name}.pptx"
+
     async def _create_pptx(
         self,
         title: str,
@@ -183,6 +197,7 @@ class PPTXOps(BaseTool):
         subtitle: Optional[str] = None,
         filename: Optional[str] = None,
         storage_scope: str = "user",
+        template: Optional[str] = None,
     ) -> dict:
         """Generate a branded PPTX presentation."""
         try:
@@ -200,10 +215,18 @@ class PPTXOps(BaseTool):
 
         output_path = self._resolve_output_dir(storage_scope) / f"{filename}.pptx"
 
-        prs = Presentation()
-        # Widescreen 16:9
-        prs.slide_width = Inches(13.33)
-        prs.slide_height = Inches(7.5)
+        template_path = self._resolve_template_path(template) if template else None
+        _using_template = template_path is not None and template_path.exists()
+        if _using_template:
+            prs = Presentation(str(template_path))
+            logger.info(f"Loaded PPTX template: {template_path.name}")
+        else:
+            if template:
+                logger.warning(f"PPTX template '{template}' not found, using blank style")
+            prs = Presentation()
+            # Widescreen 16:9
+            prs.slide_width = Inches(13.33)
+            prs.slide_height = Inches(7.5)
 
         slide_layouts = prs.slide_layouts
 
@@ -235,10 +258,11 @@ class PPTXOps(BaseTool):
         cover_layout = slide_layouts[6]  # Blank
         cover_slide = prs.slides.add_slide(cover_layout)
 
-        # Background
-        bg = cover_slide.background.fill
-        bg.solid()
-        bg.fore_color.rgb = RGBColor(*_BLACK)
+        # Background (blank mode only — templates supply their own)
+        if not _using_template:
+            bg = cover_slide.background.fill
+            bg.solid()
+            bg.fore_color.rgb = RGBColor(*_BLACK)
 
         # Top orange bar
         _add_orange_bar(cover_slide, top_inches=0.0, height_inches=0.15)
