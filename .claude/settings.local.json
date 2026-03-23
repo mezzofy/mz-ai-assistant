@@ -87,7 +87,9 @@
       "Bash(findstr /C:\"passed\" /C:\"failed\" /C:\"error\")",
       "Bash(findstr \"passed failed\")",
       "Bash(grep -E \"\\\\.\\(py\\)$\")",
-      "Bash(gradlew.bat assembleRelease)"
+      "Bash(gradlew.bat assembleRelease)",
+      "Read(//c/Mezzofy/workspace/mz-ai-assistant/**)",
+      "Bash(echo \"temp: $TEMP\")"
     ]
   }
 }

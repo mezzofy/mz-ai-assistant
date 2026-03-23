@@ -267,6 +267,7 @@ class LegalAgent(BaseAgent):
             # If no artifact was produced, try to save contract text as DOCX / txt
             if contract_text and not artifacts:
                 docx_title = f"Contract — {message[:60]}"
+                skill_ok = False
                 try:
                     from app.llm import llm_manager as _llm_mod
                     skill_result = await _llm_mod.get().generate_document_with_skill(
@@ -287,9 +288,15 @@ class LegalAgent(BaseAgent):
                         )
                         artifacts.append(artifact)
                         tools_called.append("create_docx")
+                        skill_ok = True
                 except Exception as e:
                     logger.warning(
-                        f"LegalAgent.generate_contract DOCX skill failed (non-fatal, returning text): {e}"
+                        f"LegalAgent.generate_contract DOCX skill failed (exception): {e}"
+                    )
+
+                if not skill_ok:
+                    logger.warning(
+                        f"LegalAgent.generate_contract DOCX skill failed (non-fatal, returning text)"
                     )
                     # Return plain text — no retry, no second LLM call
 

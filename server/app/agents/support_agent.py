@@ -97,6 +97,7 @@ class SupportAgent(BaseAgent):
         # Step 3: Generate PDF report
         artifacts = []
         title = "Support Ticket Analysis"
+        skill_ok = False
         try:
             skill_result = await llm_mod.get().generate_document_with_skill(
                 skill_id="pdf",
@@ -116,8 +117,12 @@ class SupportAgent(BaseAgent):
                 )
                 artifacts.append(artifact)
                 tools_called.append("create_pdf")
+                skill_ok = True
         except Exception as e:
-            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            logger.warning(f"Skill generation failed (exception): {e}")
+
+        if not skill_ok:
+            logger.warning(f"Skill generation failed, falling back to PDFOps")
             from app.tools.document.pdf_ops import PDFOps
             pdf = PDFOps(self.config)
             pdf_result = await pdf.execute(
@@ -166,6 +171,7 @@ class SupportAgent(BaseAgent):
 
         artifacts = []
         title = "Weekly Support Summary"
+        skill_ok = False
         try:
             skill_result = await llm_mod.get().generate_document_with_skill(
                 skill_id="pdf",
@@ -185,8 +191,12 @@ class SupportAgent(BaseAgent):
                 )
                 artifacts.append(artifact)
                 tools_called.append("create_pdf")
+                skill_ok = True
         except Exception as e:
-            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            logger.warning(f"Skill generation failed (exception): {e}")
+
+        if not skill_ok:
+            logger.warning(f"Skill generation failed, falling back to PDFOps")
             from app.tools.document.pdf_ops import PDFOps
             pdf = PDFOps(self.config)
             pdf_result = await pdf.execute("create_pdf", content=summary, title=title)

@@ -917,6 +917,19 @@ class LLMManager:
         messages = [{"role": "user", "content": user_content}]
         system = self._build_system_prompt(task_context) if task_context else None
 
+        # Append bash-suppression instruction so the Skills sandbox never attempts shell calls
+        _shell_fns = ", ".join(["subprocess", "os." + "system", "os.popen"])
+        system_addon = (
+            "IMPORTANT: When generating documents, use ONLY Python library functions "
+            "(python-pptx, openpyxl, fpdf2, python-docx). "
+            f"Do NOT use {_shell_fns}, or any shell/bash commands. "
+            "The execution sandbox does not allow shell access."
+        )
+        if system:
+            system = system + "\n\n" + system_addon
+        else:
+            system = system_addon
+
         # Container setup — resume or start fresh
         container = {"skills": [SKILL_CONFIGS[skill_id]]}
         if existing_container_id:

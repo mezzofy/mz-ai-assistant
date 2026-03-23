@@ -76,6 +76,7 @@ class MarketingAgent(BaseAgent):
             # Step 2: For playbooks → generate PDF
             if content_type == "playbook":
                 pdf_title = "Mezzofy Playbook"
+                skill_ok = False
                 try:
                     skill_result = await llm_mod.get().generate_document_with_skill(
                         skill_id="pdf",
@@ -95,8 +96,12 @@ class MarketingAgent(BaseAgent):
                         )
                         artifacts.append(artifact)
                         tools_called.append("create_pdf")
+                        skill_ok = True
                 except Exception as e:
-                    logger.warning(f"Skill PDF generation failed, falling back to PDFOps: {e}")
+                    logger.warning(f"Skill PDF generation failed (exception): {e}")
+
+                if not skill_ok:
+                    logger.warning(f"Skill PDF generation failed, falling back to PDFOps")
                     from app.tools.document.pdf_ops import PDFOps
                     pdf_ops = PDFOps(self.config)
                     pdf_result = await pdf_ops.execute(
@@ -115,6 +120,7 @@ class MarketingAgent(BaseAgent):
             # Step 3: For website copy → save as .docx
             if content_type == "website":
                 docx_title = "Website Copy"
+                skill_ok = False
                 try:
                     skill_result = await llm_mod.get().generate_document_with_skill(
                         skill_id="docx",
@@ -134,8 +140,12 @@ class MarketingAgent(BaseAgent):
                         )
                         artifacts.append(artifact)
                         tools_called.append("create_document")
+                        skill_ok = True
                 except Exception as e:
-                    logger.warning(f"Skill DOCX generation failed, falling back to DocxOps: {e}")
+                    logger.warning(f"Skill DOCX generation failed (exception): {e}")
+
+                if not skill_ok:
+                    logger.warning(f"Skill DOCX generation failed, falling back to DocxOps")
                     from app.tools.document.docx_ops import DocxOps
                     docx_ops = DocxOps(self.config)
                     doc_result = await docx_ops.execute(

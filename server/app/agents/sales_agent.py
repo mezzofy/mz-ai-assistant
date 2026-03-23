@@ -167,6 +167,7 @@ class SalesAgent(BaseAgent):
         # Create pitch deck — try skill PPTX first, fall back to deck_skill
         pptx_title = f"Mezzofy Pitch Deck — {customer_name}"
         artifacts = []
+        skill_ok = False
         try:
             research_summary = research_result.get("output", "") if isinstance(research_result.get("output"), str) else ""
             skill_prompt = (
@@ -192,8 +193,12 @@ class SalesAgent(BaseAgent):
                 )
                 artifacts.append(artifact)
                 tools_called.append("create_pitch_deck")
+                skill_ok = True
         except Exception as e:
-            logger.warning(f"Skill PPTX generation failed, falling back to deck_skill: {e}")
+            logger.warning(f"Skill PPTX generation failed (exception): {e}")
+
+        if not skill_ok:
+            logger.warning(f"Skill PPTX generation failed, falling back to deck_skill")
             deck_result = await deck_skill.create_pitch_deck(
                 customer_name=customer_name,
                 include_pricing=True,

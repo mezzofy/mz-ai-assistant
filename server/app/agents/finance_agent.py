@@ -90,6 +90,7 @@ class FinanceAgent(BaseAgent):
             # Step 3: Generate PDF
             artifacts = []
             pdf_title = f"Financial {report_type.upper()} Report"
+            skill_ok = False
             try:
                 skill_result = await llm_mod.get().generate_document_with_skill(
                     skill_id="pdf",
@@ -108,8 +109,12 @@ class FinanceAgent(BaseAgent):
                         suggested_name=pdf_title,
                     )
                     artifacts.append(artifact)
+                    skill_ok = True
             except Exception as e:
-                logger.warning(f"Skill PDF generation failed, falling back to financial_format: {e}")
+                logger.warning(f"Skill PDF generation failed (exception): {e}")
+
+            if not skill_ok:
+                logger.warning(f"Skill PDF generation failed, falling back to financial_format")
                 format_result = await skill.financial_format(data=data, format="pdf")
                 if format_result.get("success") and format_result.get("output"):
                     artifacts.append({

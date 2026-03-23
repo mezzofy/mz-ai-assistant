@@ -213,6 +213,7 @@ class HRAgent(BaseAgent):
         # Generate PDF report
         artifacts = []
         title = "Weekly HR Summary"
+        skill_ok = False
         try:
             skill_result = await llm_mod.get().generate_document_with_skill(
                 skill_id="pdf",
@@ -232,8 +233,12 @@ class HRAgent(BaseAgent):
                 )
                 artifacts.append(artifact)
                 tools_called.append("create_pdf")
+                skill_ok = True
         except Exception as e:
-            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            logger.warning(f"Skill generation failed (exception): {e}")
+
+        if not skill_ok:
+            logger.warning(f"Skill generation failed, falling back to PDFOps")
             from app.tools.document.pdf_ops import PDFOps
             pdf = PDFOps(self.config)
             pdf_result = await pdf.execute(
@@ -301,6 +306,7 @@ class HRAgent(BaseAgent):
 
         artifacts = []
         title = "Monthly Headcount Report"
+        skill_ok = False
         try:
             skill_result = await llm_mod.get().generate_document_with_skill(
                 skill_id="pdf",
@@ -320,8 +326,12 @@ class HRAgent(BaseAgent):
                 )
                 artifacts.append(artifact)
                 tools_called.append("create_pdf")
+                skill_ok = True
         except Exception as e:
-            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            logger.warning(f"Skill generation failed (exception): {e}")
+
+        if not skill_ok:
+            logger.warning(f"Skill generation failed, falling back to PDFOps")
             from app.tools.document.pdf_ops import PDFOps
             pdf = PDFOps(self.config)
             pdf_result = await pdf.execute(
@@ -378,6 +388,7 @@ class HRAgent(BaseAgent):
 
         artifacts = []
         title = f"Onboarding Checklist — {employee_name}"
+        skill_ok = False
         try:
             skill_result = await llm_mod.get().generate_document_with_skill(
                 skill_id="pdf",
@@ -397,8 +408,12 @@ class HRAgent(BaseAgent):
                 )
                 artifacts.append(artifact)
                 tools_called.append("create_pdf")
+                skill_ok = True
         except Exception as e:
-            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            logger.warning(f"Skill generation failed (exception): {e}")
+
+        if not skill_ok:
+            logger.warning(f"Skill generation failed, falling back to PDFOps")
             from app.tools.document.pdf_ops import PDFOps
             pdf = PDFOps(self.config)
             pdf_result = await pdf.execute(
@@ -456,6 +471,7 @@ class HRAgent(BaseAgent):
 
         artifacts = []
         title = f"Offboarding Summary — {employee_name}"
+        skill_ok = False
         try:
             skill_result = await llm_mod.get().generate_document_with_skill(
                 skill_id="pdf",
@@ -475,8 +491,12 @@ class HRAgent(BaseAgent):
                 )
                 artifacts.append(artifact)
                 tools_called.append("create_pdf")
+                skill_ok = True
         except Exception as e:
-            logger.warning(f"Skill generation failed, falling back to PDFOps: {e}")
+            logger.warning(f"Skill generation failed (exception): {e}")
+
+        if not skill_ok:
+            logger.warning(f"Skill generation failed, falling back to PDFOps")
             from app.tools.document.pdf_ops import PDFOps
             pdf = PDFOps(self.config)
             pdf_result = await pdf.execute(
