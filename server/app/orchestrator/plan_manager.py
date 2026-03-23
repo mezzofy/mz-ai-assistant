@@ -77,11 +77,29 @@ class PlanManager:
     INDEX_KEY = "mz:plan:index"
 
     def __init__(self):
+        import os
         import redis as _redis
+        from urllib.parse import urlparse, urlunparse
         from app.core.config import get_config
         config = get_config()
-        redis_url = config.get("redis", {}).get("url", "redis://localhost:6379")
-        self._redis = _redis.from_url(redis_url, db=self.REDIS_DB, decode_responses=True)
+        # Prefer env var directly — config may have unresolved ${REDIS_URL} placeholder
+        redis_url = (
+            os.getenv("REDIS_URL")
+            or config.get("redis", {}).get("url", "")
+            or "redis://localhost:6379"
+        )
+        # Strip any DB path suffix (/0, /1, etc.) so the db= kwarg always wins.
+        # redis-py from_url() ignores db= kwarg when the URL path contains a DB number.
+        parsed = urlparse(redis_url)
+        base_url = urlunparse(parsed._replace(path=""))
+        self._redis = _redis.from_url(base_url, db=self.REDIS_DB, decode_responses=True)
+        # Validate connection at init time — fail loudly instead of silently later
+        try:
+            self._redis.ping()
+            logger.info(f"PlanManager connected to Redis DB{self.REDIS_DB}")
+        except Exception as e:
+            logger.error(f"PlanManager Redis DB{self.REDIS_DB} connection FAILED: {e}")
+            raise
 
     # ── Plan creation (async — calls Claude API) ───────────────────────────────
 
