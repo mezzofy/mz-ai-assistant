@@ -6,7 +6,7 @@ export async function getPlans(userId?: string, status?: string, limit = 20): Pr
   if (userId) params.user_id = userId
   if (status) params.status = status
   const res = await client.get('/api/plans', { params })
-  return res.data
+  return res.data.plans ?? []
 }
 
 export async function getPlanDetail(planId: string): Promise<PlanDetail> {

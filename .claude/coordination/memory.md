@@ -44,6 +44,7 @@
 - mz-ai-assistant: APP/ is React Native UI prototype (all mocks). Server must be built from scratch. Plan at `.claude/coordination/plans/mz-ai-assistant-server-v1.0.md`
 - mz-ai-assistant LLM strategy: Chinese text → Kimi (Moonshot moonshot-v1-128k); English → Claude (claude-sonnet-4-6); auto-failover between both
 - mz-ai-assistant DB: 9 PostgreSQL tables — users, conversations, sales_leads, artifacts, audit_log, llm_usage, email_log, scheduled_jobs, webhook_events
+- 2026-03-23: CR-orchestrator-upgrade-v2.5 deployed ✅ — Full PLAN→DELEGATE→AGGREGATE pipeline. PlanManager (Redis DB3), orchestrator_tasks.py, per-step Claude review+retry, synthesis, thin plan_and_orchestrate(), GET /api/plans endpoints, Portal "Agent Plans" tab.
 
 ---
 
