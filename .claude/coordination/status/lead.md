@@ -1,55 +1,46 @@
 # Context Checkpoint: Lead Agent
 **Date:** 2026-03-23
-**Session:** Leo Legal Agent Backend Review
-**Task:** Audit Leo implementation, quality gate, fix delegation gap
+**Session:** CR-orchestrator-upgrade-v2.5 — Full PLAN/DELEGATE/AGGREGATE
 
 ---
 
 ## Completed This Session
 
-- ✅ Audited all 8 tasks from legal-agent-backend-plan.md
-- ✅ Found all major work already done (legal_agent.py, 4x skills YAML+PY, KB, migrate.py, chat.py, agent_registry, roles.yaml)
-- ✅ Identified ONE gap: tasks.py `_AGENT_ID_MAP` missing `agent_legal`
-- ✅ Spawned Backend Agent → fixed tasks.py (added LegalAgent import + map entry + docstring)
-- ✅ Quality gate review written to `legal-agent-backend-review.md`
-- ✅ memory.md updated
+- ✅ Spawned Backend Agent — completed Tasks 1–7 (PlanManager, uniform interface, orchestrator_tasks, per-step review+retry, synthesis, thin dispatcher, plan API)
+- ✅ Spawned Frontend Agent — completed Task 8 (Agent Plans tab in BackgroundTasksPage)
+- ✅ Quality gate review written → `CR-orchestrator-upgrade-v2.5-review.md`
+- ✅ All gates PASSED — approved for deployment
 
-## Files Changed This Session
+## Files Created
+- `server/app/orchestrator/__init__.py`
+- `server/app/orchestrator/plan_manager.py` — PlanStep + ExecutionPlan dataclasses; PlanManager (Redis DB3)
+- `server/app/tasks/orchestrator_tasks.py` — execute_plan_task, chord dispatch, per-step review, synthesis, WS
+- `server/app/api/plans.py` — GET /api/plans, /api/plans/stats, /api/plans/{id}, /api/plans/{id}/steps/{step_id}
 
-- `server/app/tasks/tasks.py` — `agent_legal: LegalAgent(_config)` added to `_AGENT_ID_MAP` (line 818); import added (line 805); docstring updated (line 791)
+## Files Modified
+- `server/app/tasks/tasks.py` — uniform interface (plan_id/step_id/context extraction; _normalise_agent_output; handle_step_completion.delay hook)
+- `server/app/agents/management_agent.py` — plan_and_orchestrate() reduced to 15-line thin dispatcher
+- `server/app/tasks/celery_app.py` — orchestrator_tasks added to include list
+- `server/app/main.py` — plans_api router registered at /api
+- `portal/src/types/index.ts` — Plan, PlanStep, PlanDetail interfaces
+- `portal/src/api/portal.ts` — getPlans, getPlanDetail, getPlanStep
+- `portal/src/pages/BackgroundTasksPage.tsx` — Agent Plans tab with full plan list + detail view
 
-## Deploy Required
+## Risk Items to Watch on Deploy
+1. Celery chord requires CELERY_RESULT_BACKEND (Redis DB1) — verify before testing parallel plans
+2. WS cross-worker: uses Redis pub/sub (user:{user_id}:notifications) — verify chat.py WS handler subscribes
+3. PlanManager singleton at import time — Redis must be up before worker start
 
+## Deploy Checklist
 ```bash
-# EC2:
 git pull
-python scripts/migrate.py          # seeds agent_legal row in agents table
 sudo systemctl restart mezzofy-api.service
 sudo systemctl restart mezzofy-celery.service
+redis-cli -n 3 ping   # verify PONG
+cd portal && npm run build && sudo cp -r dist/* /var/www/mission-control/
 ```
 
-## Verification Tests
-
-**Direct routing (works before fix):**
-- Message: "draft an NDA for a software vendor in Singapore"
-- Expected: Leo generates NDA with Singapore context + legal disclaimer
-
-**Delegation routing (now works after fix):**
-- Message Max (management dept): "Compare our sales contracts with what finance uses and flag any legal risks"
-- Expected: Management Agent delegates to Leo via `delegate_task("agent_legal", ...)`
-
-**Persona routing:**
-- Message: "leo: what are the employment law requirements in Malaysia?"
-- Expected: Leo loads malaysia.md KB + responds with legal advisory + disclaimer
-
-## Next Possible Tasks
-
-- Tests for Leo (Tester agent) — `test_legal_agent.py`
-- Tests for orchestration gap fixes
-- Any new user request
-
 ## Resume Instructions
-
 After /clear, load in order:
 1. CLAUDE.md
 2. .claude/agents/lead.md
