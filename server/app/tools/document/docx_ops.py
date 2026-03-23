@@ -298,17 +298,27 @@ class DocxOps(BaseTool):
     def _qa_docx(self, docx_path: str) -> list[str]:
         """Convert DOCX → PDF via soffice, render pages → JPEG via pdftoppm, return base64 list."""
         import subprocess, base64, glob, tempfile, os
+        _SOFFICE = "/usr/bin/soffice"
+        _PDFTOPPM = "/usr/bin/pdftoppm"
+        _ENV = {
+            **os.environ,
+            "PATH": "/usr/bin:/usr/local/bin:/bin:/usr/sbin:/sbin",
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            subprocess.run(
-                ["soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp, docx_path],
-                check=True, capture_output=True
+            lo_profile = f"file://{tmp}/lo_profile"
+            result = subprocess.run(
+                [_SOFFICE, "--headless", "--norestore", "--nofirststartwizard",
+                 f"--env:UserInstallation={lo_profile}",
+                 "--convert-to", "pdf", "--outdir", tmp, docx_path],
+                check=True, capture_output=True, env=_ENV
             )
             pdf_files = glob.glob(os.path.join(tmp, "*.pdf"))
             if not pdf_files:
+                logger.warning(f"_qa_docx: soffice produced no PDF. stdout={result.stdout!r} stderr={result.stderr!r}")
                 return []
             subprocess.run(
-                ["pdftoppm", "-jpeg", "-r", "150", pdf_files[0], os.path.join(tmp, "page")],
-                check=True, capture_output=True
+                [_PDFTOPPM, "-jpeg", "-r", "150", pdf_files[0], os.path.join(tmp, "page")],
+                check=True, capture_output=True, env=_ENV
             )
             images = sorted(glob.glob(os.path.join(tmp, "page-*.jpg")))
             return [base64.b64encode(open(img, "rb").read()).decode() for img in images]

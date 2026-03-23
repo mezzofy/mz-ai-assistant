@@ -459,20 +459,32 @@ class PPTXOps(BaseTool):
     def _qa_pptx(self, pptx_path: str) -> list[str]:
         """Convert PPTX → PDF via soffice, render pages → JPEG via pdftoppm, return base64 list."""
         import subprocess, base64, glob, tempfile, os
+        # soffice needs a writable, isolated user profile — avoids lock conflicts under concurrent Celery workers
+        _SOFFICE = "/usr/bin/soffice"
+        _PDFTOPPM = "/usr/bin/pdftoppm"
+        _ENV = {
+            **os.environ,
+            "PATH": "/usr/bin:/usr/local/bin:/bin:/usr/sbin:/sbin",
+        }
         with tempfile.TemporaryDirectory() as tmp:
+            # Isolated LibreOffice user profile per call — prevents "cannot execute bash" lock conflicts
+            lo_profile = f"file://{tmp}/lo_profile"
             # Step 1: soffice PPTX → PDF
-            subprocess.run(
-                ["soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp, pptx_path],
-                check=True, capture_output=True
+            result = subprocess.run(
+                [_SOFFICE, "--headless", "--norestore", "--nofirststartwizard",
+                 f"--env:UserInstallation={lo_profile}",
+                 "--convert-to", "pdf", "--outdir", tmp, pptx_path],
+                check=True, capture_output=True, env=_ENV
             )
             pdf_files = glob.glob(os.path.join(tmp, "*.pdf"))
             if not pdf_files:
+                logger.warning(f"_qa_pptx: soffice produced no PDF. stdout={result.stdout!r} stderr={result.stderr!r}")
                 return []
             pdf_path = pdf_files[0]
             # Step 2: pdftoppm PDF → JPEG slide-N.jpg
             subprocess.run(
-                ["pdftoppm", "-jpeg", "-r", "150", pdf_path, os.path.join(tmp, "slide")],
-                check=True, capture_output=True
+                [_PDFTOPPM, "-jpeg", "-r", "150", pdf_path, os.path.join(tmp, "slide")],
+                check=True, capture_output=True, env=_ENV
             )
             # Step 3: collect and base64-encode all slide images
             images = sorted(glob.glob(os.path.join(tmp, "slide-*.jpg")))
