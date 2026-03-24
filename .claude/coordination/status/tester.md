@@ -1,101 +1,111 @@
 # Context Checkpoint: Tester Agent
-**Date:** 2026-03-22
-**Project:** mz-ai-assistant
-**Session:** title→content rename verification
-
-## Completed This Session (2026-03-22 — rename verification)
-
-### Step 1: Remaining `title` references in backend files
-- `server/app/api/tasks.py` — Clean. No title references.
-- `server/app/api/admin_portal.py` — **FOUND** one missed instance: `MAX(title)` at line 269 in SQL for `/api/admin-portal/agents/status`. Fixed to `MAX(content)`.
-- `server/app/api/chat.py` — `"task_title"` at line 327 is a dict key in task_payload, not a column reference. Safe.
-- `server/app/tasks/tasks.py` — `title=` at lines 317, 567, 582 are push notification title parameters (not column refs). Safe.
-- `server/app/context/processor.py` — Clean. No title references.
-
-### Step 2: Test file fixes
-Updated `server/tests/test_task_management.py` — 5 changes:
-- `_make_task_row` defaults: `"title"` key → `"content"`
-- `_make_task_row(... title="User A's task")` → `content=`
-- `required_fields` list: `"title"` → `"content"`
-- Concurrent task rows (lines 473–474): `title=` → `content=`
-- Retry test row (line 651): `title=` → `content=`
-
-### Step 3: Test results
-- `tests/test_task_management.py` — **26 passed**
-- Full suite (excluding infrastructure tests + admin portal): **26 passed, 1 warning**
-- Admin portal tests (excluding pre-existing Redis failure): **7 passed**
-- Pre-existing failure: `TestDeleteUser::test_delete_user_soft_deletes` — Redis `localhost:6379` refused. NOT related to rename.
-
-### Step 4: Portal TypeScript
-- `portal/src/types/index.ts` line 108: `content: string | null` — correct
-- `portal/src/pages/TasksPage.tsx` line 92: uses `t.content` — correct
-
-### Step 5: Mobile TypeScript
-- `APP/src/api/chat.ts` lines 41, 140: `content: string` — correct
-- `APP/src/screens/HistoryScreen.tsx` line 229: `Message ID:` badge — correct
-
-### Files Modified
-- `server/app/api/admin_portal.py` (fixed `MAX(title)` → `MAX(content)` in SQL)
-- `server/tests/test_task_management.py` (5 title→content fixes)
+**Date:** 2026-03-24
+**Session:** E2E agent plan cycle test
+**Context:** ~30% at checkpoint
+**Reason:** Subtask complete — E2E agent plan cycle test created
 
 ---
-
-# Previous Session: Agent roster + persona routing tests
-
-## Completed This Session (2026-03-22)
-
-### Tests created
-- `server/tests/test_agent_roster_routing.py` — **53 new tests** covering:
-  - `TestAgentPersonaMap` (12 tests): all 10 dept→persona map entries, unknown-dept fallback, entry count
-  - `TestSystemPromptRoster` (13 tests): `LLMManager._build_system_prompt()` self-identity per dept, roster header, all 10 persona names present, roster before template content, custom system_prompt bypass
-  - `TestPersonaRouting` (20 tests): `_detect_persona_routing()` — all 10 name-prefix variants (`leo:`, `rex:`, etc.), 5 directed-phrase variants, 5 false-positive safety tests (must return None)
-  - `TestDetectAgentTypeWithPersona` (8 tests): `_detect_agent_type()` persona routing priority, existing prefix routing, existing keyword routing, no-match case
-
-### Test Results
-- New test file: **53/53 passed**
-- Full suite (excluding known infra-dependent files): **501 passed, 17 failed**
-- All 17 failures confirmed **pre-existing** (Redis connection errors in test_auth.py + test_e2e_mobile.py, Outlook import errors in test_outlook_ops.py, live API call in test_integration_research_task.py) — verified via `git stash` before/after comparison
-- **Zero regressions** from the two backend changes (`llm_manager.py` + `chat.py`)
-
-### What was tested
-1. `server/app/llm/llm_manager.py` — `_AGENT_PERSONA_MAP`, `_AGENT_TEAM_ROSTER`, `_build_system_prompt()` persona injection
-2. `server/app/api/chat.py` — `_PERSONA_ROUTING`, `_PERSONA_ROUTE_VERBS`, `_detect_persona_routing()`, `_detect_agent_type()` priority order
-
-## Session Status: COMPLETE
-
----
-
-## Previous Session (2026-03-21)
 
 ## Completed This Session
 
-### Tests updated
-- `server/tests/test_input_handlers.py`
-  - Added `MagicMock` to imports
-  - `TestManagementAgentBug004.test_general_response_uses_extracted_text_when_present`: was patching `execute_with_tools`; updated to mock `chat_with_memory` (success path) and assert `tools_called=["memory"]`
-  - `TestManagementAgentBug004.test_general_response_falls_back_to_message_when_no_extracted_text`: updated to mock `chat_with_memory` raising → `execute_with_tools` called (fallback path verified)
+- Created E2E test: `server/tests/test_e2e_agent_plan_cycle.py`
+  - 5 test methods in `TestAgentPlanFullCycle` class
+  - Module-scoped `plan_result` fixture executes the full cycle once (shared across all tests)
+  - Covers: plan creation, step completion, final_output, per-step output, timing
+  - Uses `requests` (sync HTTP) — consistent with `test_e2e_pdf_chat.py` pattern
+  - Skips gracefully if `MZ_TEST_ADMIN_PASSWORD` not set
+  - `pytestmark = pytest.mark.integration`
 
-### Tests created
-- `server/tests/test_base_agent.py` — 15 new tests covering:
-  - `TestGeneralResponseSuccessPath` (5 tests): `chat_with_memory` called on success, `tools_called=["memory"]`, `text` field extraction, `content` fallback key, memory scope `user:{user_id}`, empty response default
-  - `TestGeneralResponseFallbackPath` (3 tests): `execute_with_tools` called when `chat_with_memory` raises, fallback propagates `tools_called`, `"memory"` absent from fallback result
-  - `TestSalesAgentGeneralWorkflow` (3 tests): `_general_sales_workflow` delegates to `_general_response`, full chain reaches `chat_with_memory`, `execute()` unknown message routes correctly
-  - `TestManagementAgentInheritsGeneralResponse` (2 tests): `_general_response` not in `ManagementAgent.__dict__`, resolves to `BaseAgent._general_response`
+- Created QA report template: `server/tests/results/agent-plan-cycle-report.md`
 
-## Test Count
-- **Before:** 547
-- **After:** 562 (+15 in test_base_agent.py)
+---
 
-## Test Results
-- All 133 tests across `test_base_agent.py`, `test_input_handlers.py`, `test_sales_agent.py`, `test_hr_agent.py`, `test_agent_separation.py` pass ✅
-- Pre-existing failure (unrelated): `test_admin_portal.py::TestDeleteUser::test_delete_user_soft_deletes` — Redis connection refused; confirmed failing before this session
+## API Endpoints Used (Verified from Source)
 
-## Patch Target Pattern
-`patch("app.llm.llm_manager.get", return_value=mock_llm)` + `mock_llm.chat_with_memory = AsyncMock(...)` — same pattern as existing `execute_with_tools` tests in codebase.
+| Endpoint | Purpose | Notes |
+|----------|---------|-------|
+| `POST /auth/login` | Get JWT token | `{"email": ..., "password": ...}` → `access_token` |
+| `POST /chat/send` | Trigger plan via GOAL_MESSAGE | Returns 202 with `task_id` + `session_id` |
+| `GET /api/plans?limit=10` | Find plan by goal keyword | Admin role required |
+| `GET /api/plans/{plan_id}` | Poll until COMPLETED/FAILED | Admin role required |
 
-## Key Patching Decisions
-- `chat_with_memory` patched via `app.llm.llm_manager.get()` return value (consistent with all other LLM mocking in the test suite)
-- `_build_system_prompt` mocked as `MagicMock(return_value="sys")` since it is a sync method called inside `_general_response`
-- `ManagementAgent.__dict__` introspection used to assert no `_general_response` override exists
+Router prefixes confirmed from `server/app/main.py`:
+- Chat: `prefix="/chat"` → `POST /chat/send`
+- Plans: `prefix="/api"` → `GET /api/plans`, `GET /api/plans/{plan_id}`
 
-## Session Status: COMPLETE
+---
+
+## Assumptions & Design Decisions
+
+1. **Trigger keyword:** "Research the Digital Coupon market for Singapore." contains "research"
+   which is in both `_LONG_RUNNING_KEYWORDS` and `_RESEARCH_KEYWORDS` in `chat.py`.
+   This guarantees: async Celery path (202 response) + research queue routing.
+
+2. **Plan detection:** After POST /chat/send, the plan appears in Redis DB3 asynchronously
+   (Celery task calls `PlanManager.create_plan()`). The fixture retries `GET /api/plans`
+   up to 3 times with 5s intervals to account for creation delay.
+
+3. **Polling timeout:** Default 300s (5 min), configurable via `MZ_PLAN_POLL_TIMEOUT_S`.
+   Poll interval default 10s, configurable via `MZ_PLAN_POLL_INTERVAL_S`.
+
+4. **Plan statuses:** From `ExecutionPlan` dataclass — `PENDING | IN_PROGRESS | COMPLETED | FAILED`.
+   Terminal states are `COMPLETED` and `FAILED`.
+
+5. **Step output:** The test asserts each COMPLETED step has a non-null, non-empty `output` dict.
+   The orchestrator in `orchestrator_tasks.py` is responsible for writing this.
+
+6. **Base URL:** Default is `http://3.1.255.48:8000` (EC2 public IP) but should be overridden
+   with `MZ_TEST_BASE_URL=http://localhost:8000` when running directly on EC2.
+
+---
+
+## How to Run on EC2
+
+SSH into EC2 first:
+```bash
+ssh -i mz-ai-key.pem ubuntu@3.1.255.48
+cd /home/ubuntu/mz-ai-assistant/server
+```
+
+Run the test:
+```bash
+MZ_TEST_ADMIN_PASSWORD="<password>" \
+MZ_TEST_BASE_URL="http://localhost:8000" \
+venv/bin/pytest tests/test_e2e_agent_plan_cycle.py -v -m integration 2>&1 | \
+tee tests/results/agent-plan-cycle-report.md
+```
+
+Or with custom timeout (if the plan takes longer than 5 min):
+```bash
+MZ_TEST_ADMIN_PASSWORD="<password>" \
+MZ_TEST_BASE_URL="http://localhost:8000" \
+MZ_PLAN_POLL_TIMEOUT_S="600" \
+venv/bin/pytest tests/test_e2e_agent_plan_cycle.py -v -m integration
+```
+
+Prerequisites on EC2:
+- `mezzofy-api.service` running: `systemctl status mezzofy-api.service`
+- `mezzofy-celery.service` running: `systemctl status mezzofy-celery.service`
+- Redis accessible: `redis-cli ping`
+- AgentRegistry seeded: `venv/bin/python scripts/migrate.py` (if not already run)
+
+---
+
+## Files Created
+- `server/tests/test_e2e_agent_plan_cycle.py` (new — E2E test)
+- `server/tests/results/agent-plan-cycle-report.md` (new — QA report template)
+
+## Files Read (for reference, not modified)
+- `server/tests/test_e2e_pdf_chat.py` (pattern reference)
+- `server/app/api/plans.py` (endpoint routes + response structure)
+- `server/app/api/chat.py` (send endpoint, keyword detection, 202 response format)
+- `server/app/orchestrator/plan_manager.py` (ExecutionPlan/PlanStep dataclasses, statuses)
+- `server/app/main.py` (router prefix confirmation via grep)
+
+## Resume Instructions
+No resume needed — task is complete.
+If further tests are needed, load:
+1. CLAUDE.md
+2. .claude/agents/tester.md
+3. This checkpoint file
+4. server/tests/test_e2e_agent_plan_cycle.py
