@@ -43,6 +43,9 @@ async def list_plans(
     Supports pagination via limit and offset.
     """
     from app.orchestrator.plan_manager import plan_manager
+    from app.core.database import engine
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy import text
 
     try:
         plans = plan_manager.list_plans(user_id=user_id, limit=limit + offset)
@@ -59,6 +62,45 @@ async def list_plans(
 
     # Apply offset
     plans = plans[offset:]
+
+    # Batch-fetch token totals from llm_usage for all plans with a session_id
+    token_map: dict = {}
+    session_ids = [p["session_id"] for p in plans if p.get("session_id")]
+    if session_ids:
+        try:
+            async with AsyncSession(engine) as db_session:
+                token_result = await db_session.execute(
+                    text("""
+                        SELECT
+                            session_id,
+                            COALESCE(SUM(input_tokens), 0)                            AS input_tokens,
+                            COALESCE(SUM(output_tokens), 0)                           AS output_tokens,
+                            COALESCE(SUM(input_tokens + output_tokens), 0)            AS total_tokens,
+                            STRING_AGG(DISTINCT model, ', ' ORDER BY model)           AS llm_model
+                        FROM llm_usage
+                        WHERE session_id = ANY(:session_ids)
+                        GROUP BY session_id
+                    """),
+                    {"session_ids": session_ids},
+                )
+                for tr in token_result.fetchall():
+                    token_map[tr.session_id] = {
+                        "input_tokens": int(tr.input_tokens),
+                        "output_tokens": int(tr.output_tokens),
+                        "total_tokens": int(tr.total_tokens),
+                        "llm_model": tr.llm_model,
+                    }
+        except Exception as e:
+            logger.warning(f"list_plans: failed to fetch token totals: {e}")
+
+    # Merge token totals into each plan dict
+    for plan in plans:
+        sid = plan.get("session_id")
+        tok = token_map.get(sid, {}) if sid else {}
+        plan["total_tokens"] = tok.get("total_tokens", 0)
+        plan["input_tokens"] = tok.get("input_tokens", 0)
+        plan["output_tokens"] = tok.get("output_tokens", 0)
+        plan["llm_model"] = tok.get("llm_model")
 
     return {
         "plans": plans,

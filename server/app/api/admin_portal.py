@@ -1276,7 +1276,7 @@ async def list_tasks(
     result = await db.execute(
         text(f"""
             SELECT
-                t.id, t.task_ref, t.content, t.status, t.department,
+                t.id, t.task_ref, t.session_id, t.content, t.status, t.department,
                 t.progress, t.current_step,
                 t.created_at, t.started_at, t.completed_at,
                 EXTRACT(EPOCH FROM (t.completed_at - t.started_at)) * 1000 AS duration_ms,
@@ -1304,10 +1304,39 @@ async def list_tasks(
     )
     total = count_result.scalar() or 0
 
+    # Batch-fetch token totals from llm_usage for all tasks in this page
+    token_map: dict = {}
+    task_ids = [str(r.id) for r in rows]
+    if task_ids:
+        token_result = await db.execute(
+            text("""
+                SELECT
+                    at.id                                                          AS task_id,
+                    COALESCE(SUM(lu.input_tokens), 0)                             AS input_tokens,
+                    COALESCE(SUM(lu.output_tokens), 0)                            AS output_tokens,
+                    COALESCE(SUM(lu.input_tokens + lu.output_tokens), 0)          AS total_tokens,
+                    STRING_AGG(DISTINCT lu.model, ', ' ORDER BY lu.model)         AS llm_model
+                FROM agent_tasks at
+                LEFT JOIN llm_usage lu ON lu.session_id = at.session_id
+                WHERE at.id = ANY(:task_ids)
+                GROUP BY at.id
+            """),
+            {"task_ids": task_ids},
+        )
+        for tr in token_result.fetchall():
+            token_map[str(tr.task_id)] = {
+                "input_tokens": int(tr.input_tokens),
+                "output_tokens": int(tr.output_tokens),
+                "total_tokens": int(tr.total_tokens),
+                "llm_model": tr.llm_model,
+            }
+
     tasks = []
     for r in rows:
+        tid = str(r.id)
+        tok = token_map.get(tid, {})
         tasks.append({
-            "id": str(r.id),
+            "id": tid,
             "task_ref": r.task_ref,
             "content": r.content,
             "status": r.status,
@@ -1322,6 +1351,10 @@ async def list_tasks(
             "triggered_by_email": r.triggered_by_email,
             "triggered_by_name": r.triggered_by_name,
             "details": r.details if isinstance(r.details, (dict, list, type(None))) else None,
+            "total_tokens": tok.get("total_tokens", 0),
+            "input_tokens": tok.get("input_tokens", 0),
+            "output_tokens": tok.get("output_tokens", 0),
+            "llm_model": tok.get("llm_model"),
         })
 
     return {

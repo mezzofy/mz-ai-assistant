@@ -119,6 +119,10 @@ export interface AgentTask {
   triggered_by_email: string | null
   triggered_by_name: string | null
   details: Record<string, unknown> | null
+  total_tokens?: number
+  input_tokens?: number
+  output_tokens?: number
+  llm_model?: string | null
 }
 
 export interface Lead {
@@ -183,6 +187,10 @@ export interface Plan {
   created_at: string
   completed_at?: string
   duration_ms?: number
+  total_tokens?: number
+  input_tokens?: number
+  output_tokens?: number
+  llm_model?: string | null
 }
 
 export interface PlanStep {

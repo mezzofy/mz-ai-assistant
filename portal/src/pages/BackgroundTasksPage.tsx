@@ -24,6 +24,17 @@ const STATUS_LABELS: Record<string, string> = {
   revoked: 'CANCELLED',
 }
 
+function shortModelName(model: string | null | undefined): string {
+  if (!model) return '—'
+  if (model.includes('sonnet-4-6')) return 'Sonnet 4.6'
+  if (model.includes('sonnet-4-5')) return 'Sonnet 4.5'
+  if (model.includes('opus-4')) return 'Opus 4'
+  if (model.includes('haiku-4-5')) return 'Haiku 4.5'
+  if (model.includes('haiku-3')) return 'Haiku 3'
+  if (model.includes('kimi')) return 'Kimi'
+  return model.length > 16 ? model.slice(0, 14) + '…' : model
+}
+
 function StatusBadge({ status }: { status: string }) {
   const normalized = status === 'revoked' ? 'cancelled' : status
   const color = STATUS_COLORS[normalized] ?? '#6B7280'
@@ -177,11 +188,23 @@ function TaskCard({ task, onKill, onDelete }: {
           <StatusBadge status={task.status} />
           <div className="flex-1 min-w-0">
             <p className="text-sm text-white truncate">{task.content || '(no message)'}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-              {task.department && <span className="capitalize">{task.department}</span>}
-              {task.triggered_by_name && <span> · {task.triggered_by_name}</span>}
-              {task.created_at && <span> · {timeAgo(task.created_at)}</span>}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-0.5">
+              <p className="text-xs" style={{ color: '#6B7280' }}>
+                {task.department && <span className="capitalize">{task.department}</span>}
+                {task.triggered_by_name && <span> · {task.triggered_by_name}</span>}
+                {task.created_at && <span> · {timeAgo(task.created_at)}</span>}
+              </p>
+              {task.llm_model && (
+                <span style={{ background: '#1a1a1a', color: '#e5e7eb', fontSize: 11, fontWeight: 600, padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace', border: '1px solid #333' }}>
+                  {shortModelName(task.llm_model)}
+                </span>
+              )}
+              {task.total_tokens != null && task.total_tokens > 0 && (
+                <span style={{ fontSize: 11, color: '#6B7280', fontFamily: 'monospace' }}>
+                  {task.total_tokens.toLocaleString()} tokens
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -335,6 +358,8 @@ function ScheduledJobRow({ job, onRun, onPause, onResume }: {
           </span>
         </span>
       </td>
+      <td style={{ padding: '12px 16px', textAlign: 'right' }}><span style={{ color: '#4B5563', fontSize: 12 }}>—</span></td>
+      <td style={{ padding: '12px 16px', textAlign: 'right', fontFamily: 'monospace', fontSize: 12, color: '#4B5563' }}>—</td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <button
@@ -719,6 +744,20 @@ function PlanRow({ plan, onViewDetail, isExpanded, onKillPlan, killingPlanId }: 
             {agentLabels && <span>Agents: {agentLabels}</span>}
             <span>{formatDate(plan.created_at)}</span>
             {duration && <span>Duration: {duration}</span>}
+            {((plan.total_tokens != null && plan.total_tokens > 0) || plan.llm_model) ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {plan.llm_model && (
+                  <span style={{ background: '#1a1a1a', color: '#e5e7eb', fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 3, fontFamily: 'monospace', border: '1px solid #333' }}>
+                    {shortModelName(plan.llm_model)}
+                  </span>
+                )}
+                {plan.total_tokens != null && plan.total_tokens > 0 && (
+                  <span style={{ fontSize: 11, color: '#6B7280', fontFamily: 'monospace' }}>
+                    {plan.total_tokens.toLocaleString()} tokens
+                  </span>
+                )}
+              </span>
+            ) : null}
           </div>
 
           {/* Progress bar */}
@@ -1086,6 +1125,8 @@ export default function BackgroundTasksPage() {
                       <th className="px-4 py-3 font-medium">Next Run</th>
                       <th className="px-4 py-3 font-medium">Last Run</th>
                       <th className="px-4 py-3 font-medium">Status</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: 11, color: '#6B7280', fontWeight: 600, letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>MODEL</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: 11, color: '#6B7280', fontWeight: 600, letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>TOKENS</th>
                       <th className="px-4 py-3 font-medium">Actions</th>
                     </tr>
                   </thead>
