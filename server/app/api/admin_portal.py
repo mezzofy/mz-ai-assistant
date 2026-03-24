@@ -1308,28 +1308,31 @@ async def list_tasks(
     token_map: dict = {}
     task_ids = [str(r.id) for r in rows]
     if task_ids:
-        token_result = await db.execute(
-            text("""
-                SELECT
-                    agtask.id                                                       AS task_id,
-                    COALESCE(SUM(lu.input_tokens), 0)                              AS input_tokens,
-                    COALESCE(SUM(lu.output_tokens), 0)                             AS output_tokens,
-                    COALESCE(SUM(lu.input_tokens + lu.output_tokens), 0)           AS total_tokens,
-                    STRING_AGG(DISTINCT lu.model, ', ' ORDER BY lu.model)          AS llm_model
-                FROM agent_tasks agtask
-                LEFT JOIN llm_usage lu ON lu.session_id = agtask.session_id
-                WHERE agtask.id::text = ANY(:task_ids)
-                GROUP BY agtask.id
-            """).bindparams(bindparam("task_ids", type_=ARRAY(String))),
-            {"task_ids": task_ids},
-        )
-        for tr in token_result.fetchall():
-            token_map[str(tr.task_id)] = {
-                "input_tokens": int(tr.input_tokens),
-                "output_tokens": int(tr.output_tokens),
-                "total_tokens": int(tr.total_tokens),
-                "llm_model": tr.llm_model,
-            }
+        try:
+            token_result = await db.execute(
+                text("""
+                    SELECT
+                        agtask.id::text                                                 AS task_id,
+                        COALESCE(SUM(lu.input_tokens), 0)                              AS input_tokens,
+                        COALESCE(SUM(lu.output_tokens), 0)                             AS output_tokens,
+                        COALESCE(SUM(lu.input_tokens + lu.output_tokens), 0)           AS total_tokens,
+                        STRING_AGG(DISTINCT lu.model, ', ' ORDER BY lu.model)          AS llm_model
+                    FROM agent_tasks agtask
+                    LEFT JOIN llm_usage lu ON lu.session_id = agtask.session_id
+                    WHERE agtask.id::text = ANY(:task_ids)
+                    GROUP BY agtask.id
+                """).bindparams(bindparam("task_ids", type_=ARRAY(String))),
+                {"task_ids": task_ids},
+            )
+            for tr in token_result.fetchall():
+                token_map[str(tr.task_id)] = {
+                    "input_tokens": int(tr.input_tokens),
+                    "output_tokens": int(tr.output_tokens),
+                    "total_tokens": int(tr.total_tokens),
+                    "llm_model": tr.llm_model,
+                }
+        except Exception as _e:
+            logger.warning(f"list_tasks: failed to fetch token totals: {_e}")
 
     tasks = []
     for r in rows:
