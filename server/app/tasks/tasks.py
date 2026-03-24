@@ -975,6 +975,8 @@ def get_agent_by_id(agent_id: str):
     bind=True,
     max_retries=3,
     name="app.tasks.tasks.process_delegated_agent_task",
+    soft_time_limit=900,
+    time_limit=960,
 )
 def process_delegated_agent_task(
     self,
@@ -1014,6 +1016,9 @@ def process_delegated_agent_task(
     # agent_task_log row id from delegate_task() (may be pre-inserted as 'queued')
     log_id = task_data.get("_agent_task_log_id", "")
 
+    plan_id = task_data.get("_plan_id", "")
+    step_id = task_data.get("_step_id", "")
+
     try:
         result = asyncio.run(
             _run_delegated_agent_task(task_data, agent_id, parent_task_id, log_id)
@@ -1024,6 +1029,22 @@ def process_delegated_agent_task(
         )
         return result
     except Exception as exc:
+        from celery.exceptions import SoftTimeLimitExceeded
+        if isinstance(exc, SoftTimeLimitExceeded):
+            logger.warning(
+                f"process_delegated_agent_task: soft time limit exceeded "
+                f"(task_id={self.request.id}, plan_id={plan_id!r}, step_id={step_id!r})"
+            )
+            try:
+                asyncio.run(_update_delegated_task_log(log_id, "failed", error="soft_time_limit_exceeded"))
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "content": "Task exceeded maximum execution time (15 minutes). Please retry with a more focused request.",
+                "error": "soft_time_limit_exceeded",
+                "artifacts": [],
+            }
         logger.error(
             f"process_delegated_agent_task failed: agent={agent_id!r} error={exc}",
             exc_info=True,

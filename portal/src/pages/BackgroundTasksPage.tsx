@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Activity, RefreshCw, ChevronDown, ChevronRight, Copy, Check, Play, Pause, RotateCcw, X, Download, GitBranch, AlertCircle, CheckCircle, Clock, ArrowRight } from 'lucide-react'
-import { portalApi, getPlans, getPlanDetail } from '../api/portal'
+import { portalApi, getPlans, getPlanDetail, killPlan } from '../api/portal'
 import { AgentTask, ScheduledJob, TaskStats, Plan, PlanDetail, PlanStep } from '../types'
 
 // ── Status helpers ─────────────────────────────────────────────────────────
@@ -672,10 +672,12 @@ function PlanDetailPanel({ planId, onClose }: { planId: string; onClose: () => v
 
 // ── Plan row ──────────────────────────────────────────────────────────────────
 
-function PlanRow({ plan, onViewDetail, isExpanded }: {
+function PlanRow({ plan, onViewDetail, isExpanded, onKillPlan, killingPlanId }: {
   plan: Plan
   onViewDetail: () => void
   isExpanded: boolean
+  onKillPlan: (planId: string) => void
+  killingPlanId: string | null
 }) {
   const progressPct = plan.steps_total > 0
     ? Math.round((plan.steps_completed / plan.steps_total) * 100)
@@ -727,16 +729,41 @@ function PlanRow({ plan, onViewDetail, isExpanded }: {
           )}
         </div>
 
-        <button
-          onClick={onViewDetail}
-          className="shrink-0 text-xs px-3 py-1 rounded border transition-colors"
-          style={{
-            borderColor: isExpanded ? '#f97316' : '#1E3A5F',
-            color: isExpanded ? '#f97316' : '#94A3B8',
-          }}
-        >
-          {isExpanded ? 'Hide Detail' : 'View Detail'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {plan.status === 'IN_PROGRESS' && (
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to kill this plan? This cannot be undone.')) {
+                  onKillPlan(plan.plan_id)
+                }
+              }}
+              disabled={killingPlanId === plan.plan_id}
+              className="text-xs px-3 py-1 rounded border transition-colors"
+              style={{
+                borderColor: killingPlanId === plan.plan_id ? '#ef444466' : '#ef4444',
+                color: killingPlanId === plan.plan_id ? '#ef444466' : '#ef4444',
+                opacity: killingPlanId === plan.plan_id ? 0.6 : 1,
+                cursor: killingPlanId === plan.plan_id ? 'not-allowed' : 'pointer',
+              }}
+              title="Kill this plan"
+            >
+              <span className="flex items-center gap-1">
+                <X size={11} />
+                {killingPlanId === plan.plan_id ? 'Killing…' : 'Kill Job'}
+              </span>
+            </button>
+          )}
+          <button
+            onClick={onViewDetail}
+            className="text-xs px-3 py-1 rounded border transition-colors"
+            style={{
+              borderColor: isExpanded ? '#f97316' : '#1E3A5F',
+              color: isExpanded ? '#f97316' : '#94A3B8',
+            }}
+          >
+            {isExpanded ? 'Hide Detail' : 'View Detail'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -745,8 +772,10 @@ function PlanRow({ plan, onViewDetail, isExpanded }: {
 // ── Plans tab ─────────────────────────────────────────────────────────────────
 
 function PlansTab() {
+  const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null)
+  const [killingPlanId, setKillingPlanId] = useState<string | null>(null)
 
   const { data: plans, isLoading, isError, refetch } = useQuery<Plan[]>({
     queryKey: ['plans', statusFilter],
@@ -758,6 +787,22 @@ function PlansTab() {
       return hasActive ? 5000 : false
     },
   })
+
+  const handleKillPlan = useCallback(async (planId: string) => {
+    setKillingPlanId(planId)
+    try {
+      await killPlan(planId)
+      qc.invalidateQueries({ queryKey: ['plans'] })
+      qc.invalidateQueries({ queryKey: ['plan-detail', planId] })
+      refetch()
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } }
+      const detail = err?.response?.data?.detail ?? 'Unknown error'
+      alert(`Failed to kill plan: ${detail}`)
+    } finally {
+      setKillingPlanId(null)
+    }
+  }, [qc, refetch])
 
   const handleToggleDetail = useCallback((planId: string) => {
     setExpandedPlanId((prev) => (prev === planId ? null : planId))
@@ -820,6 +865,8 @@ function PlansTab() {
                 plan={plan}
                 onViewDetail={() => handleToggleDetail(plan.plan_id)}
                 isExpanded={expandedPlanId === plan.plan_id}
+                onKillPlan={handleKillPlan}
+                killingPlanId={killingPlanId}
               />
               {expandedPlanId === plan.plan_id && (
                 <PlanDetailPanel

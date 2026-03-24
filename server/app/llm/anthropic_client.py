@@ -11,6 +11,8 @@ import asyncio
 import logging
 from typing import Any, AsyncIterator, Optional
 
+import httpx
+
 logger = logging.getLogger("mezzofy.llm.anthropic")
 
 
@@ -41,7 +43,15 @@ class AnthropicClient:
         self._max_tokens: int = int(claude_cfg.get("max_tokens", 4096))
         self._temperature: float = float(claude_cfg.get("temperature", 0.5))
 
-        self._client = anthropic.AsyncAnthropic(api_key=self._api_key, timeout=60.0)
+        self._client = anthropic.AsyncAnthropic(
+            api_key=self._api_key,
+            timeout=httpx.Timeout(
+                connect=10.0,
+                read=600.0,
+                write=30.0,
+                pool=10.0,
+            ),
+        )
         logger.info(f"AnthropicClient ready (model={self._model})")
 
     @property

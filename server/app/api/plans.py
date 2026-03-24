@@ -168,3 +168,74 @@ async def get_plan_step(
         )
 
     return asdict(step)
+
+
+# ── POST /api/plans/{plan_id}/kill ────────────────────────────────────────────
+
+@router.post("/plans/{plan_id}/kill")
+async def kill_plan(plan_id: str, _: dict = AdminUser):
+    """
+    Kill an IN_PROGRESS plan: revoke all running Celery tasks, mark all
+    non-completed steps as FAILED, and set the plan status to FAILED.
+    """
+    import json as _json
+    import os as _os
+    import redis as _redis
+    from datetime import datetime as _datetime
+    from urllib.parse import urlparse as _urlparse, urlunparse as _urlunparse
+    from app.tasks.celery_app import celery_app as _celery_app
+
+    # Connect to Redis DB3 (same pattern as cleanup_stuck_plans)
+    redis_url = (
+        _os.getenv("REDIS_URL")
+        or "redis://localhost:6379"
+    )
+    _parsed = _urlparse(redis_url)
+    base_url = _urlunparse(_parsed._replace(path=""))
+    r = _redis.Redis(host=_parsed.hostname or "localhost",
+                     port=_parsed.port or 6379,
+                     db=3,
+                     decode_responses=True)
+
+    raw = r.get(f"mz:plan:{plan_id}")
+    if not raw:
+        raise HTTPException(status_code=404, detail=f"Plan {plan_id} not found")
+
+    plan = _json.loads(raw)
+
+    if plan.get("status") != "IN_PROGRESS":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plan is not in progress (status: {plan.get('status')})"
+        )
+
+    now = _datetime.utcnow().isoformat()
+    steps_cancelled = 0
+
+    for step in plan.get("steps", []):
+        if step.get("status") == "STARTED":
+            celery_task_id = step.get("celery_task_id")
+            if celery_task_id:
+                try:
+                    _celery_app.control.revoke(celery_task_id, terminate=True)
+                    logger.info(f"kill_plan: revoked celery task {celery_task_id} for step {step['step_id']} in plan {plan_id}")
+                except Exception as rev_err:
+                    logger.warning(f"kill_plan: failed to revoke celery task {celery_task_id}: {rev_err}")
+
+        if step.get("status") not in ("COMPLETED",):
+            step["status"] = "FAILED"
+            step["error"] = "Killed by admin"
+            step["completed_at"] = now
+            steps_cancelled += 1
+
+    plan["status"] = "FAILED"
+    plan["completed_at"] = now
+    r.set(f"mz:plan:{plan_id}", _json.dumps(plan))
+
+    logger.info(f"kill_plan: plan {plan_id} killed by admin — {steps_cancelled} steps cancelled")
+
+    return {
+        "status": "killed",
+        "plan_id": plan_id,
+        "steps_cancelled": steps_cancelled,
+    }

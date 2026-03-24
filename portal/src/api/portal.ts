@@ -19,6 +19,11 @@ export async function getPlanStep(planId: string, stepId: string): Promise<PlanS
   return res.data
 }
 
+export async function killPlan(planId: string): Promise<{ status: string; plan_id: string; steps_cancelled: number }> {
+  const res = await client.post(`/api/plans/${planId}/kill`)
+  return res.data
+}
+
 export const portalApi = {
   // Dashboard
   getSessions: () => client.get('/api/admin-portal/dashboard/sessions'),
