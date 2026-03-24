@@ -98,22 +98,57 @@ def _auth_headers(token: str) -> dict:
 
 def _login() -> str:
     """
-    POST /auth/login → return access_token.
-    Raises AssertionError with a clear message if login fails.
+    Two-step OTP login:
+      Step 1: POST /auth/login → otp_required + otp_token
+      Step 2: Read OTP code from Redis DB0 (key: login_otp:{otp_token})
+              POST /auth/verify-otp → access_token
+
+    Reading OTP from Redis avoids needing email access in E2E tests.
+    Requires Redis to be accessible (works on EC2 running localhost).
     """
+    import json as _json
+    import redis as _redis
+
+    # Step 1: Submit credentials → get otp_token
     resp = requests.post(
         f"{BASE_URL}/auth/login",
         json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
         timeout=30,
     )
     assert resp.status_code == 200, (
-        f"Login failed (HTTP {resp.status_code}). "
+        f"Login step 1 failed (HTTP {resp.status_code}). "
         f"Check MZ_TEST_ADMIN_EMAIL / MZ_TEST_ADMIN_PASSWORD. "
         f"Response: {resp.text[:300]}"
     )
     body = resp.json()
-    token = body.get("access_token")
-    assert token, f"Login response missing access_token. Body: {body}"
+    assert body.get("status") == "otp_required", (
+        f"Unexpected login response (expected otp_required). Body: {body}"
+    )
+    otp_token = body.get("otp_token")
+    assert otp_token, f"Login response missing otp_token. Body: {body}"
+
+    # Step 2: Read OTP code directly from Redis DB0 (TTL=300s, key=login_otp:{otp_token})
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    r = _redis.from_url(redis_url, db=0, decode_responses=True)
+    raw = r.get(f"login_otp:{otp_token}")
+    assert raw, (
+        f"OTP not found in Redis (key=login_otp:{otp_token}). "
+        f"It may have expired (TTL=300s) or Redis DB is incorrect."
+    )
+    otp_code = _json.loads(raw)["code"]
+
+    # Step 3: Verify OTP → get access_token
+    verify_resp = requests.post(
+        f"{BASE_URL}/auth/verify-otp",
+        json={"otp_token": otp_token, "code": otp_code},
+        timeout=30,
+    )
+    assert verify_resp.status_code == 200, (
+        f"Login step 2 (verify-otp) failed (HTTP {verify_resp.status_code}). "
+        f"Response: {verify_resp.text[:300]}"
+    )
+    token = verify_resp.json().get("access_token")
+    assert token, f"verify-otp response missing access_token. Body: {verify_resp.json()}"
     return token
 
 
