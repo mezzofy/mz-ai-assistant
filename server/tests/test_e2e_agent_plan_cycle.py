@@ -128,12 +128,18 @@ def _login() -> str:
     assert otp_token, f"Login response missing otp_token. Body: {body}"
 
     # Step 2: Read OTP code directly from Redis DB0 (TTL=300s, key=login_otp:{otp_token})
+    # Use redis.Redis() directly (not from_url) to avoid redis-py 5.x conflict
+    # when db= is specified both in the URL path and as a kwarg.
+    import urllib.parse as _urlparse
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    r = _redis.from_url(redis_url, db=0, decode_responses=True)
+    _parsed = _urlparse.urlparse(redis_url)
+    r_host = _parsed.hostname or "localhost"
+    r_port = _parsed.port or 6379
+    r = _redis.Redis(host=r_host, port=r_port, db=0, decode_responses=True)
     raw = r.get(f"login_otp:{otp_token}")
     assert raw, (
-        f"OTP not found in Redis (key=login_otp:{otp_token}). "
-        f"It may have expired (TTL=300s) or Redis DB is incorrect."
+        f"OTP not found in Redis DB0 (key=login_otp:{otp_token}). "
+        f"It may have expired (TTL=300s). Confirm with: redis-cli -n 0 GET 'login_otp:{otp_token}'"
     )
     otp_code = _json.loads(raw)["code"]
 
