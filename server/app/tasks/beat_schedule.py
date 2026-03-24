@@ -44,6 +44,12 @@ STATIC_BEAT_SCHEDULE = {
         "options": {"queue": "default"},
     },
 
+    # Stuck Redis plan cleanup — every 15 minutes
+    "cleanup-stuck-plans": {
+        "task": "app.tasks.tasks.cleanup_stuck_plans",
+        "schedule": crontab(minute="*/15"),
+    },
+
     # Weekly KPI report — Monday 9AM SGT (Celery uses UTC internally; UTC+8 → 01:00 UTC)
     "weekly-kpi-report": {
         "task": "app.tasks.tasks.process_agent_task",

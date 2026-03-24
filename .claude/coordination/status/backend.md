@@ -1,51 +1,47 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-23
-**Session:** 37 — CR-brand-guidelines-qa-fix all 4 tasks complete
-**Context:** ~20% at checkpoint
-**Reason:** All 4 tasks from CR-brand-guidelines-qa-fix-plan finished
+**Date:** 2026-03-24
+**Session:** 38 — BUG-021 cleanup_stuck_plans implementation
+**Context:** ~35% at checkpoint
+**Reason:** Task complete — BUG-021 fully implemented
 
 ## Completed This Session
 
-### Task 1 — Fix QA loop script references in guidelines.md
-- `server/knowledge/brand/guidelines.md` line 224: replaced `python scripts/office/soffice.py --headless --convert-to pdf output.pptx` with `soffice --headless --norestore --env:UserInstallation=file:///tmp/lo_qa --convert-to pdf output.pptx`
-- `server/knowledge/brand/guidelines.md` lines 416–429: replaced `python scripts/office/validate.py output.docx` with inline python-docx heredoc check; replaced `python scripts/office/soffice.py --headless --convert-to pdf output.docx` with direct soffice binary call (same pattern as PPTX fix)
-
-### Task 2 — Fix recalc.py output format
-- `server/scripts/recalc.py`: added `import json` (line 3)
-- Success path (line 24): now prints `{"status": "success", "total_errors": 0}` instead of plain text
-- Failure path (line 22): now prints `{"status": "error", "total_errors": N, "errors": [...]}` instead of plain text
-- Cell-scanning logic unchanged; exit codes unchanged (0 success, 1 failure)
-
-### Task 3 — Add Python brand constants for PPTX/DOCX fallback
-- `server/knowledge/brand/guidelines.md` line 202: added `### python-pptx Fallback — Brand Constants` subsection (after pptxgenjs helpers, before QA Loop in §2)
-- `server/knowledge/brand/guidelines.md` line 396: added `### python-docx Fallback — Brand Constants` subsection (after docx.js makeTable scaffold, before QA Loop in §3)
-
-### Task 4 — Integration note + XLSX QA checklist items
-- `server/knowledge/brand/guidelines.md` line 764: added `## 9. Integration Note` section at end of file
-- `server/knowledge/brand/guidelines.md` lines 551–553: appended 3 new items to `### QA Loop (XLSX)` checklist:
-  - `freeze_panes = "A2"` applied on every data sheet — scroll down to verify header stays visible
-  - Sheet tab names are descriptive Title Case — not "Sheet1", "Sheet2", "Sheet3"
-  - Column widths explicitly set — no column at default 8.43 units width
-
-## Decisions Made This Session
-- No `scripts/office/` directory created (out of scope per plan)
-- No agent files, pptx_ops.py, docx_ops.py, or llm_manager.py touched
-- `validate.py` reference in §7 QA Standards Quick Reference table left as-is (plan did not specify changing it; only §3 QA Loop was in scope)
+- ✅ Implemented `cleanup_stuck_plans` Celery task → `server/app/tasks/tasks.py`
+- ✅ Added `STUCK_PLAN_THRESHOLD_SECONDS = 1800` module-level constant in `tasks.py`
+- ✅ Registered `cleanup-stuck-plans` beat schedule entry → `server/app/tasks/beat_schedule.py`
+- ✅ Created 5 unit tests → `server/tests/test_cleanup_stuck_plans.py`
 
 ## Files Modified
-- `server/knowledge/brand/guidelines.md` (Tasks 1, 3, 4)
-- `server/scripts/recalc.py` (Task 2)
 
-## Quality Gate Status
-- [x] PPTX QA loop: `soffice --headless --norestore --env:UserInstallation=...` replaces old script reference
-- [x] DOCX QA loop: inline python-docx check replaces validate.py reference; soffice direct call replaces second script reference
-- [x] recalc.py outputs JSON on both success and failure paths
-- [x] recalc.py exits 1 on failure
-- [x] Python PPTX constants added to §2 with correct hex values
-- [x] Python DOCX constants added to §3 with correct RGBColor values
-- [x] Integration note added as §9
-- [x] Three XLSX checklist items added
-- [x] No other content in guidelines.md changed
+- `server/app/tasks/tasks.py` (modified — added `STUCK_PLAN_THRESHOLD_SECONDS` constant and `cleanup_stuck_plans` task after `_cleanup_stuck_tasks_async`)
+- `server/app/tasks/beat_schedule.py` (modified — added `cleanup-stuck-plans` entry to `STATIC_BEAT_SCHEDULE`)
+- `server/tests/test_cleanup_stuck_plans.py` (new — 5 unit tests across 5 classes)
+
+## Decisions Made This Session
+
+- Used `redis.from_url(base_url, db=3)` with URL path stripping — same pattern as `PlanManager.__init__` to ensure `db=` kwarg wins over any URL path
+- Used Redis pub/sub (`publish`) for WebSocket notification rather than `ws_manager.send_to_session` — `orchestrator_tasks.py` uses the same pub/sub pattern (`_publish_plan_event`, `_send_ws_to_user`) from sync Celery tasks; `ws_manager` requires an async context
+- Kept all imports inside the task body (lazy import pattern) per project standard
+- Wrapped per-plan processing in its own `try/except` so one bad plan JSON does not abort the whole scan
+- Tests patch `redis.from_url` at module level and `app.core.config.get_config` to avoid any real I/O
+
+## Acceptance Criteria Status
+
+- [x] `cleanup_stuck_plans` task exists and runs without error
+- [x] Plans with STARTED steps older than 30 min get marked FAILED
+- [x] Plans not stuck are not modified (tests 2, 3, 4 verify this)
+- [x] Beat schedule updated — task runs every 15 minutes
+- [x] 5 unit tests written
+- [x] No new module-level imports added (all inside task body)
+- [x] Task logs warning for each plan marked FAILED
 
 ## Resume Instructions
-No further work needed. Notify Lead Agent to review and deploy CR-brand-guidelines-qa-fix.
+
+No resume needed — task is complete. Next action: git commit and deploy to EC2.
+
+Deploy steps (from BUG-stuck-agent-plans-plan.md):
+1. `git push` from dev machine
+2. On EC2: `git pull`
+3. `sudo systemctl restart mezzofy-celery.service`
+4. `sudo systemctl restart mezzofy-api.service`
+5. Verify: `sudo journalctl -u mezzofy-celery.service -n 50` — should show `cleanup_stuck_plans` scheduled

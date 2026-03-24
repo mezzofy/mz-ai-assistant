@@ -148,6 +148,141 @@ async def _cleanup_stuck_tasks_async():
         logger.debug("cleanup_stuck_tasks: no stuck tasks found")
 
 
+# ── Periodic stuck-plan cleanup (Redis DB3) ────────────────────────────────────
+
+STUCK_PLAN_THRESHOLD_SECONDS = 1800  # 30 minutes
+
+
+@celery_app.task(name="app.tasks.tasks.cleanup_stuck_plans")
+def cleanup_stuck_plans():
+    """
+    Periodic cleanup: scan Redis DB3 for execution plans with steps stuck in
+    STARTED status for longer than STUCK_PLAN_THRESHOLD_SECONDS (30 min).
+
+    For each stuck plan:
+    - Marks the timed-out step(s) as FAILED with an error message.
+    - Marks the plan itself as FAILED with a completed_at timestamp.
+    - Saves the updated plan back to Redis.
+    - Logs a warning.
+    - Tries to send a WebSocket notification to the user (non-critical).
+
+    Never raises — cleanup tasks must not crash the worker.
+    """
+    try:
+        import json as _json
+        import os as _os
+        import redis as _redis
+        from datetime import datetime as _datetime
+
+        from app.core.config import get_config
+
+        config = get_config()
+        redis_url = (
+            _os.getenv("REDIS_URL")
+            or config.get("redis", {}).get("url", "")
+            or "redis://localhost:6379"
+        )
+
+        # Strip DB path suffix so db= kwarg always wins (same pattern as PlanManager)
+        from urllib.parse import urlparse as _urlparse, urlunparse as _urlunparse
+        parsed = _urlparse(redis_url)
+        base_url = _urlunparse(parsed._replace(path=""))
+
+        r = _redis.from_url(base_url, db=3, decode_responses=True)
+
+        plan_ids = r.hkeys("mz:plan:index")
+        checked = 0
+        marked_failed = 0
+        now = _datetime.utcnow()
+
+        for plan_id in plan_ids:
+            checked += 1
+            try:
+                raw = r.get(f"mz:plan:{plan_id}")
+                if not raw:
+                    continue
+
+                plan_dict = _json.loads(raw)
+
+                if plan_dict.get("status") != "IN_PROGRESS":
+                    continue
+
+                any_step_failed = False
+                for step in plan_dict.get("steps", []):
+                    if step.get("status") != "STARTED":
+                        continue
+
+                    started_at_str = step.get("started_at")
+                    if not started_at_str:
+                        continue
+
+                    try:
+                        started_at = _datetime.fromisoformat(started_at_str)
+                    except (ValueError, TypeError):
+                        continue
+
+                    age_seconds = (now - started_at).total_seconds()
+                    if age_seconds <= STUCK_PLAN_THRESHOLD_SECONDS:
+                        continue
+
+                    # Step is stuck — mark it FAILED
+                    step["status"] = "FAILED"
+                    step["error"] = (
+                        "Worker died - step timed out after 30 minutes"
+                    )
+                    step["completed_at"] = now.isoformat()
+                    any_step_failed = True
+
+                if not any_step_failed:
+                    continue
+
+                # Mark plan FAILED and persist
+                plan_dict["status"] = "FAILED"
+                plan_dict["completed_at"] = now.isoformat()
+                r.set(f"mz:plan:{plan_id}", _json.dumps(plan_dict))
+
+                logger.warning(
+                    f"cleanup_stuck_plans: plan {plan_id} marked FAILED — "
+                    f"step timed out (user={plan_dict.get('user_id')!r})"
+                )
+                marked_failed += 1
+
+                # Notify user via Redis pub/sub (non-critical)
+                try:
+                    user_id = plan_dict.get("user_id", "")
+                    if user_id:
+                        import json as _json2
+                        payload = _json2.dumps({
+                            "type": "agent_plan_failed",
+                            "plan_id": plan_id,
+                            "message": (
+                                "Agent plan timed out. The worker processing this "
+                                "task stopped responding. Please try again."
+                            ),
+                        })
+                        r.publish(f"user:{user_id}:notifications", payload)
+                except Exception as ws_err:
+                    logger.debug(
+                        f"cleanup_stuck_plans: notification failed for plan "
+                        f"{plan_id} (non-fatal): {ws_err}"
+                    )
+
+            except Exception as plan_err:
+                logger.warning(
+                    f"cleanup_stuck_plans: error processing plan {plan_id} "
+                    f"(skipping): {plan_err}"
+                )
+                continue
+
+        logger.info(
+            f"cleanup_stuck_plans: checked {checked} plans, "
+            f"marked {marked_failed} as failed"
+        )
+
+    except Exception as exc:
+        logger.error(f"cleanup_stuck_plans: unexpected error: {exc}", exc_info=True)
+
+
 # ── Main background task ───────────────────────────────────────────────────────
 
 @celery_app.task(bind=True, max_retries=3, name="app.tasks.tasks.process_agent_task")
