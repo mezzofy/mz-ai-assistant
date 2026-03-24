@@ -45,7 +45,7 @@ async def list_plans(
     from app.orchestrator.plan_manager import plan_manager
     from app.core.database import engine
     from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy import text
+    from sqlalchemy import text, bindparam, ARRAY, String
 
     try:
         plans = plan_manager.list_plans(user_id=user_id, limit=limit + offset)
@@ -78,9 +78,9 @@ async def list_plans(
                             COALESCE(SUM(input_tokens + output_tokens), 0)            AS total_tokens,
                             STRING_AGG(DISTINCT model, ', ' ORDER BY model)           AS llm_model
                         FROM llm_usage
-                        WHERE session_id = ANY(:session_ids)
+                        WHERE session_id::text = ANY(:session_ids)
                         GROUP BY session_id
-                    """),
+                    """).bindparams(bindparam("session_ids", type_=ARRAY(String))),
                     {"session_ids": session_ids},
                 )
                 for tr in token_result.fetchall():

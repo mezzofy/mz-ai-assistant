@@ -13,7 +13,7 @@ from typing import Optional
 import psutil
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import text
+from sqlalchemy import text, bindparam, ARRAY, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import require_role, get_db
@@ -1311,16 +1311,16 @@ async def list_tasks(
         token_result = await db.execute(
             text("""
                 SELECT
-                    at.id                                                          AS task_id,
-                    COALESCE(SUM(lu.input_tokens), 0)                             AS input_tokens,
-                    COALESCE(SUM(lu.output_tokens), 0)                            AS output_tokens,
-                    COALESCE(SUM(lu.input_tokens + lu.output_tokens), 0)          AS total_tokens,
-                    STRING_AGG(DISTINCT lu.model, ', ' ORDER BY lu.model)         AS llm_model
-                FROM agent_tasks at
-                LEFT JOIN llm_usage lu ON lu.session_id = at.session_id
-                WHERE at.id = ANY(:task_ids)
-                GROUP BY at.id
-            """),
+                    agtask.id                                                       AS task_id,
+                    COALESCE(SUM(lu.input_tokens), 0)                              AS input_tokens,
+                    COALESCE(SUM(lu.output_tokens), 0)                             AS output_tokens,
+                    COALESCE(SUM(lu.input_tokens + lu.output_tokens), 0)           AS total_tokens,
+                    STRING_AGG(DISTINCT lu.model, ', ' ORDER BY lu.model)          AS llm_model
+                FROM agent_tasks agtask
+                LEFT JOIN llm_usage lu ON lu.session_id = agtask.session_id
+                WHERE agtask.id::text = ANY(:task_ids)
+                GROUP BY agtask.id
+            """).bindparams(bindparam("task_ids", type_=ARRAY(String))),
             {"task_ids": task_ids},
         )
         for tr in token_result.fetchall():
