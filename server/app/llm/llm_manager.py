@@ -411,6 +411,7 @@ class LLMManager:
                     user_id=task.get("user_id", "system"),
                     input_tokens=total_usage["input_tokens"],
                     output_tokens=total_usage["output_tokens"],
+                    session_id=task.get("session_id"),
                 ))
                 return {
                     "success": True,
@@ -485,6 +486,7 @@ class LLMManager:
             user_id=task.get("user_id", "system"),
             input_tokens=total_usage["input_tokens"],
             output_tokens=total_usage["output_tokens"],
+            session_id=task.get("session_id"),
         ))
         return {
             "success": True,
@@ -705,6 +707,7 @@ class LLMManager:
         user_id: str,
         input_tokens: int,
         output_tokens: int,
+        session_id: str = None,
     ) -> None:
         """
         Insert token usage record into llm_usage table.
@@ -716,15 +719,16 @@ class LLMManager:
 
             sql = """
                 INSERT INTO llm_usage
-                    (model, department, user_id, input_tokens, output_tokens)
+                    (model, department, user_id, session_id, input_tokens, output_tokens)
                 VALUES
-                    (:model, :department, :user_id, :input_tokens, :output_tokens)
+                    (:model, :department, :user_id, :session_id, :input_tokens, :output_tokens)
             """
             async with AsyncSessionLocal() as session:
                 await session.execute(text(sql), {
                     "model": model_name,
                     "department": department,
                     "user_id": user_id,
+                    "session_id": session_id,
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
                 })
@@ -793,6 +797,7 @@ class LLMManager:
             department=task_context.get("department", "unknown"),
             user_id=task_context.get("user_id"),
             agent_id=task_context.get("agent_id"),
+            session_id=task_context.get("session_id"),
             input_tokens=result["usage"]["input_tokens"],
             output_tokens=result["usage"]["output_tokens"],
             server_tools_used=["web_search", "web_fetch"],
@@ -990,6 +995,7 @@ class LLMManager:
             department=(task_context or {}).get("department", "unknown"),
             user_id=(task_context or {}).get("user_id"),
             agent_id=(task_context or {}).get("agent_id"),
+            session_id=(task_context or {}).get("session_id"),
             input_tokens=total_input_tokens,
             output_tokens=total_output_tokens,
             server_tools_used=["code_execution", f"skill:{skill_id}"],
@@ -1066,6 +1072,7 @@ class LLMManager:
         betas_used: list = None,
         skill_id: str = None,
         cost_usd: float = None,
+        session_id: str = None,
     ) -> None:
         """
         Extended token + cost tracking including Skills and server tool usage.
@@ -1089,12 +1096,12 @@ class LLMManager:
 
             sql = """
                 INSERT INTO llm_usage (
-                    model, department, user_id, agent_id,
+                    model, department, user_id, session_id, agent_id,
                     input_tokens, output_tokens, cost_usd,
                     server_tools_used, betas_used, skill_id
                 )
                 VALUES (
-                    :model, :department, :user_id, :agent_id,
+                    :model, :department, :user_id, :session_id, :agent_id,
                     :input_tokens, :output_tokens, :cost_usd,
                     :server_tools_used, :betas_used, :skill_id
                 )
@@ -1104,6 +1111,7 @@ class LLMManager:
                     "model":             model_name,
                     "department":        department,
                     "user_id":           user_id,
+                    "session_id":        session_id,
                     "agent_id":          agent_id,
                     "input_tokens":      input_tokens,
                     "output_tokens":     output_tokens,
@@ -1118,4 +1126,5 @@ class LLMManager:
             await self._track_usage(
                 model_name, department, user_id or "system",
                 input_tokens, output_tokens,
+                session_id=session_id,
             )
