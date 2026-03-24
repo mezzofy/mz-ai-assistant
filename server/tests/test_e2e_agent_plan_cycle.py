@@ -8,6 +8,9 @@ Validates the complete PLAN→DELEGATE→AGGREGATE pipeline:
 
 # ── HOW TO RUN ─────────────────────────────────────────────────────────────────
 #
+#   Goal: "Give me a business overview of the Digital Coupon market in Singapore."
+#   (uses "business overview" keyword → triggers plan_and_orchestrate path)
+#
 #   Run ON EC2 (or any host with access to 3.1.255.48:8000):
 #
 #   MZ_TEST_ADMIN_PASSWORD="<password>" \\
@@ -54,10 +57,10 @@ POLL_TIMEOUT_S = int(os.getenv("MZ_PLAN_POLL_TIMEOUT_S", "300"))   # 5 minutes
 POLL_INTERVAL_S = int(os.getenv("MZ_PLAN_POLL_INTERVAL_S", "10"))  # 10 seconds
 
 # The goal message sent to /chat/send.
-# "Research" is in _LONG_RUNNING_KEYWORDS in chat.py — this guarantees the
-# server takes the async Celery path and returns 202. It also matches the
-# _RESEARCH_KEYWORDS list so it is routed to the research queue.
-GOAL_MESSAGE = "Research the Digital Coupon market for Singapore."
+# Must contain a _CROSS_DEPT_KEYWORDS term (management_agent.py:375) to route
+# through plan_and_orchestrate() and create an ExecutionPlan in Redis DB3.
+# "business overview" is in _CROSS_DEPT_KEYWORDS — guarantees plan creation.
+GOAL_MESSAGE = "Give me a business overview of the Digital Coupon market in Singapore."
 GOAL_KEYWORD = "Digital Coupon"   # used for plan detection in GET /api/plans list
 
 # ── Module-level skip guard ───────────────────────────────────────────────────
