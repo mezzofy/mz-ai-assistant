@@ -111,6 +111,11 @@ async def _recover_stale_tasks():
 @celery_app.task(name="app.tasks.tasks.cleanup_stuck_tasks")
 def cleanup_stuck_tasks():
     """Periodic cleanup: mark tasks stuck in 'running' for >1 hour as failed."""
+    try:
+        from app.core.database import engine
+        engine.sync_engine.dispose()
+    except Exception:
+        pass
     asyncio.run(_cleanup_stuck_tasks_async())
 
 
@@ -163,6 +168,11 @@ def process_agent_task(self, task_data: dict):
             - source:      "scheduler" | "webhook" (affects permission bypass)
     """
     try:
+        try:
+            from app.core.database import engine
+            engine.sync_engine.dispose()
+        except Exception:
+            pass
         result = asyncio.run(_run_agent_task(task_data))
         logger.info(
             f"process_agent_task completed: agent={task_data.get('agent')!r} "
@@ -1076,6 +1086,11 @@ def health_check():
 
     # PostgreSQL
     try:
+        try:
+            from app.core.database import engine
+            engine.sync_engine.dispose()
+        except Exception:
+            pass
         asyncio.run(_check_db())
         results["database"] = "ok"
     except Exception as e:
