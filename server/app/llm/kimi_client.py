@@ -31,7 +31,7 @@ class KimiClient:
 
         kimi_cfg = config.get("llm", {}).get("kimi", {})
         self._api_key: str = kimi_cfg.get("api_key", "")
-        self._model: str = kimi_cfg.get("model", "moonshot-v1-8k")
+        self._model: str = kimi_cfg.get("model", "kimi-k2.5")
         self._base_url: str = kimi_cfg.get("base_url", "https://api.moonshot.ai/v1")
         self._max_tokens: int = int(kimi_cfg.get("max_tokens", 4096))
         self._temperature: float = float(kimi_cfg.get("temperature", 0.7))
