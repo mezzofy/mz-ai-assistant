@@ -71,7 +71,7 @@ const ModelRow: React.FC<ModelRowProps> = ({name, detail, role, online, colors, 
           {color: checkResult.status === 'ok' ? colors.success : colors.danger},
         ]}>
           {checkResult.status === 'ok'
-            ? `✓ Responded in ${checkResult.latency_ms}ms: ${checkResult.message}`
+            ? `✓ Responded in ${checkResult.latency_ms}ms${checkResult.message ? ': ' + checkResult.message : ''}`
             : `✗ ${checkResult.message}`}
         </Text>
       </View>
@@ -91,8 +91,6 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
 
   const fetchHealth = useCallback(async () => {
     setLoading(true);
-    setClaudeCheck(null);
-    setKimiCheck(null);
     const [healthResult, statsResult] = await Promise.all([
       getSystemHealth(), // catches 403 internally — always resolves
       getLlmUsageStats().catch(() => null as LlmUsageStats | null),
@@ -119,6 +117,22 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
   useEffect(() => {
     fetchHealth();
   }, [fetchHealth]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const runAutoChecks = async () => {
+      const [claudeResult, kimiResult] = await Promise.all([
+        checkModelStatus('claude'),
+        checkModelStatus('kimi'),
+      ]);
+      if (!cancelled) {
+        setClaudeCheck(claudeResult);
+        setKimiCheck(kimiResult);
+      }
+    };
+    runAutoChecks();
+    return () => { cancelled = true; };
+  }, []); // empty deps — runs once on mount only
 
   const llmOk = health?.services.llm_manager === 'ok';
   const dbOk = health?.services.database === 'ok';
