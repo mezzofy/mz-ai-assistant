@@ -1,47 +1,35 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-24
-**Session:** 38 — BUG-021 cleanup_stuck_plans implementation
-**Context:** ~35% at checkpoint
-**Reason:** Task complete — BUG-021 fully implemented
+**Date:** 2026-03-26
+**Session:** CR-mobile-ai-usage-v1.50.0 Task 1
+**Context:** ~15% at checkpoint
+**Reason:** Task 1 complete
 
 ## Completed This Session
 
-- ✅ Implemented `cleanup_stuck_plans` Celery task → `server/app/tasks/tasks.py`
-- ✅ Added `STUCK_PLAN_THRESHOLD_SECONDS = 1800` module-level constant in `tasks.py`
-- ✅ Registered `cleanup-stuck-plans` beat schedule entry → `server/app/tasks/beat_schedule.py`
-- ✅ Created 5 unit tests → `server/tests/test_cleanup_stuck_plans.py`
+- ✅ Added `model_names` block to `system_health()` → `server/app/api/admin.py`
+- ✅ Added `"model_names": model_names` to the return dict of `system_health()`
 
 ## Files Modified
 
-- `server/app/tasks/tasks.py` (modified — added `STUCK_PLAN_THRESHOLD_SECONDS` constant and `cleanup_stuck_plans` task after `_cleanup_stuck_tasks_async`)
-- `server/app/tasks/beat_schedule.py` (modified — added `cleanup-stuck-plans` entry to `STATIC_BEAT_SCHEDULE`)
-- `server/tests/test_cleanup_stuck_plans.py` (new — 5 unit tests across 5 classes)
+- `server/app/api/admin.py` (modified — added `model_names` try/except block after `llm_ok` block; added `"model_names": model_names` to return dict)
 
 ## Decisions Made This Session
 
-- Used `redis.from_url(base_url, db=3)` with URL path stripping — same pattern as `PlanManager.__init__` to ensure `db=` kwarg wins over any URL path
-- Used Redis pub/sub (`publish`) for WebSocket notification rather than `ws_manager.send_to_session` — `orchestrator_tasks.py` uses the same pub/sub pattern (`_publish_plan_event`, `_send_ws_to_user`) from sync Celery tasks; `ws_manager` requires an async context
-- Kept all imports inside the task body (lazy import pattern) per project standard
-- Wrapped per-plan processing in its own `try/except` so one bad plan JSON does not abort the whole scan
-- Tests patch `redis.from_url` at module level and `app.core.config.get_config` to avoid any real I/O
+- **Separate try/except for model_names**: Used a standalone try/except with its own inline import rather than sharing the `mgr` variable from the `llm_ok` block. This prevents any failure in the `llm_ok` block from silently leaving `mgr` unset or `None` in the `model_names` block. The duplicate `from app.llm import llm_manager as llm_mod` is a no-op (Python module cache).
+- **Fallback values**: `"unknown"` for both `claude` and `kimi` when LLM manager is not initialized — graceful degradation so Mobile can still render.
 
 ## Acceptance Criteria Status
 
-- [x] `cleanup_stuck_plans` task exists and runs without error
-- [x] Plans with STARTED steps older than 30 min get marked FAILED
-- [x] Plans not stuck are not modified (tests 2, 3, 4 verify this)
-- [x] Beat schedule updated — task runs every 15 minutes
-- [x] 5 unit tests written
-- [x] No new module-level imports added (all inside task body)
-- [x] Task logs warning for each plan marked FAILED
+- [x] `/admin/health` response includes `model_names.claude` and `model_names.kimi`
+- [x] Values come from actual LLM client config (`mgr.claude.model_name`, `mgr.kimi.model_name`)
+- [x] Graceful fallback to `"unknown"` if LLM manager not initialized
+- [x] No new module-level imports added (inline import pattern)
+- [x] Only `system_health()` modified — no other functions touched
 
 ## Resume Instructions
 
-No resume needed — task is complete. Next action: git commit and deploy to EC2.
-
-Deploy steps (from BUG-stuck-agent-plans-plan.md):
-1. `git push` from dev machine
-2. On EC2: `git pull`
-3. `sudo systemctl restart mezzofy-celery.service`
-4. `sudo systemctl restart mezzofy-api.service`
-5. Verify: `sudo journalctl -u mezzofy-celery.service -n 50` — should show `cleanup_stuck_plans` scheduled
+No resume needed for backend — Task 1 is complete.
+Mobile Agent picks up Task 2 next:
+- `APP/src/api/admin.ts` — extend `SystemHealth` interface with optional `model_names?`
+- `APP/src/screens/AIUsageStatsScreen.tsx` — fix model details, status dots, token display
+See plan: `.claude/coordination/plans/CR-mobile-ai-usage-v1.50.0-plan.md`

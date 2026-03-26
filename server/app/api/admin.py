@@ -293,6 +293,17 @@ async def system_health(
     except Exception:
         pass
 
+    # Model names — read actual model IDs from initialized LLM clients
+    model_names = {"claude": "unknown", "kimi": "unknown"}
+    try:
+        from app.llm import llm_manager as llm_mod
+        mgr = llm_mod.get()
+        if mgr is not None:
+            model_names["claude"] = mgr.claude.model_name
+            model_names["kimi"] = mgr.kimi.model_name
+    except Exception:
+        pass
+
     # WebSocket connections
     ws_connections = 0
     try:
@@ -315,6 +326,7 @@ async def system_health(
         "connections": {
             "websocket_active": ws_connections,
         },
+        "model_names": model_names,
     }
 
 
