@@ -156,7 +156,7 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
           />
           <ModelRow
             name="Kimi"
-            detail={`${health?.model_names?.kimi ?? 'moonshot-v1-8k'} · Moonshot AI`}
+            detail={`${health?.model_names?.kimi ?? 'kimi-k2.5'} · Moonshot AI`}
             role="Fallback"
             online={kimiCheck?.status === 'ok'}
             colors={colors}
@@ -276,7 +276,7 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
                   style={[styles.modelUsageRow, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border + '40'}]}>
                   <View style={styles.modelUsageLeft}>
                     <Text style={[styles.modelUsageName, {color: colors.text}]}>
-                      {`Kimi (${health?.model_names?.kimi ?? 'moonshot-v1-8k'})`}
+                      {`Kimi (${health?.model_names?.kimi ?? 'kimi-k2.5'})`}
                     </Text>
                     <Text style={[styles.modelUsageSub, {color: colors.textMuted}]}>No usage yet</Text>
                   </View>
