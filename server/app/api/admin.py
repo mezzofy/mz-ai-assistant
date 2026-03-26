@@ -364,11 +364,12 @@ async def model_check(
             timeout=timeout,
         )
         latency_ms = int((time.monotonic() - start) * 1000)
+        _message = result.get("content", "").strip()
         return {
             "model": body.model,
             "model_id": model_id,
             "status": "ok",
-            "message": result.get("content", "").strip(),
+            "message": _message if _message else "OK",
             "latency_ms": latency_ms,
         }
     except asyncio.TimeoutError:
