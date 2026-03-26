@@ -343,12 +343,13 @@ async def model_check(
     model_id = client.model_name
 
     test_messages = [{"role": "user", "content": "Respond with only the word OK"}]
+    timeout = 60.0 if body.model == "kimi" else 15.0
 
     start = time.monotonic()
     try:
         result = await asyncio.wait_for(
             client.chat(test_messages, max_tokens=10),
-            timeout=15.0,
+            timeout=timeout,
         )
         latency_ms = int((time.monotonic() - start) * 1000)
         return {
@@ -364,7 +365,7 @@ async def model_check(
             "model": body.model,
             "model_id": model_id,
             "status": "error",
-            "message": "Timeout after 15s",
+            "message": f"Timeout after {int(timeout)}s",
             "latency_ms": latency_ms,
         }
     except Exception as e:
