@@ -12,6 +12,12 @@ import {useTheme} from '../hooks/useTheme';
 import {getSystemHealth, SystemHealth, checkModelStatus, ModelCheckResult} from '../api/admin';
 import {getLlmUsageStats, LlmUsageStats} from '../api/llm';
 
+function friendlyModelName(modelId: string): string {
+  if (modelId.includes('claude')) return `Claude (${modelId})`;
+  if (modelId.includes('moonshot') || modelId.includes('kimi')) return `Kimi (${modelId})`;
+  return modelId;
+}
+
 type StatusPillProps = {label: string; ok: boolean; colors: ReturnType<typeof useTheme>};
 
 const StatusPill: React.FC<StatusPillProps> = ({label, ok, colors}) => (
@@ -140,9 +146,9 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
         <View style={[styles.card, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
           <ModelRow
             name="Claude Sonnet"
-            detail="claude-sonnet-4-6 · Anthropic"
+            detail={`${health?.model_names?.claude ?? 'claude-sonnet-4-6'} · Anthropic`}
             role="Primary"
-            online={health !== undefined && llmOk}
+            online={claudeCheck?.status === 'ok' ? true : (claudeCheck == null && health !== undefined && llmOk)}
             colors={colors}
             onCheck={handleCheckClaude}
             checking={claudeChecking}
@@ -150,9 +156,9 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
           />
           <ModelRow
             name="Kimi"
-            detail="Moonshot AI · APAC fallback"
+            detail={`${health?.model_names?.kimi ?? 'moonshot-v1-8k'} · Moonshot AI`}
             role="Fallback"
-            online={false}
+            online={kimiCheck?.status === 'ok'}
             colors={colors}
             onCheck={handleCheckKimi}
             checking={kimiChecking}
@@ -249,7 +255,7 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
                   key={m.model}
                   style={[styles.modelUsageRow, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border + '40'}]}>
                   <View style={styles.modelUsageLeft}>
-                    <Text style={[styles.modelUsageName, {color: colors.text}]}>{m.model}</Text>
+                    <Text style={[styles.modelUsageName, {color: colors.text}]}>{friendlyModelName(m.model)}</Text>
                     <Text style={[styles.modelUsageSub, {color: colors.textMuted}]}>
                       {`${m.count.toLocaleString()} msg · ${(m.input_tokens + m.output_tokens).toLocaleString()} tokens`}
                     </Text>
@@ -264,6 +270,18 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
                   </View>
                 </View>
               ))}
+              {!stats.by_model.some(m => m.model.includes('moonshot') || m.model.includes('kimi')) && (
+                <View
+                  key="kimi-placeholder"
+                  style={[styles.modelUsageRow, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border + '40'}]}>
+                  <View style={styles.modelUsageLeft}>
+                    <Text style={[styles.modelUsageName, {color: colors.text}]}>
+                      {`Kimi (${health?.model_names?.kimi ?? 'moonshot-v1-8k'})`}
+                    </Text>
+                    <Text style={[styles.modelUsageSub, {color: colors.textMuted}]}>No usage yet</Text>
+                  </View>
+                </View>
+              )}
             </>
           )}
         </View>

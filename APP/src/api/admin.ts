@@ -10,6 +10,10 @@ export interface SystemHealth {
   connections: {
     websocket_active: number;
   };
+  model_names?: {
+    claude: string;
+    kimi: string;
+  };
 }
 
 export async function getSystemHealth(): Promise<SystemHealth | null> {

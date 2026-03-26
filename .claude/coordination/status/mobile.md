@@ -1,4 +1,39 @@
 # Context Checkpoint: Mobile Agent
+**Date:** 2026-03-26
+**Session:** CR-mobile-ai-usage-v1.50.0 — Task 2
+**Context:** ~25% at checkpoint
+**Reason:** Task 2 complete — all changes delivered in one session
+
+## Completed This Session (2026-03-26)
+- Extended `SystemHealth` interface with optional `model_names?: { claude: string; kimi: string }` field → `APP/src/api/admin.ts`
+- Added `friendlyModelName()` helper before component → `APP/src/screens/AIUsageStatsScreen.tsx`
+- Fixed Claude `detail` string: reads from `health?.model_names?.claude` with `'claude-sonnet-4-6'` fallback
+- Fixed Kimi `detail` string: reads from `health?.model_names?.kimi` with `'moonshot-v1-8k'` fallback
+- Fixed Claude `online` prop: test result takes priority; falls back to system health when not yet tested
+- Fixed Kimi `online` prop: was hardcoded `false`, now `kimiCheck?.status === 'ok'`
+- Replaced raw `{m.model}` label with `{friendlyModelName(m.model)}` in per-model rows
+- Added always-visible Kimi placeholder row when no Kimi usage exists in `by_model`
+
+## Files Modified
+- `APP/src/api/admin.ts` (modified — added `model_names?` to `SystemHealth` interface)
+- `APP/src/screens/AIUsageStatsScreen.tsx` (modified — 7 targeted changes per plan)
+
+## Acceptance Criteria Status (Task 2)
+- [x] Claude `detail` string shows actual model ID from health response (with fallback)
+- [x] Kimi `detail` string shows actual model ID from health response (with fallback)
+- [x] Claude status dot turns green after a successful model-check test
+- [x] Kimi status dot turns green after a successful model-check test (was always red before)
+- [x] Per-model token rows show "Claude (model-id)" / "Kimi (model-id)" labels
+- [x] Kimi row always appears in Usage Stats even when token usage is zero
+- [x] TypeScript: 0 new errors — only optional field added, all expressions type-safe
+- [x] Graceful fallback: `model_names` absence handled with `?? 'fallback-default'`
+
+## Task Status
+Task 2 COMPLETE. Awaiting Lead review per quality gate in plan.
+
+---
+
+# Context Checkpoint: Mobile Agent
 **Date:** 2026-03-22
 **Session:** TaskSummary.title → content rename + "Task ID" → "Message ID" label
 **Context:** ~10% at checkpoint
