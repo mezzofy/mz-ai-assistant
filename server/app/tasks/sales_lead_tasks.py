@@ -191,17 +191,15 @@ def _parse_llm_json(text: str) -> dict:
 
 async def _llm_extract(prompt: str, model: str = "claude-haiku-4-5-20251001") -> str:
     """Call LLM with a single-turn prompt; return the raw response text."""
-    from app.llm import llm_manager as llm_mod
-
-    llm = llm_mod.get()
-    # Build a minimal task_data for direct LLM call
-    response = await llm.call_llm_async(
-        messages=[{"role": "user", "content": prompt}],
-        system="You are a precise data extraction assistant. Return only valid JSON.",
+    import anthropic
+    client = anthropic.AsyncAnthropic()
+    response = await client.messages.create(
         model=model,
         max_tokens=512,
+        system="You are a precise data extraction assistant. Return only valid JSON.",
+        messages=[{"role": "user", "content": prompt}],
     )
-    return response
+    return response.content[0].text if response.content else ""
 
 
 async def _post_teams(channel: str, message: str, config: dict) -> None:

@@ -179,8 +179,11 @@ class PlanManager:
                 prompt_with_error = planning_prompt + f"\n\nPrevious attempt error: {last_error}\nFix the depends_on references."
 
             try:
+                from app.llm import llm_manager as llm_mod
+                _mgr = llm_mod.get()
+                _model = _mgr.claude.model_name if _mgr is not None else "claude-sonnet-4-6"
                 response = await client.messages.create(
-                    model="claude-sonnet-4-5",
+                    model=_model,
                     max_tokens=2000,
                     messages=[{"role": "user", "content": prompt_with_error}],
                 )

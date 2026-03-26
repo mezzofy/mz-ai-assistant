@@ -346,10 +346,13 @@ def _orchestrator_review(plan_id: str, step_id: str) -> dict:
 async def _call_claude_for_review(prompt: str) -> dict:
     """Async Claude API call for step review. Returns parsed review dict."""
     import anthropic
+    from app.llm import llm_manager as llm_mod
+    _mgr = llm_mod.get()
+    _model = _mgr.claude.model_name if _mgr is not None else "claude-sonnet-4-6"
     client = anthropic.AsyncAnthropic()
     try:
         response = await client.messages.create(
-            model="claude-sonnet-4-5",
+            model=_model,
             max_tokens=500,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -499,10 +502,13 @@ def orchestrator_synthesise(plan_id: str):
 async def _call_claude_synthesis(prompt: str) -> str:
     """Async Claude API call for final synthesis. Returns response text."""
     import anthropic
+    from app.llm import llm_manager as llm_mod
+    _mgr = llm_mod.get()
+    _model = _mgr.claude.model_name if _mgr is not None else "claude-sonnet-4-6"
     client = anthropic.AsyncAnthropic()
     try:
         response = await client.messages.create(
-            model="claude-sonnet-4-5",
+            model=_model,
             max_tokens=400,
             messages=[{"role": "user", "content": prompt}],
         )
