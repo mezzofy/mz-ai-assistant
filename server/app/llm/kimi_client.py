@@ -2,7 +2,7 @@
 KimiClient — Async Kimi (Moonshot) API client for the Mezzofy AI Assistant.
 
 Kimi uses an OpenAI-compatible API, so this uses openai.AsyncOpenAI
-with a custom base_url pointing to api.moonshot.cn.
+with a custom base_url pointing to api.moonshot.ai (international endpoint).
 
 Routing: Chinese-language content and APAC market research → Kimi
 Config section: config["llm"]["kimi"]
@@ -32,7 +32,7 @@ class KimiClient:
         kimi_cfg = config.get("llm", {}).get("kimi", {})
         self._api_key: str = kimi_cfg.get("api_key", "")
         self._model: str = kimi_cfg.get("model", "moonshot-v1-128k")
-        self._base_url: str = kimi_cfg.get("base_url", "https://api.moonshot.cn/v1")
+        self._base_url: str = kimi_cfg.get("base_url", "https://api.moonshot.ai/v1")
         self._max_tokens: int = int(kimi_cfg.get("max_tokens", 4096))
         self._temperature: float = float(kimi_cfg.get("temperature", 0.7))
 
