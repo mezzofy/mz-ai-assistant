@@ -55,7 +55,7 @@ class SalesAgent(BaseAgent):
             "inbox lead scan", "lead scan", "inbox scan", "daily lead scan",
         )):
             return await self._daily_email_lead_report_workflow(task)
-        if any(w in message for w in ("linkedin", "prospect", "lead", "find")):
+        if "linkedin" in message:
             return await self._prospecting_workflow(task)
         return await self._general_sales_workflow(task)
 

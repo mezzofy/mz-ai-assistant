@@ -21,7 +21,7 @@ _TRIGGER_KEYWORDS = {
     "kpi", "dashboard", "report", "overview", "performance", "cross-department",
     "audit", "cost", "usage", "management", "executive", "ceo", "summary",
     "all departments", "company-wide", "metrics", "revenue", "team",
-    "linkedin", "prospect", "lead", "find",
+    "linkedin",
 }
 
 # Subset of keywords that indicate an explicit KPI/dashboard request in execute()
@@ -72,8 +72,8 @@ class ManagementAgent(BaseAgent):
         if any(kw in message for kw in _KPI_KEYWORDS):
             return await self._kpi_dashboard_workflow(task)
 
-        # LinkedIn prospecting workflow
-        if any(w in message for w in ("linkedin", "prospect", "lead", "find")):
+        # LinkedIn prospecting workflow — only when "linkedin" is explicitly mentioned
+        if "linkedin" in message:
             return await self._prospecting_workflow(task)
 
         # General question — respond directly via LLM without KPI workflow
