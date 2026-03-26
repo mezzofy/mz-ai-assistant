@@ -88,13 +88,18 @@ class KimiClient:
             # Kimi uses OpenAI tool format — pass ToolExecutor definitions directly
             kwargs["tools"] = self._format_tools(tools)
             kwargs["tool_choice"] = "auto"
-
-        try:
-            response = await self._client.chat.completions.create(**kwargs)
-            return self._parse_response(response)
-        except Exception as e:
-            logger.error(f"KimiClient.chat failed: {e}")
-            raise
+            try:
+                response = await self._client.chat.completions.create(**kwargs)
+                return self._parse_response(response)
+            except Exception as e:
+                logger.error(f"KimiClient.chat failed: {e}")
+                raise
+        else:
+            # Text-only: stream internally to keep connection alive (prevents timeout
+            # on slow models like kimi-k2.5 that buffer before sending)
+            return await self._stream_to_response(
+                full_messages, kwargs["max_tokens"]
+            )
 
     async def stream_chat(
         self,
@@ -127,6 +132,44 @@ class KimiClient:
             raise
 
     # ── Private helpers ───────────────────────────────────────────────────────
+
+    async def _stream_to_response(self, full_messages: list, max_tokens: int) -> dict:
+        """
+        Stream the completion internally and return an assembled response dict.
+
+        Identical return format to _parse_response() so all callers are unaffected.
+        Streaming keeps the TCP connection alive — critical for kimi-k2.5 which has
+        high latency before emitting its first token in non-streaming mode.
+        """
+        chunks: list[str] = []
+        finish_reason = "stop"
+        try:
+            stream = await self._client.chat.completions.create(
+                model=self._model,
+                max_tokens=max_tokens,
+                temperature=self._temperature,
+                messages=full_messages,
+                stream=True,
+            )
+            async for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta and delta.content:
+                    chunks.append(delta.content)
+                if chunk.choices[0].finish_reason:
+                    finish_reason = chunk.choices[0].finish_reason
+        except Exception as e:
+            logger.error(f"KimiClient._stream_to_response failed: {e}")
+            raise
+
+        return {
+            "content": "".join(chunks),
+            "tool_calls": None,
+            "stop_reason": finish_reason or "stop",
+            "usage": {"input_tokens": 0, "output_tokens": 0},
+            "model": self._model,
+        }
 
     def _format_tools(self, tools: list[dict]) -> list[dict]:
         """
