@@ -1318,7 +1318,7 @@ async def list_tasks(
                         COALESCE(SUM(lu.input_tokens + lu.output_tokens), 0)           AS total_tokens,
                         STRING_AGG(DISTINCT lu.model, ', ' ORDER BY lu.model)          AS llm_model
                     FROM agent_tasks agtask
-                    LEFT JOIN llm_usage lu ON lu.session_id = agtask.session_id
+                    LEFT JOIN llm_usage lu ON lu.session_id::text = agtask.session_id
                     WHERE agtask.id::text = ANY(:task_ids)
                     GROUP BY agtask.id
                 """).bindparams(bindparam("task_ids", type_=ARRAY(String))),

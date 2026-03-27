@@ -199,9 +199,9 @@ function TaskCard({ task, onKill, onDelete }: {
                   {shortModelName(task.llm_model)}
                 </span>
               )}
-              {task.total_tokens != null && task.total_tokens > 0 && (
+              {(task.input_tokens ?? 0) > 0 && (
                 <span style={{ fontSize: 11, color: '#6B7280', fontFamily: 'monospace' }}>
-                  {task.total_tokens.toLocaleString()} tokens
+                  ↑{(task.input_tokens ?? 0).toLocaleString()} ↓{(task.output_tokens ?? 0).toLocaleString()}
                 </span>
               )}
             </div>
