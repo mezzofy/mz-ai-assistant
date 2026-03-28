@@ -67,9 +67,9 @@ export default function HREmployeeProfilePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['hr-leave-apps', id] }),
   })
 
-  const emp: HREmployee | null = profileData?.employee || profileData || null
-  const balances: HRLeaveBalance[] = balanceData?.balances || balanceData || []
-  const leaveApps: HRLeaveApplication[] = leaveData?.applications || leaveData || []
+  const emp: HREmployee | null = profileData?.data?.employee || profileData?.employee || null
+  const balances: HRLeaveBalance[] = balanceData?.data?.balances || []
+  const leaveApps: HRLeaveApplication[] = leaveData?.data?.applications || []
 
   if (isLoading) {
     return (

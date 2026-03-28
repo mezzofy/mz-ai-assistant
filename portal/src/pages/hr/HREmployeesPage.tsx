@@ -32,7 +32,7 @@ export default function HREmployeesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['hr-employees'] }),
   })
 
-  const employees: HREmployee[] = data?.employees || data || []
+  const employees: HREmployee[] = data?.data?.employees || []
 
   return (
     <div className="space-y-4">

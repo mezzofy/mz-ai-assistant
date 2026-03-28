@@ -95,10 +95,10 @@ export default function HREmployeeFormPage() {
     queryKey: ['hr-employees-list'],
     queryFn: () => portalApi.getHREmployees().then((r) => r.data),
   })
-  const allEmployees: HREmployee[] = employeesData?.employees || employeesData || []
+  const allEmployees: HREmployee[] = employeesData?.data?.employees || []
 
   useEffect(() => {
-    const emp: HREmployee | null = existingData?.employee || existingData || null
+    const emp: HREmployee | null = existingData?.data?.employee || existingData?.employee || null
     if (emp) {
       setForm({
         staff_id: emp.staff_id || '',
