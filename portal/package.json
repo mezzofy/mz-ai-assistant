@@ -1,7 +1,7 @@
 {
   "name": "mission-control",
   "private": true,
-  "version": "1.49.0",
+  "version": "1.52.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
