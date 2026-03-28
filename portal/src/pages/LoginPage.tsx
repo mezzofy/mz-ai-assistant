@@ -214,7 +214,7 @@ export default function LoginPage() {
 
           <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: '#1E3A5F' }}>
             <p className="text-xs" style={{ color: '#374151' }}>
-              v1.49.0 · Powered by <span style={{ color: '#f97316' }}>Mezzofy</span>
+              v1.52.0 · Powered by <span style={{ color: '#f97316' }}>Mezzofy</span>
             </p>
           </div>
         </div>
