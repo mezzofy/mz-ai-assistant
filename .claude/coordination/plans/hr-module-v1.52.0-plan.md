@@ -26,7 +26,7 @@ Extends the existing system with a full HR sub-module:
 | 2 | 4 | `hr_ops.py` tools (15 tools) | Backend | Task 1 | DONE |
 | 3 | 5–6 | `/hr` API router + user-employee linking | Backend | Task 2 | DONE |
 | 4 | 7 | Extend HR Agent with leave workflows | Backend | Task 3 | DONE |
-| 5 | 11 | Tests (`tests/test_hr_module.py`) | Backend | Task 3+4 | NOT STARTED |
+| 5 | 11 | Tests (`tests/test_hr_module.py`) | Backend | Task 3+4 | DONE |
 | 6 | 8–9 | Portal: sidebar + 5 pages | Frontend | Task 3 | DONE |
 | 7 | 12 | Docs update | Docs | Task 5+6 | NOT STARTED |
 

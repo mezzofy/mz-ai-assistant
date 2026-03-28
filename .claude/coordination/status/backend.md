@@ -39,18 +39,16 @@
 - `server/app/api/admin_portal.py` (modified — additive)
 - `server/app/agents/hr_agent.py` (modified — extended)
 
-## Next Steps (Task 5 — Tests)
-- Create `server/tests/test_hr_module.py`
-- 24 tests: 14 tool-level, 5 API endpoint, 5 agent routing
-- Run: `pytest tests/test_hr_module.py -v`
-- Plan: `.claude/coordination/plans/hr-module-v1.52.0-plan.md`
+## Completed — Task 5 (Tests)
+- ✅ `server/tests/test_hr_module.py` — NEW: 24 tests, all passing (commit 0d8549e)
+  - Group 1 (14 tests): HROps DB/tool layer — create_employee, apply_leave, update_leave_status, scoping, audit log
+  - Group 2 (5 tests): /hr API RBAC enforcement
+  - Group 3 (5 tests): HRAgent workflow routing + can_handle()
+- ✅ `.claude/coordination/plans/hr-module-v1.52.0-plan.md` — Task 5 marked DONE
+
+## All Backend Tasks Complete
+Tasks 1–5 of hr-module-v1.52.0-plan.md are DONE.
+Remaining: Task 7 (Docs) — assigned to Docs Agent.
 
 ## Resume Instructions
-After /clear, load in order:
-1. CLAUDE.md
-2. .claude/agents/backend.md
-3. .claude/skills/backend-developer.md
-4. This checkpoint file
-5. .claude/coordination/plans/hr-module-v1.52.0-plan.md (Task 5 = Tests)
-6. server/tests/ (look at existing test files for patterns)
-Then continue with: Task 5 — create server/tests/test_hr_module.py (24 tests)
+Backend tasks for HR module v1.52.0 are fully complete. No further action needed.
