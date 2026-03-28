@@ -1132,23 +1132,24 @@ async def create_user(
         },
     )
 
-    # Send invite email via Outlook
+    # Send invite email via system sender (ai-assistant@mezzofy.com)
     try:
-        from app.tools.communication.outlook_ops import OutlookOps
-        ops = OutlookOps()
-        await ops._send_email(
-            to=[body.email],
+        from app.core.email_sender import send_transactional_email
+        await send_transactional_email(
+            to=body.email,
             subject="Welcome to Mezzofy AI Assistant",
-            body=(
-                f"Hi {body.name},\n\n"
-                f"You have been invited to Mezzofy AI Assistant.\n\n"
-                f"To activate your account:\n"
-                f"1. Open the Mezzofy mobile app\n"
-                f"2. Tap 'Activate Account' on the login screen\n"
-                f"3. Enter your activation code: {invite_token}\n"
-                f"4. Set a new password (minimum 8 characters)\n\n"
-                f"Your email: {body.email}\n\n"
-                f"Best regards,\nMezzofy Team"
+            body_html=(
+                f"<p>Hi {body.name},</p>"
+                f"<p>You have been invited to Mezzofy AI Assistant.</p>"
+                f"<p><strong>To activate your account:</strong></p>"
+                f"<ol>"
+                f"<li>Open the Mezzofy mobile app</li>"
+                f"<li>Tap <em>Activate Account</em> on the login screen</li>"
+                f"<li>Enter your activation code: <strong>{invite_token}</strong></li>"
+                f"<li>Set a new password (minimum 8 characters)</li>"
+                f"</ol>"
+                f"<p>Your email: {body.email}</p>"
+                f"<p>Best regards,<br/>Mezzofy Team</p>"
             ),
         )
     except Exception as e:
