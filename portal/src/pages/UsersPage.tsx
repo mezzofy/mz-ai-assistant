@@ -62,6 +62,7 @@ export default function UsersPage() {
   const [newForm, setNewForm] = useState({ email: '', name: '', department: 'sales', role: 'sales_rep' })
   const [lastInviteToken, setLastInviteToken] = useState<string | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const { data } = useQuery({
     queryKey: ['users'],
@@ -74,11 +75,16 @@ export default function UsersPage() {
     onSuccess: (response) => {
       qc.invalidateQueries({ queryKey: ['users'] })
       setShowNewModal(false)
+      setCreateError(null)
       setNewForm({ email: '', name: '', department: 'sales', role: 'sales_rep' })
       const token = response?.data?.invite_token
       if (token) {
         setLastInviteToken(token)
       }
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setCreateError(msg || 'Failed to create user')
     },
   })
 
@@ -118,7 +124,7 @@ export default function UsersPage() {
           </span>
         </div>
         <button
-          onClick={() => setShowNewModal(true)}
+          onClick={() => { setShowNewModal(true); setCreateError(null) }}
           className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
           style={{ background: '#f97316' }}
         >
@@ -294,9 +300,14 @@ export default function UsersPage() {
                 </select>
               </div>
             </div>
+            {createError && (
+              <div className="mt-4 px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5' }}>
+                {createError}
+              </div>
+            )}
             <div className="flex justify-end gap-3 mt-6">
               <button
-                onClick={() => setShowNewModal(false)}
+                onClick={() => { setShowNewModal(false); setCreateError(null) }}
                 className="px-4 py-2 rounded-lg text-sm text-gray-400"
               >
                 Cancel
