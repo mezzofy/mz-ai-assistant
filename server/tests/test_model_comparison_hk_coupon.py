@@ -188,7 +188,7 @@ class TestHKCouponResearch:
         response = await kimi._client.chat.completions.create(
             model=kimi._model,
             max_tokens=kimi._max_tokens,
-            temperature=kimi._temperature,
+            temperature=1,  # kimi-k2.5 only accepts temperature=1
             messages=messages,
             stream=False,
         )
