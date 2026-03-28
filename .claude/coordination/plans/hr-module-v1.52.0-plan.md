@@ -28,7 +28,7 @@ Extends the existing system with a full HR sub-module:
 | 4 | 7 | Extend HR Agent with leave workflows | Backend | Task 3 | DONE |
 | 5 | 11 | Tests (`tests/test_hr_module.py`) | Backend | Task 3+4 | DONE |
 | 6 | 8–9 | Portal: sidebar + 5 pages | Frontend | Task 3 | DONE |
-| 7 | 12 | Docs update | Docs | Task 5+6 | NOT STARTED |
+| 7 | 12 | Docs update | Docs | Task 5+6 | DONE |
 
 **Parallel after Tasks 3+4:** Backend runs tests (Task 5) while Frontend builds portal (Task 6).
 

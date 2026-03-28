@@ -298,7 +298,17 @@ sequenceDiagram
 - HR communications and notifications via email
 - Export HR data to CSV
 
-**Tools used:** `DatabaseOps` (HR queries), `EmailOps`, `CSVOps`
+**Tools used:** `DatabaseOps` (HR queries), `EmailOps`, `CSVOps`, `HROps`
+
+#### New Workflows (added 2026-03-28)
+
+| Workflow | Trigger Keywords | Description |
+|----------|-----------------|-------------|
+| `_apply_leave_workflow` | apply leave, take leave, book leave, request leave | Staff applies leave; validates balance + dates, confirms with LLM |
+| `_check_balance_workflow` | leave balance, days left, remaining leave, check leave | Returns current-year leave balances + upcoming applications |
+| `_cancel_leave_workflow` | cancel leave, cancel my leave, withdraw leave | Lists cancellable leaves and confirms cancellation |
+| `_manager_approval_workflow` | pending approval, approve leave, reject leave, direct report | Manager reviews and approves/rejects direct report leave requests |
+| `_hr_staff_query_workflow` | employees on leave, who is on leave, leave summary | HR staff queries department-level leave status |
 
 ---
 
