@@ -4,7 +4,15 @@ import { portalApi } from '../api/portal'
 import type { User } from '../types'
 
 const DEPARTMENTS = ['finance', 'sales', 'marketing', 'support', 'management', 'hr', 'it']
-const ROLES = ['admin', 'executive', 'manager', 'sales_rep', 'marketing_rep', 'support_rep', 'hr_rep', 'finance_rep']
+const ROLES = [
+  'admin', 'executive',
+  'finance_viewer', 'finance_manager',
+  'sales_rep', 'sales_manager',
+  'marketing_creator', 'marketing_manager',
+  'support_agent', 'support_manager',
+  'hr_viewer', 'hr_staff', 'hr_manager',
+  'legal_officer',
+]
 
 function Avatar({ name }: { name: string }) {
   return (
@@ -53,6 +61,7 @@ export default function UsersPage() {
   const [deleteUser, setDeleteUser] = useState<User | null>(null)
   const [newForm, setNewForm] = useState({ email: '', name: '', department: 'sales', role: 'sales_rep' })
   const [lastInviteToken, setLastInviteToken] = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const { data } = useQuery({
     queryKey: ['users'],
@@ -79,6 +88,11 @@ export default function UsersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] })
       setEditUser(null)
+      setEditError(null)
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setEditError(msg || 'Failed to save changes')
     },
   })
 
@@ -198,7 +212,7 @@ export default function UsersPage() {
                 <td className="py-2.5 pr-4">
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setEditUser(user)}
+                      onClick={() => { setEditUser(user); setEditError(null) }}
                       title="Edit"
                       className="p-1.5 rounded transition-colors hover:bg-orange-500/10"
                       style={{ color: '#f97316' }}
@@ -342,8 +356,13 @@ export default function UsersPage() {
                 </button>
               </div>
             </div>
+            {editError && (
+              <div className="mt-4 px-3 py-2 rounded-lg text-sm" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#fca5a5' }}>
+                {editError}
+              </div>
+            )}
             <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setEditUser(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400">
+              <button onClick={() => { setEditUser(null); setEditError(null) }} className="px-4 py-2 rounded-lg text-sm text-gray-400">
                 Cancel
               </button>
               <button
