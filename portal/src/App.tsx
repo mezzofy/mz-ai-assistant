@@ -1,9 +1,10 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import AppShell from './components/layout/AppShell'
 import AdminRoute from './components/AdminRoute'
+import HRRoute from './components/HRRoute'
 import LoginPage from './pages/LoginPage'
 import OtpPage from './pages/OtpPage'
 import DashboardPage from './pages/DashboardPage'
@@ -14,6 +15,10 @@ import TasksPage from './pages/TasksPage'
 import UsersPage from './pages/UsersPage'
 import CRMPage from './pages/CRMPage'
 import BackgroundTasksPage from './pages/BackgroundTasksPage'
+import HREmployeesPage from './pages/hr/HREmployeesPage'
+import HREmployeeProfilePage from './pages/hr/HREmployeeProfilePage'
+import HREmployeeFormPage from './pages/hr/HREmployeeFormPage'
+import HRLeaveManagementPage from './pages/hr/HRLeaveManagementPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +51,13 @@ export default function App() {
             <Route path="users" element={<UsersPage />} />
             <Route path="crm" element={<CRMPage />} />
             <Route path="background-tasks" element={<BackgroundTasksPage />} />
+            <Route path="hr" element={<HRRoute><Outlet /></HRRoute>}>
+              <Route path="employees" element={<HREmployeesPage />} />
+              <Route path="employees/new" element={<HREmployeeFormPage />} />
+              <Route path="employees/:id" element={<HREmployeeProfilePage />} />
+              <Route path="employees/:id/edit" element={<HREmployeeFormPage />} />
+              <Route path="leave" element={<HRLeaveManagementPage />} />
+            </Route>
           </Route>
 
           <Route path="/" element={<Navigate to="/mission-control/login" replace />} />

@@ -217,3 +217,90 @@ export interface PlanDetail extends Plan {
   goal_summary?: string
   execution_mode?: string
 }
+
+export interface HREmployee {
+  id: string
+  user_id: string | null
+  staff_id: string
+  full_name: string
+  email: string
+  phone: string | null
+  department: string
+  job_title: string | null
+  employment_type: 'full_time' | 'part_time' | 'contract'
+  country: string
+  location_office: string | null
+  manager_id: string | null
+  manager_name?: string | null
+  annual_leave_days: number
+  sick_leave_days: number
+  other_leave_days: number
+  hire_date: string
+  probation_end_date: string | null
+  is_active: boolean
+  profile_notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface HRLeaveType {
+  id: string
+  name: string
+  code: string
+  is_paid: boolean
+  requires_document: boolean
+  country: string | null
+  is_active: boolean
+}
+
+export interface HRLeaveApplication {
+  id: string
+  employee_id: string
+  employee_name?: string
+  leave_type_id: string
+  leave_type_name?: string
+  start_date: string
+  end_date: string
+  total_days: number
+  half_day: boolean
+  half_day_period: string | null
+  reason: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  approver_id: string | null
+  approver_name?: string | null
+  approver_comment: string | null
+  applied_via: string
+  created_at: string
+  updated_at: string
+}
+
+export interface HRLeaveBalance {
+  id: string
+  employee_id: string
+  leave_type_id: string
+  leave_type_name?: string
+  leave_type_code?: string
+  year: number
+  entitled_days: number
+  carried_over: number
+  taken_days: number
+  pending_days: number
+  remaining_days: number
+}
+
+export interface HRLeaveDashboard {
+  total_active_employees: number
+  on_leave_today: number
+  pending_approvals: number
+  leaves_this_month: number
+  employee_summaries: Array<{
+    employee_id: string
+    staff_id: string
+    full_name: string
+    department: string
+    country: string
+    leave_balances: HRLeaveBalance[]
+    pending_applications: number
+    last_updated: string
+  }>
+}

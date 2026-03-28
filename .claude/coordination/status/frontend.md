@@ -1,4 +1,68 @@
 # Context Checkpoint: Frontend Agent
+**Date:** 2026-03-28
+**Session:** 13 — HR Module v1.52.0 Portal (Task 6)
+
+## Completed This Session (Session 13)
+
+### Task 6 — HR Portal: Sidebar + Guard + Routes + API + 4 Page Components
+
+**Sidebar updated:** `portal/src/components/layout/Sidebar.tsx`
+- Added `Users2` and `CalendarRange` imports from lucide-react
+- Defined `HR_ROLES` constant and `showHR` flag from `useAuthStore`
+- HR nav section (Employees + Leave) only renders when user role is in HR_ROLES
+- Split NAV_ITEMS into 3 groups: main items, HR items (conditional), bottom items (Users)
+- Added section divider above Users nav item
+
+**HRRoute guard created:** `portal/src/components/HRRoute.tsx`
+- Checks `isAuthenticated` and `user.role in HR_ROLES`
+- Shows "Access Denied" with hr role message if unauthorized
+
+**HR Types added:** `portal/src/types/index.ts`
+- `HREmployee`, `HRLeaveType`, `HRLeaveApplication`, `HRLeaveBalance`, `HRLeaveDashboard`
+
+**HR API methods added:** `portal/src/api/portal.ts`
+- 13 methods: getHREmployees, createHREmployee, getHREmployee, updateHREmployee, patchHREmployeeStatus, getHREmployeeProfile, getHRLeaveBalance, applyLeave, getLeaveApplications, updateLeaveStatus, getPendingApprovals, getLeaveTypes, getHRLeaveDashboard
+- All prefixed with `/api/admin-portal/hr/`
+
+**Routes registered:** `portal/src/App.tsx`
+- Added `HRRoute`, `Outlet` imports + 4 HR page imports
+- HR routes nested under `/mission-control/hr` wrapped in `<HRRoute><Outlet /></HRRoute>`
+
+**4 HR pages created in `portal/src/pages/hr/`:**
+- `HREmployeesPage.tsx` — table with filters, activate/deactivate, row-click navigation
+- `HREmployeeProfilePage.tsx` — 3-tab (Profile/Leave Balance/Leave Records), HRLeaveApplicationModal inline
+- `HREmployeeFormPage.tsx` — create/edit form with all fields, user-account linking toggle
+- `HRLeaveManagementPage.tsx` — Summary (stats + table + CSV export) + Pending Approvals (approve/reject)
+
+**TypeScript:** `npx tsc --noEmit` — 0 errors
+
+## Files Modified (Session 13)
+- `portal/src/components/layout/Sidebar.tsx` (modified — HR section)
+- `portal/src/components/HRRoute.tsx` (new)
+- `portal/src/types/index.ts` (modified — 5 HR interfaces appended)
+- `portal/src/api/portal.ts` (modified — 13 HR API methods)
+- `portal/src/App.tsx` (modified — HR routes registered)
+- `portal/src/pages/hr/HREmployeesPage.tsx` (new)
+- `portal/src/pages/hr/HREmployeeProfilePage.tsx` (new)
+- `portal/src/pages/hr/HREmployeeFormPage.tsx` (new)
+- `portal/src/pages/hr/HRLeaveManagementPage.tsx` (new)
+
+## Deviations from Spec
+- HRLeaveApplicationModal is inline in `HREmployeeProfilePage.tsx` rather than a separate file (cleaner, no cross-imports)
+- `HRLeaveManagementPage.tsx` does NOT include a separate HRLeaveApplicationModal — leave apply is accessed from employee profile page
+
+## Quality Gate
+- [x] Sidebar shows HR section for hr/executive/admin roles
+- [x] HRRoute blocks non-HR roles
+- [x] 4 HR pages created
+- [x] HR TypeScript types in types/index.ts
+- [x] 13 HR API methods in portal.ts
+- [x] Routes registered in App.tsx
+- [x] No TypeScript errors
+
+---
+
+# Context Checkpoint: Frontend Agent
 **Date:** 2026-03-23
 **Session:** 12 — CR Orchestrator Upgrade v2.5 Task 8
 

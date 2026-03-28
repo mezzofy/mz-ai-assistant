@@ -1,5 +1,5 @@
 import client from './client'
-import type { Plan, PlanDetail, PlanStep } from '../types'
+import type { Plan, PlanDetail, PlanStep, HREmployee, HRLeaveApplication } from '../types'
 
 export async function getPlans(userId?: string, status?: string, limit = 20): Promise<Plan[]> {
   const params: Record<string, unknown> = { limit }
@@ -123,4 +123,36 @@ export const portalApi = {
   updateUser: (id: string, data: Partial<{ name: string; department: string; role: string; is_active: boolean }>) =>
     client.patch(`/api/admin-portal/users/${id}`, data),
   deleteUser: (id: string) => client.delete(`/api/admin-portal/users/${id}`),
+
+  // HR — Employees
+  getHREmployees: (params?: { department?: string; country?: string; is_active?: boolean; search?: string }) =>
+    client.get('/api/admin-portal/hr/employees', { params }),
+  createHREmployee: (data: Partial<HREmployee>) =>
+    client.post('/api/admin-portal/hr/employees', data),
+  getHREmployee: (id: string) =>
+    client.get(`/api/admin-portal/hr/employees/${id}`),
+  updateHREmployee: (id: string, data: Partial<HREmployee>) =>
+    client.put(`/api/admin-portal/hr/employees/${id}`, data),
+  patchHREmployeeStatus: (id: string, is_active: boolean) =>
+    client.patch(`/api/admin-portal/hr/employees/${id}/status`, { is_active }),
+  getHREmployeeProfile: (id: string) =>
+    client.get(`/api/admin-portal/hr/employees/${id}/profile`),
+  getHRLeaveBalance: (id: string, year?: number) =>
+    client.get(`/api/admin-portal/hr/employees/${id}/leave-balance`, { params: { year } }),
+
+  // HR — Leave
+  applyLeave: (data: Partial<HRLeaveApplication>) =>
+    client.post('/api/admin-portal/hr/leave/apply', data),
+  getLeaveApplications: (params?: { employee_id?: string; status?: string; year?: number }) =>
+    client.get('/api/admin-portal/hr/leave/applications', { params }),
+  updateLeaveStatus: (id: string, status: string, comment?: string) =>
+    client.patch(`/api/admin-portal/hr/leave/applications/${id}/status`, { status, comment }),
+  getPendingApprovals: () =>
+    client.get('/api/admin-portal/hr/leave/pending-approvals'),
+  getLeaveTypes: (country?: string) =>
+    client.get('/api/admin-portal/hr/leave/types', { params: { country } }),
+
+  // HR — Dashboard
+  getHRLeaveDashboard: (params?: { year?: number; department?: string; country?: string }) =>
+    client.get('/api/admin-portal/hr/dashboard/leave-summary', { params }),
 }

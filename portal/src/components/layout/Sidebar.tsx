@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity } from 'lucide-react'
+import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange } from 'lucide-react'
 import clsx from 'clsx'
 import { portalApi } from '../../api/portal'
+
+const HR_ROLES = ['hr_viewer', 'hr_staff', 'hr_manager', 'executive', 'admin']
 
 const NAV_ITEMS = [
   { path: '/mission-control/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,12 +15,22 @@ const NAV_ITEMS = [
   { path: '/mission-control/agents', label: 'Agents', icon: Bot },
   { path: '/mission-control/files', label: 'Files', icon: FolderOpen },
   { path: '/mission-control/crm', label: 'Leads', icon: TrendingUp },
+]
+
+const HR_NAV_ITEMS = [
+  { path: '/mission-control/hr/employees', label: 'Employees', icon: Users2 },
+  { path: '/mission-control/hr/leave', label: 'Leave', icon: CalendarRange },
+]
+
+const BOTTOM_NAV_ITEMS = [
   { path: '/mission-control/users', label: 'Users', icon: Users },
 ]
 
 export default function Sidebar() {
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const user = useAuthStore((s) => s.user)
   const [activeBgCount, setActiveBgCount] = useState(0)
+  const showHR = user?.role ? HR_ROLES.includes(user.role) : false
 
   useEffect(() => {
     let cancelled = false
@@ -66,7 +78,7 @@ export default function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.path}
@@ -93,6 +105,61 @@ export default function Sidebar() {
                 {activeBgCount}
               </span>
             )}
+          </NavLink>
+        ))}
+
+        {showHR && (
+          <>
+            <div className="pt-2 pb-1">
+              <div className="px-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#4B5563' }}>
+                HR
+              </div>
+            </div>
+            {HR_NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  clsx(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
+                    isActive
+                      ? 'text-white font-medium'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  )
+                }
+                style={({ isActive }) =>
+                  isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
+                }
+              >
+                <item.icon size={16} />
+                <span className="flex-1">{item.label}</span>
+              </NavLink>
+            ))}
+          </>
+        )}
+
+        <div className="pt-2 pb-1">
+          <div className="border-t" style={{ borderColor: '#1E2A3A' }} />
+        </div>
+
+        {BOTTOM_NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
+                isActive
+                  ? 'text-white font-medium'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+              )
+            }
+            style={({ isActive }) =>
+              isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
+            }
+          >
+            <item.icon size={16} />
+            <span className="flex-1">{item.label}</span>
           </NavLink>
         ))}
       </nav>
