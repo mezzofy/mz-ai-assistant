@@ -114,6 +114,7 @@ export default function UsersPage() {
               <th className="py-3">Status</th>
               <th className="py-3">Last Login</th>
               <th className="py-3">Sessions</th>
+              <th className="py-3">User ID</th>
               <th className="py-3 pr-4">Actions</th>
             </tr>
           </thead>
@@ -153,6 +154,15 @@ export default function UsersPage() {
                   {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : '—'}
                 </td>
                 <td className="py-2.5 text-gray-400">{user.session_count ?? 0}</td>
+                <td className="py-2.5">
+                  <code
+                    className="text-xs font-mono px-1.5 py-0.5 rounded select-all cursor-text"
+                    style={{ background: '#1E2A3A', color: '#9CA3AF' }}
+                    title={user.id}
+                  >
+                    {user.id.slice(0, 8)}…
+                  </code>
+                </td>
                 <td className="py-2.5 pr-4">
                   <div className="flex gap-2">
                     <button
@@ -185,7 +195,7 @@ export default function UsersPage() {
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-12 text-center" style={{ color: '#6B7280' }}>
+                <td colSpan={8} className="py-12 text-center" style={{ color: '#6B7280' }}>
                   No users
                 </td>
               </tr>

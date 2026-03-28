@@ -23,6 +23,7 @@ type FormData = {
   country: string
   location_office: string
   manager_name: string
+  manager_id: string
   hire_date: string
   probation_end_date: string
   annual_leave_days: number
@@ -44,6 +45,7 @@ const EMPTY_FORM: FormData = {
   country: 'SG',
   location_office: '',
   manager_name: '',
+  manager_id: '',
   hire_date: '',
   probation_end_date: '',
   annual_leave_days: 14,
@@ -89,6 +91,12 @@ export default function HREmployeeFormPage() {
     enabled: isEdit,
   })
 
+  const { data: employeesData } = useQuery({
+    queryKey: ['hr-employees-list'],
+    queryFn: () => portalApi.getHREmployees().then((r) => r.data),
+  })
+  const allEmployees: HREmployee[] = employeesData?.employees || employeesData || []
+
   useEffect(() => {
     const emp: HREmployee | null = existingData?.employee || existingData || null
     if (emp) {
@@ -103,6 +111,7 @@ export default function HREmployeeFormPage() {
         country: emp.country || 'SG',
         location_office: emp.location_office || '',
         manager_name: emp.manager_name || '',
+        manager_id: emp.manager_id || '',
         hire_date: emp.hire_date || '',
         probation_end_date: emp.probation_end_date || '',
         annual_leave_days: emp.annual_leave_days ?? 14,
@@ -114,6 +123,13 @@ export default function HREmployeeFormPage() {
       })
     }
   }, [existingData])
+
+  useEffect(() => {
+    if (!isEdit && form.staff_id === '' && allEmployees.length > 0) {
+      const next = allEmployees.length + 1
+      setForm((f) => ({ ...f, staff_id: `MZ-EMP-${String(next).padStart(3, '0')}` }))
+    }
+  }, [allEmployees, isEdit])
 
   const createMutation = useMutation({
     mutationFn: (data: Partial<HREmployee>) => portalApi.createHREmployee(data),
@@ -148,6 +164,7 @@ export default function HREmployeeFormPage() {
       employment_type: form.employment_type,
       country: form.country,
       location_office: form.location_office || null,
+      manager_id: form.manager_id || null,
       hire_date: form.hire_date,
       probation_end_date: form.probation_end_date || null,
       annual_leave_days: form.annual_leave_days,
@@ -231,7 +248,28 @@ export default function HREmployeeFormPage() {
             <input className={inputClass} style={inputStyle} value={form.location_office} onChange={set('location_office')} placeholder="Singapore HQ" />
           </FormField>
           <FormField label="Manager">
-            <input className={inputClass} style={inputStyle} value={form.manager_name} onChange={set('manager_name')} />
+            <select
+              className={inputClass}
+              style={inputStyle}
+              value={form.manager_id}
+              onChange={(e) => {
+                const selected = allEmployees.find((emp) => emp.id === e.target.value)
+                setForm((f) => ({
+                  ...f,
+                  manager_id: e.target.value,
+                  manager_name: selected?.full_name || '',
+                }))
+              }}
+            >
+              <option value="">— No Manager —</option>
+              {allEmployees
+                .filter((emp) => emp.is_active && emp.id !== id)
+                .map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.full_name} ({emp.staff_id})
+                  </option>
+                ))}
+            </select>
           </FormField>
           <FormField label="Hire Date" required>
             <input type="date" className={inputClass} style={inputStyle} value={form.hire_date} onChange={set('hire_date')} />
