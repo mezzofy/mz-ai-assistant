@@ -43,6 +43,14 @@ class CreateUserRequest(BaseModel):
     department: str
     role: str
     permissions: list[str] = []
+    # Optional: auto-create linked employee record
+    create_employee: bool = False
+    staff_id: Optional[str] = None
+    department_for_employee: Optional[str] = None  # defaults to user's department
+    country: Optional[str] = None
+    hire_date: Optional[str] = None
+    annual_leave_days: Optional[int] = 14
+    sick_leave_days: Optional[int] = 14
 
 
 class UpdateUserRequest(BaseModel):
@@ -143,10 +151,34 @@ async def create_user(
         },
     )
 
+    await db.commit()
+
     logger.info(
         f"Admin {current_user['user_id']} created user {user_id} "
         f"({body.email}, {body.department}/{body.role})"
     )
+
+    # Optionally create a linked employee record
+    employee_record_created = False
+    if body.create_employee:
+        try:
+            from app.tools.database.hr_ops import HROps
+            from app.core.config import get_config
+            hr = HROps(get_config())
+            emp_result = await hr._create_employee_from_user(
+                user_id=user_id,
+                staff_id=body.staff_id,
+                department=body.department_for_employee or body.department,
+                country=body.country or "SG",
+                hire_date=body.hire_date,
+                annual_leave_days=body.annual_leave_days or 14,
+                sick_leave_days=body.sick_leave_days or 14,
+                created_by_user_id=str(current_user["user_id"]),
+                session=db,
+            )
+            employee_record_created = emp_result.get("success", False)
+        except Exception as e:
+            logger.warning(f"Employee record creation failed: {e}")
 
     return {
         "user_id": user_id,
@@ -154,6 +186,7 @@ async def create_user(
         "name": body.name,
         "department": body.department,
         "role": body.role,
+        "employee_record_created": employee_record_created,
     }
 
 

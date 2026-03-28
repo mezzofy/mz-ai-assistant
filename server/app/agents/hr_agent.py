@@ -23,6 +23,10 @@ _TRIGGER_KEYWORDS = {
     "hr", "payroll", "salary", "leave", "attendance", "headcount", "employee",
     "staff", "recruit", "hiring", "onboard", "offboard", "performance review",
     "appraisal", "resignation", "termination", "workforce", "people ops",
+    # Leave management keywords (added v1.52.0)
+    "annual leave", "sick leave", "apply leave", "leave application",
+    "leave balance", "days off", "time off", "approve leave", "reject leave",
+    "cancel leave", "pending approval", "staff id", "manager assignment",
 }
 
 
@@ -41,7 +45,12 @@ class HRAgent(BaseAgent):
     """
 
     def can_handle(self, task: dict) -> bool:
-        return task.get("department", "").lower() == "hr"
+        dept_match = task.get("department", "").lower() == "hr"
+        if dept_match:
+            return True
+        # Also handle if message contains any trigger keyword
+        msg = task.get("message", "").lower()
+        return any(kw in msg for kw in _TRIGGER_KEYWORDS)
 
     async def execute(self, task: dict) -> dict:
         source = task.get("source", "mobile")
@@ -62,7 +71,19 @@ class HRAgent(BaseAgent):
             if event == "employee_offboarded":
                 return await self._offboarding_workflow(task)
 
-        # Mobile/Teams keyword routing
+        # Leave management workflows (added v1.52.0)
+        if any(kw in msg for kw in ("apply leave", "apply for leave", "take leave", "book leave", "request leave")):
+            return await self._apply_leave_workflow(task)
+        if any(kw in msg for kw in ("leave balance", "how many days", "days left", "remaining leave", "check leave")):
+            return await self._check_balance_workflow(task)
+        if any(kw in msg for kw in ("cancel leave", "cancel my leave", "withdraw leave")):
+            return await self._cancel_leave_workflow(task)
+        if any(kw in msg for kw in ("pending approval", "pending leave", "approve leave", "reject leave", "direct report")):
+            return await self._manager_approval_workflow(task)
+        if any(kw in msg for kw in ("employees on leave", "who is on leave", "leave this week", "leave summary")):
+            return await self._hr_staff_query_workflow(task)
+
+        # Mobile/Teams keyword routing (original)
         if any(kw in msg for kw in ("payroll", "salary")):
             return await self._payroll_query_workflow(task)
         if any(kw in msg for kw in ("leave", "attendance")):
@@ -523,3 +544,187 @@ class HRAgent(BaseAgent):
         )
 
         return self._ok(content=exit_summary, artifacts=artifacts, tools_called=tools_called)
+
+    # ── LLM helper ─────────────────────────────────────────────────────────────
+
+    async def _llm_call(self, prompt: str, task: dict) -> str:
+        """Call the LLM with a simple prompt string. Returns the response content."""
+        from app.llm import llm_manager as llm_mod
+        llm_result = await llm_mod.get().chat(
+            messages=[{"role": "user", "content": prompt}],
+            task_context=task,
+        )
+        return llm_result.get("content", "")
+
+    # ── Leave workflow methods (v1.52.0) ───────────────────────────────────────
+
+    async def _apply_leave_workflow(self, task: dict) -> dict:
+        """Staff applies leave via chat."""
+        from app.tools.database.hr_ops import HROps
+        user_id = task.get("user_id", "")
+        message = task.get("message", "")
+
+        hr = HROps(self.config)
+
+        # Step 1: Resolve employee_id from user_id
+        emp_result = await hr._resolve_employee_by_user(user_id)
+        if not emp_result.get("success"):
+            return self._ok(
+                content="I couldn't find your employee record. Please contact HR to link your account.",
+                artifacts=[],
+                tools_called=[],
+            )
+
+        employee = emp_result["output"]
+        employee_id = employee["id"]
+        country = employee.get("country", "SG")
+
+        # Step 2: Get leave balance
+        year = date.today().year
+        balance_result = await hr._get_leave_balance(employee_id, year, user_id)
+
+        # Step 3: Get applicable leave types
+        types_result = await hr._list_leave_types(country)
+
+        # Step 4: LLM to parse request and confirm details
+        context = (
+            f"Employee: {employee['full_name']} (Staff: {employee.get('staff_id', 'N/A')})\n"
+            f"Leave balances: {balance_result.get('output', {})}\n"
+            f"Available leave types: {types_result.get('output', [])}\n"
+            f"Today's date: {date.today().strftime('%Y-%m-%d')}\n"
+            f"User request: {message}\n\n"
+            f"Parse the leave request details (dates, type, reason). Calculate working days excluding weekends. "
+            f"If details are complete, confirm with the employee before submitting. Format dates as YYYY-MM-DD."
+        )
+        llm_response = await self._llm_call(context, task)
+        return self._ok(
+            content=llm_response,
+            artifacts=[],
+            tools_called=["get_employee", "get_leave_balance", "list_leave_types"],
+        )
+
+    async def _check_balance_workflow(self, task: dict) -> dict:
+        """Staff checks leave balance."""
+        from app.tools.database.hr_ops import HROps
+        user_id = task.get("user_id", "")
+
+        hr = HROps(self.config)
+        emp_result = await hr._resolve_employee_by_user(user_id)
+        if not emp_result.get("success"):
+            return self._ok(
+                content="I couldn't find your employee record. Please contact HR.",
+                artifacts=[],
+                tools_called=[],
+            )
+
+        employee = emp_result["output"]
+        profile_result = await hr._get_employee_profile(employee["id"], user_id)
+
+        context = (
+            f"Today: {date.today().strftime('%Y-%m-%d')}\n"
+            f"Employee profile and leave data:\n{profile_result.get('output', {})}\n\n"
+            f"Present the leave balance and upcoming leaves in a clear, friendly format."
+        )
+        llm_response = await self._llm_call(context, task)
+        return self._ok(
+            content=llm_response,
+            artifacts=[],
+            tools_called=["get_employee_profile"],
+        )
+
+    async def _cancel_leave_workflow(self, task: dict) -> dict:
+        """Staff cancels a leave application."""
+        from app.tools.database.hr_ops import HROps
+        user_id = task.get("user_id", "")
+        message = task.get("message", "")
+
+        hr = HROps(self.config)
+        emp_result = await hr._resolve_employee_by_user(user_id)
+        if not emp_result.get("success"):
+            return self._ok(
+                content="I couldn't find your employee record. Please contact HR.",
+                artifacts=[],
+                tools_called=[],
+            )
+
+        employee_id = emp_result["output"]["id"]
+
+        # Get cancellable leaves (pending or future-approved)
+        apps_result = await hr._get_leave_applications(
+            filters={"employee_id": employee_id, "status": ["pending", "approved"], "future_only": True},
+            requesting_user_id=user_id,
+        )
+
+        context = (
+            f"Today: {date.today().strftime('%Y-%m-%d')}\n"
+            f"Cancellable leave applications: {apps_result.get('output', [])}\n"
+            f"User request: {message}\n\n"
+            f"Match the application from the user's description and confirm cancellation details."
+        )
+        llm_response = await self._llm_call(context, task)
+        return self._ok(
+            content=llm_response,
+            artifacts=[],
+            tools_called=["get_leave_applications"],
+        )
+
+    async def _manager_approval_workflow(self, task: dict) -> dict:
+        """Manager views and approves/rejects leave requests."""
+        from app.tools.database.hr_ops import HROps
+        user_id = task.get("user_id", "")
+        message = task.get("message", "")
+
+        hr = HROps(self.config)
+
+        # Resolve manager's employee record
+        emp_result = await hr._resolve_employee_by_user(user_id)
+        if not emp_result.get("success"):
+            return self._ok(
+                content="I couldn't find your manager employee record. Please contact HR.",
+                artifacts=[],
+                tools_called=[],
+            )
+
+        manager_employee_id = emp_result["output"]["id"]
+
+        # Get pending approvals
+        pending_result = await hr._get_pending_approvals(manager_employee_id)
+
+        context = (
+            f"Today: {date.today().strftime('%Y-%m-%d')}\n"
+            f"Manager: {emp_result['output']['full_name']}\n"
+            f"Pending leave approvals for your direct reports:\n{pending_result.get('output', [])}\n"
+            f"Manager request: {message}\n\n"
+            f"Present the pending approvals clearly. If the manager has indicated a decision (approve/reject), confirm it."
+        )
+        llm_response = await self._llm_call(context, task)
+        return self._ok(
+            content=llm_response,
+            artifacts=[],
+            tools_called=["get_pending_approvals"],
+        )
+
+    async def _hr_staff_query_workflow(self, task: dict) -> dict:
+        """HR staff queries employee leave status."""
+        from app.tools.database.hr_ops import HROps
+        user_id = task.get("user_id", "")
+        message = task.get("message", "")
+
+        hr = HROps(self.config)
+        year = date.today().year
+
+        # Get leave summary dashboard
+        dashboard_result = await hr._get_leave_summary_dashboard(year, {}, user_id)
+
+        context = (
+            f"Today: {date.today().strftime('%Y-%m-%d')}\n"
+            f"Leave summary dashboard data:\n{dashboard_result.get('output', {})}\n"
+            f"HR query: {message}\n\n"
+            f"Answer the HR staff's question using the leave data. Format as a clear summary."
+        )
+        llm_response = await self._llm_call(context, task)
+        return self._ok(
+            content=llm_response,
+            artifacts=[],
+            tools_called=["get_leave_summary_dashboard"],
+        )

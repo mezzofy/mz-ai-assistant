@@ -17,6 +17,7 @@ roles:
     department: finance
     permissions:
       - finance_read
+      - hr_self_service
 
   finance_manager:
     department: finance
@@ -26,6 +27,7 @@ roles:
       - email_send
       - calendar_access
       - scheduler_manage         # Can create scheduled finance reports
+      - hr_self_service
 
   # ── Sales Department ─────────────────────────────────────
   sales_rep:
@@ -36,6 +38,7 @@ roles:
       - email_send
       - linkedin_access
       - calendar_access
+      - hr_self_service
 
   sales_manager:
     department: sales
@@ -47,6 +50,7 @@ roles:
       - calendar_access
       - sales_admin
       - scheduler_manage
+      - hr_self_service
 
   # ── Marketing Department ─────────────────────────────────
   marketing_creator:
@@ -55,6 +59,7 @@ roles:
       - marketing_read
       - marketing_write
       - email_send
+      - hr_self_service
 
   marketing_manager:
     department: marketing
@@ -64,6 +69,7 @@ roles:
       - email_send
       - marketing_admin
       - scheduler_manage
+      - hr_self_service
 
   # ── Support Department ───────────────────────────────────
   support_agent:
@@ -72,6 +78,7 @@ roles:
       - support_read
       - support_write
       - email_send
+      - hr_self_service
 
   support_manager:
     department: support
@@ -81,18 +88,35 @@ roles:
       - email_send
       - support_admin
       - scheduler_manage
+      - hr_self_service
 
   # ── HR Department ─────────────────────────────────────────
   hr_viewer:
     department: hr
     permissions:
       - hr_read
+      - hr_self_service
+
+  hr_staff:
+    department: hr
+    permissions:
+      - hr_read
+      - hr_write
+      - hr_employee_manage
+      - hr_leave_manage
+      - hr_self_service
+      - email_send
 
   hr_manager:
     department: hr
     permissions:
       - hr_read
       - hr_write
+      - hr_employee_manage
+      - hr_leave_manage
+      - hr_admin
+      - hr_reports
+      - hr_self_service
       - email_send
       - calendar_access
       - scheduler_manage         # Can create scheduled HR reports
@@ -108,6 +132,7 @@ roles:
       - marketing_read
       - support_read
       - hr_read
+      - hr_self_service
       - audit_read
       - legal_read              # Executives can receive legal analysis
       - email_send
@@ -186,6 +211,19 @@ permission_tool_map:
     - query_hr_data
   hr_write:
     - update_hr_record
+  hr_employee_manage:
+    - update_hr_record
+  hr_leave_manage:
+    - update_hr_record
+  hr_self_service:
+    - query_hr_data
+  hr_admin:
+    - update_hr_record
+    - query_hr_data
+    - query_analytics
+  hr_reports:
+    - query_analytics
+    - query_hr_data
   audit_read:
     - query_audit_log
   legal_read:

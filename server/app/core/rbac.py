@@ -82,8 +82,16 @@ VALID_ROLES = {
     "sales_rep", "sales_manager",
     "marketing_creator", "marketing_manager",
     "support_agent", "support_manager",
-    "hr_viewer", "hr_manager",
+    "hr_viewer", "hr_staff", "hr_manager",
     "executive", "admin",
+    "legal_officer",
+}
+
+# HR-specific permissions (informational reference — enforced via roles.yaml)
+HR_PERMISSIONS = {
+    "hr_read", "hr_write",
+    "hr_employee_manage", "hr_leave_manage",
+    "hr_admin", "hr_reports", "hr_self_service",
 }
 
 VALID_DEPARTMENTS = {"finance", "sales", "marketing", "support", "management", "hr"}

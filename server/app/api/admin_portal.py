@@ -31,14 +31,36 @@ AdminUser = Depends(require_role("admin"))
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 @router.get("/auth/me")
-async def get_me(current_user: dict = AdminUser):
-    """Verify token is admin and return user info."""
+async def get_me(
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify token is admin and return user info (includes employee fields if linked)."""
+    employee_id = None
+    staff_id = None
+    manager_employee_id = None
+    try:
+        result = await db.execute(
+            text("SELECT id, staff_id, manager_id FROM hr_employees WHERE user_id = :uid AND is_active = true"),
+            {"uid": current_user.get("user_id")},
+        )
+        emp = result.mappings().one_or_none()
+        if emp:
+            employee_id = str(emp["id"])
+            staff_id = emp["staff_id"]
+            manager_employee_id = str(emp["manager_id"]) if emp["manager_id"] else None
+    except Exception:
+        pass  # HR tables may not exist yet
+
     return {
         "user_id": current_user.get("user_id"),
         "email": current_user.get("email"),
         "name": current_user.get("name"),
         "role": current_user.get("role"),
         "department": current_user.get("department"),
+        "employee_id": employee_id,
+        "staff_id": staff_id,
+        "manager_employee_id": manager_employee_id,
     }
 
 

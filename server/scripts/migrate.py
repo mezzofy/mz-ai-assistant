@@ -675,6 +675,121 @@ def run_migrations(conn):
         print(f"  ⚠️  Warning: title→content rename: {e}")
         conn.rollback()
 
+    # ============================================================
+    # HR MODULE TABLES (added 2026-03-28)
+    # ============================================================
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS hr_employees (
+            id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id             UUID REFERENCES users(id) ON DELETE SET NULL,
+            staff_id            TEXT UNIQUE NOT NULL,
+            full_name           TEXT NOT NULL,
+            email               TEXT NOT NULL,
+            phone               TEXT,
+            department          TEXT NOT NULL,
+            job_title           TEXT,
+            employment_type     TEXT DEFAULT 'full_time',
+            country             TEXT NOT NULL,
+            location_office     TEXT,
+            manager_id          UUID REFERENCES hr_employees(id) ON DELETE SET NULL,
+            annual_leave_days   INTEGER NOT NULL DEFAULT 14,
+            sick_leave_days     INTEGER NOT NULL DEFAULT 14,
+            other_leave_days    INTEGER NOT NULL DEFAULT 0,
+            hire_date           DATE NOT NULL,
+            probation_end_date  DATE,
+            is_active           BOOLEAN DEFAULT true,
+            profile_notes       TEXT,
+            created_by          UUID REFERENCES users(id),
+            created_at          TIMESTAMPTZ DEFAULT NOW(),
+            updated_at          TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    print("  ✅ hr_employees")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS hr_leave_types (
+            id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            name                TEXT NOT NULL,
+            code                TEXT UNIQUE NOT NULL,
+            is_paid             BOOLEAN DEFAULT true,
+            requires_document   BOOLEAN DEFAULT false,
+            country             TEXT,
+            is_active           BOOLEAN DEFAULT true,
+            created_at          TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    print("  ✅ hr_leave_types")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS hr_leave_applications (
+            id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            employee_id         UUID NOT NULL REFERENCES hr_employees(id),
+            leave_type_id       UUID NOT NULL REFERENCES hr_leave_types(id),
+            start_date          DATE NOT NULL,
+            end_date            DATE NOT NULL,
+            total_days          NUMERIC(4,1) NOT NULL,
+            half_day            BOOLEAN DEFAULT false,
+            half_day_period     TEXT,
+            reason              TEXT,
+            status              TEXT NOT NULL DEFAULT 'pending',
+            approver_id         UUID REFERENCES hr_employees(id),
+            approver_comment    TEXT,
+            applied_via         TEXT DEFAULT 'portal',
+            document_path       TEXT,
+            approved_at         TIMESTAMPTZ,
+            rejected_at         TIMESTAMPTZ,
+            cancelled_at        TIMESTAMPTZ,
+            created_at          TIMESTAMPTZ DEFAULT NOW(),
+            updated_at          TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    print("  ✅ hr_leave_applications")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS hr_leave_balances (
+            id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            employee_id     UUID NOT NULL REFERENCES hr_employees(id),
+            leave_type_id   UUID NOT NULL REFERENCES hr_leave_types(id),
+            year            INTEGER NOT NULL,
+            entitled_days   NUMERIC(5,1) NOT NULL,
+            carried_over    NUMERIC(5,1) DEFAULT 0,
+            taken_days      NUMERIC(5,1) DEFAULT 0,
+            pending_days    NUMERIC(5,1) DEFAULT 0,
+            remaining_days  NUMERIC(5,1) GENERATED ALWAYS AS
+                            (entitled_days + carried_over - taken_days) STORED,
+            created_at      TIMESTAMPTZ DEFAULT NOW(),
+            updated_at      TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(employee_id, leave_type_id, year)
+        )
+    """)
+    print("  ✅ hr_leave_balances")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS hr_audit_log (
+            id          SERIAL PRIMARY KEY,
+            actor_id    UUID REFERENCES users(id),
+            target_type TEXT NOT NULL,
+            target_id   UUID NOT NULL,
+            action      TEXT NOT NULL,
+            changes     JSONB,
+            source      TEXT DEFAULT 'portal',
+            created_at  TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    print("  ✅ hr_audit_log")
+
+    # HR indexes
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_hr_employees_user_id    ON hr_employees(user_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_hr_employees_manager_id ON hr_employees(manager_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_hr_employees_dept       ON hr_employees(department)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_hr_employees_country    ON hr_employees(country)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_hr_leave_apps_employee  ON hr_leave_applications(employee_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_hr_leave_apps_status    ON hr_leave_applications(status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_hr_leave_apps_dates     ON hr_leave_applications(start_date, end_date)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_hr_leave_bal_emp_yr     ON hr_leave_balances(employee_id, year)")
+    print("  ✅ HR indexes")
+
     conn.commit()
     cur.close()
     print("\n✅ All migrations applied successfully.")

@@ -309,3 +309,25 @@ admin_portal:
     claude-opus: { daily_usd: 100.0 }
     kimi: { daily_usd: 20.0 }
   file_retention_days: 90
+
+# HR Module configuration
+hr:
+  staff_id_format: "{COUNTRY}-{DEPT}-{SEQ:04d}"
+  default_leave_entitlements:
+    annual_leave_days: 14
+    sick_leave_days: 14
+    other_leave_days: 0
+  leave_rules:
+    allow_half_days: true
+    allow_negative_balance: false
+    min_advance_notice_days: 1
+    max_advance_booking_days: 365
+  approval:
+    auto_approve_if_no_manager: false
+    escalation_after_days: 3
+  notifications:
+    notify_manager_on_application: true
+    notify_employee_on_decision: true
+  reports:
+    monthly_report_teams_channel: "hr"
+    monthly_report_email_recipients: []
