@@ -24,6 +24,7 @@ import {ConnectedAccountsScreen} from './src/screens/ConnectedAccountsScreen';
 import {OTPVerificationScreen} from './src/screens/OTPVerificationScreen';
 import {ForgotPasswordScreen} from './src/screens/ForgotPasswordScreen';
 import {NewPasswordScreen} from './src/screens/NewPasswordScreen';
+import {AccountActivationScreen} from './src/screens/AccountActivationScreen';
 import {PrivacySecurityScreen} from './src/screens/PrivacySecurityScreen';
 import {ChangePasswordScreen} from './src/screens/ChangePasswordScreen';
 import {ScheduleStatsScreen} from './src/screens/ScheduleStatsScreen';
@@ -136,6 +137,11 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="NewPassword"
                 component={NewPasswordScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="AccountActivation"
+                component={AccountActivationScreen}
                 options={{animation: 'slide_from_right'}}
               />
             </>

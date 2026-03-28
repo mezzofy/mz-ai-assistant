@@ -110,6 +110,16 @@ export const LoginScreen: React.FC<Props> = ({navigation}) => {
             <Text style={{color: colors.accent}}>Reset here</Text>
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => navigation.navigate('AccountActivation')}
+          activeOpacity={0.7}
+          style={styles.forgotWrap}>
+          <Text style={[styles.forgot, {color: colors.textDim}]}>
+            {'New user? '}
+            <Text style={{color: colors.accent}}>Activate account</Text>
+          </Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );

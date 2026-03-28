@@ -98,6 +98,17 @@ export const resetPasswordApi = (reset_token: string, new_password: string): Pro
     skipAuth: true,
   });
 
+// Activate a new account using invite token received by email
+export const activateAccountApi = (
+  invite_token: string,
+  new_password: string,
+): Promise<{activated: boolean; email: string; department: string}> =>
+  apiFetch<{activated: boolean; email: string; department: string}>('/auth/activate', {
+    method: 'POST',
+    body: JSON.stringify({invite_token, new_password}),
+    skipAuth: true,
+  });
+
 // Authenticated in-app password change
 export const changePasswordApi = (
   current_password: string,
