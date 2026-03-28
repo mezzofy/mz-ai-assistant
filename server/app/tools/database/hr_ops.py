@@ -35,6 +35,18 @@ from app.tools.base_tool import BaseTool
 logger = logging.getLogger("mezzofy.tools.hr")
 
 
+def _to_date(value) -> Optional[date]:
+    """Convert a string like '2024-01-15' to datetime.date, or return None/date as-is."""
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value))
+    except (ValueError, TypeError):
+        return None
+
+
 class HROps(BaseTool):
 
     def get_tools(self) -> list[dict]:
@@ -625,8 +637,8 @@ class HROps(BaseTool):
                         "annual_leave_days": employee_data.get("annual_leave_days", 14),
                         "sick_leave_days": employee_data.get("sick_leave_days", 14),
                         "other_leave_days": employee_data.get("other_leave_days", 0),
-                        "hire_date": employee_data["hire_date"],
-                        "probation_end_date": employee_data.get("probation_end_date"),
+                        "hire_date": _to_date(employee_data["hire_date"]),
+                        "probation_end_date": _to_date(employee_data.get("probation_end_date")),
                         "profile_notes": employee_data.get("profile_notes"),
                         "created_by": created_by_user_id,
                     },
@@ -665,6 +677,9 @@ class HROps(BaseTool):
     ) -> dict:
         forbidden = {"id", "created_at", "staff_id"}
         updates = {k: v for k, v in updates.items() if k not in forbidden}
+        for date_field in ("hire_date", "probation_end_date"):
+            if date_field in updates:
+                updates[date_field] = _to_date(updates[date_field])
         if not updates:
             return self._err("No valid fields to update")
 
