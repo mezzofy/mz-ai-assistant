@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import type { User } from '../types'
@@ -14,6 +14,35 @@ function Avatar({ name }: { name: string }) {
     >
       {name?.charAt(0)?.toUpperCase() || '?'}
     </div>
+  )
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }, [text])
+  return (
+    <button
+      onClick={copy}
+      title="Copy full User ID"
+      className="p-1 rounded transition-colors hover:bg-orange-500/10"
+      style={{ color: copied ? '#00D4AA' : '#6B7280' }}
+    >
+      {copied ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+      )}
+    </button>
   )
 }
 
@@ -155,13 +184,16 @@ export default function UsersPage() {
                 </td>
                 <td className="py-2.5 text-gray-400">{user.session_count ?? 0}</td>
                 <td className="py-2.5">
-                  <code
-                    className="text-xs font-mono px-1.5 py-0.5 rounded select-all cursor-text"
-                    style={{ background: '#1E2A3A', color: '#9CA3AF' }}
-                    title={user.id}
-                  >
-                    {user.id.slice(0, 8)}…
-                  </code>
+                  <div className="flex items-center gap-1">
+                    <code
+                      className="text-xs font-mono px-1.5 py-0.5 rounded"
+                      style={{ background: '#1E2A3A', color: '#9CA3AF' }}
+                      title={user.id}
+                    >
+                      {user.id.slice(0, 8)}…
+                    </code>
+                    <CopyButton text={user.id} />
+                  </div>
                 </td>
                 <td className="py-2.5 pr-4">
                   <div className="flex gap-2">
