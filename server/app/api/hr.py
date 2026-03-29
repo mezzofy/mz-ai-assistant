@@ -325,7 +325,11 @@ async def list_leave_applications(
     date_to: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
 ):
-    """List leave applications with optional filters."""
+    """List leave applications with optional filters.
+
+    Self-service users (no hr_read / hr_leave_manage / hr_reports / management_read)
+    are automatically scoped to their own employee record only.
+    """
     from app.tools.database.hr_ops import HROps
     from app.core.config import get_config
 
@@ -345,6 +349,19 @@ async def list_leave_applications(
         filters["date_to"] = date_to
 
     hr = HROps(get_config())
+
+    # Self-service scoping: if the user lacks any manager-level HR permission,
+    # auto-resolve their user_id → employee_id and restrict results to that employee.
+    _manager_perms = ("hr_read", "hr_leave_manage", "hr_reports", "management_read")
+    is_hr_manager = _has_perm(current_user, *_manager_perms)
+
+    if not is_hr_manager and not filters.get("employee_id"):
+        emp_result = await hr._resolve_employee_by_user(user_id)
+        if not emp_result.get("success"):
+            # No linked employee record → return empty result gracefully
+            return _ok({"applications": [], "count": 0})
+        filters["employee_id"] = emp_result["output"]["id"]
+
     result = await hr._get_leave_applications(requesting_user_id=user_id, filters=filters)
     if not result.get("success"):
         _fail(result.get("error", "Failed to get leave applications"))

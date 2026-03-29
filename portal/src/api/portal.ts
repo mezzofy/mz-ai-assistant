@@ -114,6 +114,12 @@ export const portalApi = {
   getCrmCountries: () => client.get('/api/admin-portal/crm/countries'),
   createLead: (data: Record<string, unknown>) => client.post('/api/admin-portal/crm/leads', data),
   updateLead: (id: string, data: Record<string, unknown>) => client.patch(`/api/admin-portal/crm/leads/${id}`, data),
+  getCrmLeadDetail: (id: string) =>
+    client.get(`/api/admin-portal/crm/leads/${id}`),
+  getCrmLeadActivities: (id: string) =>
+    client.get(`/api/admin-portal/crm/leads/${id}/activities`),
+  addLeadActivity: (id: string, data: { type: string; title: string; body?: string }) =>
+    client.post(`/api/admin-portal/crm/leads/${id}/activities`, data),
 
   // Users
   getUsers: () => client.get('/api/admin-portal/users'),
@@ -145,6 +151,8 @@ export const portalApi = {
     client.post('/api/admin-portal/hr/leave/apply', data),
   getLeaveApplications: (params?: { employee_id?: string; status?: string; year?: number }) =>
     client.get('/api/admin-portal/hr/leave/applications', { params }),
+  getMyLeaveApplications: () =>
+    client.get('/api/admin-portal/hr/leave/applications'),
   updateLeaveStatus: (id: string, status: string, comment?: string) =>
     client.patch(`/api/admin-portal/hr/leave/applications/${id}/status`, { status, comment }),
   getPendingApprovals: () =>

@@ -14,6 +14,7 @@ import FilesPage from './pages/FilesPage'
 import TasksPage from './pages/TasksPage'
 import UsersPage from './pages/UsersPage'
 import CRMPage from './pages/CRMPage'
+import CRMLeadDetailPage from './pages/CRMLeadDetailPage'
 import BackgroundTasksPage from './pages/BackgroundTasksPage'
 import HREmployeesPage from './pages/hr/HREmployeesPage'
 import HREmployeeProfilePage from './pages/hr/HREmployeeProfilePage'
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="files" element={<FilesPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="crm" element={<CRMPage />} />
+            <Route path="crm/leads/:id" element={<CRMLeadDetailPage />} />
             <Route path="background-tasks" element={<BackgroundTasksPage />} />
             <Route path="hr" element={<HRRoute><Outlet /></HRRoute>}>
               <Route path="employees" element={<HREmployeesPage />} />

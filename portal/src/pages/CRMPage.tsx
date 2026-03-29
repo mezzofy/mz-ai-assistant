@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { portalApi } from '../api/portal'
 import type { Lead, User } from '../types'
 
@@ -24,6 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export default function CRMPage() {
+  const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
@@ -206,7 +208,12 @@ export default function CRMPage() {
               <tr><td colSpan={9} className="py-12 text-center" style={{ color: '#6B7280' }}>Loading...</td></tr>
             )}
             {leads.map((lead) => (
-              <tr key={lead.id} className="border-t hover:bg-white/5 transition-colors" style={{ borderColor: '#1E2A3A' }}>
+              <tr
+                key={lead.id}
+                className="border-t hover:bg-white/5 transition-colors cursor-pointer"
+                style={{ borderColor: '#1E2A3A' }}
+                onClick={() => navigate(`/mission-control/crm/leads/${lead.id}`)}
+              >
                 <td className="px-4 py-2.5">
                   <div className="text-gray-200 font-medium">{lead.company_name}</div>
                   {lead.location && <div style={{ color: '#6B7280' }}>{lead.location}</div>}
@@ -239,7 +246,7 @@ export default function CRMPage() {
                 </td>
                 <td className="py-2.5 pr-4">
                   <button
-                    onClick={() => setEditLead(lead)}
+                    onClick={(e) => { e.stopPropagation(); setEditLead(lead) }}
                     title="Edit"
                     className="p-1.5 rounded transition-colors hover:bg-orange-500/10"
                     style={{ color: '#f97316' }}

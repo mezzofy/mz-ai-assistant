@@ -88,6 +88,29 @@ def run_migrations(conn):
     """)
     print("  ✅ sales_leads")
 
+    # ── 3b. lead_activities ──────────────────────────────────
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS lead_activities (
+            id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            lead_id     UUID NOT NULL REFERENCES sales_leads(id) ON DELETE CASCADE,
+            actor_id    UUID REFERENCES users(id),
+            actor_name  TEXT,
+            type        TEXT NOT NULL CHECK (type IN (
+                            'created', 'status_changed', 'assigned', 'note',
+                            'email_sent', 'call', 'meeting', 'follow_up_set'
+                        )),
+            title       TEXT NOT NULL,
+            body        TEXT,
+            meta        JSONB DEFAULT '{}',
+            created_at  TIMESTAMPTZ DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_lead_activities_lead
+            ON lead_activities(lead_id, created_at DESC)
+    """)
+    print("  ✅ lead_activities")
+
     # ── 4. folders ───────────────────────────────────────────
     cur.execute("""
         CREATE TABLE IF NOT EXISTS folders (

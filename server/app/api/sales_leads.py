@@ -52,6 +52,12 @@ class ResearchRequest(BaseModel):
     targets: Optional[list[dict]] = None
 
 
+class AddActivityRequest(BaseModel):
+    type: str
+    title: str
+    body: Optional[str] = None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _serialize_row(row: dict) -> dict:
@@ -184,6 +190,101 @@ async def get_lead(
     return lead
 
 
+# ── GET /sales/leads/{lead_id}/activities ────────────────────────────────────
+
+@router.get("/sales/leads/{lead_id}/activities")
+async def get_lead_activities(
+    lead_id: str,
+    current_user: dict = Depends(require_permission("sales_read")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the activity log for a lead in DESC order."""
+    # Verify lead exists + scope for reps
+    lead_row = (await db.execute(
+        text("SELECT id, assigned_to FROM sales_leads WHERE id = :id"),
+        {"id": lead_id},
+    )).mappings().one_or_none()
+
+    if lead_row is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    if not _is_manager(current_user):
+        user_id = current_user.get("user_id")
+        if str(lead_row["assigned_to"]) != str(user_id):
+            raise HTTPException(status_code=403, detail="Access denied — not your lead")
+
+    rows = (await db.execute(
+        text("""
+            SELECT id, lead_id, actor_id, actor_name, type, title, body, meta, created_at
+            FROM lead_activities
+            WHERE lead_id = :lead_id
+            ORDER BY created_at DESC
+        """),
+        {"lead_id": lead_id},
+    )).mappings().all()
+
+    activities = [_serialize_row(dict(r)) for r in rows]
+    return {"activities": activities, "count": len(activities)}
+
+
+# ── POST /sales/leads/{lead_id}/activities ────────────────────────────────────
+
+_MANUAL_ACTIVITY_TYPES = {"note", "call", "meeting", "email_sent", "follow_up_set"}
+
+@router.post("/sales/leads/{lead_id}/activities", status_code=status.HTTP_201_CREATED)
+async def add_lead_activity(
+    lead_id: str,
+    body: AddActivityRequest,
+    current_user: dict = Depends(require_permission("sales_write")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually log an activity against a lead (note, call, meeting, email, follow_up)."""
+    if body.type not in _MANUAL_ACTIVITY_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"type must be one of: {', '.join(sorted(_MANUAL_ACTIVITY_TYPES))}",
+        )
+
+    # Verify lead exists + scope for reps
+    lead_row = (await db.execute(
+        text("SELECT id, assigned_to FROM sales_leads WHERE id = :id"),
+        {"id": lead_id},
+    )).mappings().one_or_none()
+
+    if lead_row is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    if not _is_manager(current_user):
+        user_id = current_user.get("user_id")
+        if str(lead_row["assigned_to"]) != str(user_id):
+            raise HTTPException(status_code=403, detail="Access denied — not your lead")
+
+    actor_id = current_user.get("user_id")
+    actor_name = current_user.get("name", "")
+
+    result = (await db.execute(
+        text("""
+            INSERT INTO lead_activities (lead_id, actor_id, actor_name, type, title, body, meta)
+            VALUES (:lead_id, :actor_id, :actor_name, :type, :title, :body, :meta)
+            RETURNING id, lead_id, actor_id, actor_name, type, title, body, meta, created_at
+        """),
+        {
+            "lead_id": lead_id,
+            "actor_id": str(actor_id) if actor_id else None,
+            "actor_name": actor_name,
+            "type": body.type,
+            "title": body.title,
+            "body": body.body,
+            "meta": "{}",
+        },
+    )).mappings().one()
+
+    await db.commit()
+    activity = _serialize_row(dict(result))
+    logger.info(f"Activity logged for lead {lead_id}: type={body.type} by user={actor_id}")
+    return {"activity": activity}
+
+
 # ── PATCH /sales/leads/{lead_id}/status ───────────────────────────────────────
 
 @router.patch("/sales/leads/{lead_id}/status")
@@ -198,10 +299,11 @@ async def update_lead_status(
     from app.tools.database.crm_ops import CRMOps
 
     user_id = str(current_user.get("user_id", ""))
+    actor_name = current_user.get("name", "")
 
-    # Check lead exists + scope for reps
+    # Check lead exists + scope for reps; also capture old status for activity log
     row = (await db.execute(
-        text("SELECT id, assigned_to FROM sales_leads WHERE id = :id"),
+        text("SELECT id, assigned_to, status FROM sales_leads WHERE id = :id"),
         {"id": lead_id},
     )).mappings().one_or_none()
 
@@ -211,6 +313,8 @@ async def update_lead_status(
     if not _is_manager(current_user):
         if str(row["assigned_to"]) != user_id:
             raise HTTPException(status_code=403, detail="Access denied — not your lead")
+
+    old_status = row["status"]
 
     config = get_config()
     crm = CRMOps(config)
@@ -223,6 +327,31 @@ async def update_lead_status(
 
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "Update failed"))
+
+    # Auto-log status_changed activity in same transaction session
+    if old_status != body.new_status:
+        import json
+        try:
+            await db.execute(
+                text("""
+                    INSERT INTO lead_activities
+                        (lead_id, actor_id, actor_name, type, title, body, meta)
+                    VALUES
+                        (:lead_id, :actor_id, :actor_name, 'status_changed',
+                         :title, :body, :meta::jsonb)
+                """),
+                {
+                    "lead_id": lead_id,
+                    "actor_id": user_id,
+                    "actor_name": actor_name,
+                    "title": f"Status changed to {body.new_status}",
+                    "body": body.remarks,
+                    "meta": json.dumps({"old_status": old_status, "new_status": body.new_status}),
+                },
+            )
+            await db.commit()
+        except Exception as exc:
+            logger.warning(f"Failed to log status_changed activity for lead {lead_id}: {exc}")
 
     return result["output"]
 
@@ -237,6 +366,13 @@ async def assign_lead(
     db: AsyncSession = Depends(get_db),
 ):
     """Assign a lead to a PIC. Managers+ only."""
+    # Fetch assignee name for the activity log
+    assignee_row = (await db.execute(
+        text("SELECT name FROM users WHERE id = :id"),
+        {"id": body.assign_to},
+    )).mappings().one_or_none()
+    assignee_name = assignee_row["name"] if assignee_row else body.assign_to
+
     result = await db.execute(
         text(
             "UPDATE sales_leads SET assigned_to = :assign_to "
@@ -244,13 +380,37 @@ async def assign_lead(
         ),
         {"assign_to": body.assign_to, "id": lead_id},
     )
-    await db.commit()
     row = result.mappings().one_or_none()
 
     if row is None:
+        await db.rollback()
         raise HTTPException(status_code=404, detail="Lead not found")
 
-    logger.info(f"Lead {lead_id} assigned to {body.assign_to} by {current_user.get('user_id')}")
+    # Auto-log assigned activity in the same transaction
+    import json
+    actor_id = str(current_user.get("user_id", ""))
+    actor_name = current_user.get("name", "")
+    try:
+        await db.execute(
+            text("""
+                INSERT INTO lead_activities
+                    (lead_id, actor_id, actor_name, type, title, meta)
+                VALUES
+                    (:lead_id, :actor_id, :actor_name, 'assigned', :title, :meta::jsonb)
+            """),
+            {
+                "lead_id": lead_id,
+                "actor_id": actor_id,
+                "actor_name": actor_name,
+                "title": f"Assigned to {assignee_name}",
+                "meta": json.dumps({"assignee_id": body.assign_to, "assignee_name": assignee_name}),
+            },
+        )
+    except Exception as exc:
+        logger.warning(f"Failed to log assigned activity for lead {lead_id}: {exc}")
+
+    await db.commit()
+    logger.info(f"Lead {lead_id} assigned to {body.assign_to} by {actor_id}")
     return {"lead_id": lead_id, "assigned_to": body.assign_to}
 
 
