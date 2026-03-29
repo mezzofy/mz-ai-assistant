@@ -1,4 +1,28 @@
 # Context Checkpoint: Frontend Agent
+**Date:** 2026-03-29
+**Session:** 14 — My Leaves tab + CRM Lead Detail page (leave-fix-and-leads-detail)
+
+## Completed This Session (Session 14)
+
+- ✅ HRLeaveManagementPage.tsx — added `management` to APPROVER_ROLES, added `my_leaves` Tab type, LEAVE_STATUS_COLORS map, My Leaves query + full table UI with cancel button
+- ✅ portal.ts — added getCrmLeadDetail, getCrmLeadActivities, addLeadActivity, getMyLeaveApplications
+- ✅ CRMLeadDetailPage.tsx — new file: lead info card with inline status/assignee dropdowns, communication log timeline, add activity form (note/call/meeting/email/follow-up types with emoji icons)
+- ✅ CRMPage.tsx — added useNavigate, row click navigates to `/mission-control/crm/leads/${lead.id}`, edit button uses e.stopPropagation()
+- ✅ App.tsx — imported CRMLeadDetailPage, added route `crm/leads/:id`
+- ✅ All changes committed in commit `fe9d44a` (together with backend changes)
+
+## Files Modified (Session 14)
+- `portal/src/pages/hr/HRLeaveManagementPage.tsx` (modified — My Leaves tab + management role)
+- `portal/src/pages/CRMLeadDetailPage.tsx` (NEW — lead detail + communication log)
+- `portal/src/pages/CRMPage.tsx` (modified — row click navigation)
+- `portal/src/api/portal.ts` (modified — 4 new API methods)
+- `portal/src/App.tsx` (modified — CRMLeadDetailPage import + route)
+
+## Status: COMPLETE — All tasks done, committed, no blockers
+
+---
+
+# Context Checkpoint: Frontend Agent
 **Date:** 2026-03-28
 **Session:** 13 — HR Module v1.52.0 Portal (Task 6)
 

@@ -92,7 +92,10 @@
       "Bash(echo \"temp: $TEMP\")",
       "Bash(psql -U mezzofy_ai -d mezzofy_ai -c \"\\\\d agents\")",
       "Bash(for file:*)",
-      "Bash(do echo:*)"
+      "Bash(do echo:*)",
+      "Bash(GIT_TERMINAL_PROMPT=0 git push origin eric-design)",
+      "Bash(powershell.exe -Command \":*)",
+      "Bash(git-credential-manager get:*)"
     ]
   }
 }
