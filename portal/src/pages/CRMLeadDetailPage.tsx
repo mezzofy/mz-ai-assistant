@@ -126,7 +126,7 @@ export default function CRMLeadDetailPage() {
     },
   })
 
-  const lead: Lead | null = leadData?.data?.lead || leadData?.lead || leadData?.data || null
+  const lead: Lead | null = leadData?.data?.lead || leadData?.lead || leadData?.data || (leadData?.id ? leadData as Lead : null)
   const activities: LeadActivity[] = activitiesData?.data?.activities || activitiesData?.activities || []
 
   if (leadLoading) {

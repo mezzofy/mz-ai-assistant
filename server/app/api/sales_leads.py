@@ -72,7 +72,7 @@ def _serialize_row(row: dict) -> dict:
 
 
 def _is_manager(user: dict) -> bool:
-    return user.get("role") in ("manager", "admin", "executive") or "*" in user.get("permissions", [])
+    return user.get("role") in ("manager", "admin", "executive", "management") or "*" in user.get("permissions", [])
 
 
 # ── GET /sales/leads ──────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ async def digest_preview(
 @router.get("/sales/leads/{lead_id}")
 async def get_lead(
     lead_id: str,
-    current_user: dict = Depends(require_permission("sales_read")),
+    current_user: dict = Depends(require_permission("sales_read", "management_read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Get a single lead. Reps can only fetch their own leads."""
@@ -195,7 +195,7 @@ async def get_lead(
 @router.get("/sales/leads/{lead_id}/activities")
 async def get_lead_activities(
     lead_id: str,
-    current_user: dict = Depends(require_permission("sales_read")),
+    current_user: dict = Depends(require_permission("sales_read", "management_read")),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the activity log for a lead in DESC order."""
