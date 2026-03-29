@@ -13,9 +13,12 @@ interface HRResponse<T> {
 export interface LeaveBalance {
   leave_type_id?: string;
   leave_type_name?: string;
-  entitled: number;
-  used: number;
-  remaining: number;
+  leave_type_code?: string;
+  entitled_days: number;
+  taken_days: number;
+  pending_days: number;
+  remaining_days: number;
+  carried_over?: number;
 }
 
 export interface MyLeaveBalanceData {

@@ -3,7 +3,6 @@ import {View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator}
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useAuthStore} from '../stores/authStore';
 import {useTheme} from '../hooks/useTheme';
-import {DeptBadge} from '../components/shared/DeptBadge';
 import {
   getMyLeaveBalance, getMyLeaveApplications, cancelLeave,
   type MyLeaveBalanceData, type LeaveApplication,
@@ -103,7 +102,6 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <Text style={[styles.roleLabel, {color: colors.textMuted}]}>
             {user.role.replace(/_/g, ' ').toUpperCase()}
           </Text>
-          <DeptBadge dept={user.department} />
         </View>
 
         {/* Info Card */}
@@ -124,12 +122,12 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 <View
                   key={i}
                   style={[styles.leaveBalanceCard, {backgroundColor: colors.surface, borderColor: colors.border}]}>
-                  <Text style={[styles.leaveBalanceNum, {color: colors.accent}]}>{b.remaining ?? 0}</Text>
+                  <Text style={[styles.leaveBalanceNum, {color: colors.accent}]}>{b.remaining_days ?? 0}</Text>
                   <Text style={[styles.leaveBalanceLabel, {color: colors.textDim}]}>
-                    {(b.leave_type_name ?? b.leave_type_id ?? 'Leave').split(' ')[0]}
+                    {(b.leave_type_name ?? b.leave_type_code ?? 'Leave').split(' ')[0]}
                   </Text>
                   <Text style={[styles.leaveBalanceSub, {color: colors.textDim}]}>
-                    {b.used ?? 0} used / {b.entitled ?? 0} total
+                    {b.taken_days ?? 0} used / {b.entitled_days ?? 0} total
                   </Text>
                 </View>
               ))}
