@@ -3,20 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { portalApi } from '../../api/portal'
 import { useAuthStore } from '../../stores/authStore'
-import type { HRLeaveDashboard, HRLeaveApplication, HRLeaveBalance } from '../../types'
+import type { HRLeaveDashboard, HRLeaveApplication } from '../../types'
 
 const DEPARTMENTS = ['engineering', 'sales', 'marketing', 'finance', 'hr', 'operations', 'support', 'management', 'it']
 const COUNTRIES = ['SG', 'MY', 'HK', 'AU', 'US', 'GB']
 const APPROVER_ROLES = ['hr_staff', 'hr_manager', 'executive', 'admin', 'management']
 
-type Tab = 'summary' | 'approvals' | 'my_leaves'
-
-const LEAVE_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  pending:   { bg: 'rgba(251, 191, 36, 0.15)',  color: '#fbbf24' },
-  approved:  { bg: 'rgba(34, 197, 94, 0.15)',   color: '#86efac' },
-  rejected:  { bg: 'rgba(239, 68, 68, 0.15)',   color: '#fca5a5' },
-  cancelled: { bg: 'rgba(107, 114, 128, 0.2)',  color: '#9CA3AF' },
-}
+type Tab = 'summary' | 'approvals'
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
@@ -94,18 +87,10 @@ export default function HRLeaveManagementPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hr-pending'] })
       qc.invalidateQueries({ queryKey: ['hr-dashboard'] })
-      qc.invalidateQueries({ queryKey: ['my-leaves'] })
       setRejectingId(null)
       setRejectComment('')
     },
   })
-
-  const { data: myLeavesData, isLoading: myLeavesLoading } = useQuery({
-    queryKey: ['my-leaves'],
-    queryFn: () => portalApi.getMyLeaveApplications().then((r) => r.data),
-    enabled: activeTab === 'my_leaves',
-  })
-  const myApplications: HRLeaveApplication[] = myLeavesData?.data?.applications || myLeavesData?.applications || []
 
   const dashboard: HRLeaveDashboard | null = dashData?.data?.dashboard || dashData?.data || dashData?.dashboard || null
   const summaries = dashboard?.employee_summaries || []
@@ -117,7 +102,6 @@ export default function HRLeaveManagementPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: 'summary', label: 'Leave Summary' },
     ...(canApprove ? [{ key: 'approvals' as Tab, label: 'Pending Approvals' }] : []),
-    { key: 'my_leaves', label: 'My Leaves' },
   ]
 
   return (
@@ -258,70 +242,6 @@ export default function HRLeaveManagementPage() {
                 {!dashLoading && summaries.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-12 text-center" style={{ color: '#6B7280' }}>No data</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* My Leaves Tab */}
-      {activeTab === 'my_leaves' && (
-        <div className="space-y-4">
-          <div className="rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b text-left" style={{ color: '#6B7280', borderColor: '#1E2A3A' }}>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="py-3">Start</th>
-                  <th className="py-3">End</th>
-                  <th className="py-3">Days</th>
-                  <th className="py-3">Status</th>
-                  <th className="py-3">Applied</th>
-                  <th className="py-3 pr-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myLeavesLoading && (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center" style={{ color: '#6B7280' }}>Loading...</td>
-                  </tr>
-                )}
-                {!myLeavesLoading && myApplications.map((app) => {
-                  const sc = LEAVE_STATUS_COLORS[app.status] || LEAVE_STATUS_COLORS.cancelled
-                  return (
-                    <tr key={app.id} className="border-t" style={{ borderColor: '#1E2A3A' }}>
-                      <td className="px-4 py-2.5 text-gray-300">{app.leave_type_name || '—'}</td>
-                      <td className="py-2.5 text-gray-400">{app.start_date}</td>
-                      <td className="py-2.5 text-gray-400">{app.end_date}</td>
-                      <td className="py-2.5 text-gray-400">{app.total_days}</td>
-                      <td className="py-2.5">
-                        <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: sc.bg, color: sc.color }}>
-                          {app.status}
-                        </span>
-                      </td>
-                      <td className="py-2.5 text-gray-400">{new Date(app.created_at).toLocaleDateString()}</td>
-                      <td className="py-2.5 pr-4">
-                        {app.status === 'pending' && (
-                          <button
-                            onClick={() => statusMutation.mutate({ id: app.id, status: 'cancelled', comment: 'Cancelled via portal' })}
-                            disabled={statusMutation.isPending}
-                            className="px-2 py-1 rounded text-xs transition-colors"
-                            style={{ color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)' }}
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {!myLeavesLoading && myApplications.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center" style={{ color: '#6B7280' }}>
-                      No leave applications yet. Apply leave from the mobile app.
-                    </td>
                   </tr>
                 )}
               </tbody>
