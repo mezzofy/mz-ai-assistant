@@ -821,7 +821,11 @@ class HROps(BaseTool):
 
         try:
             from sqlalchemy import text
-            year = int(str(application_data["start_date"])[:4])
+            start_date = _to_date(application_data["start_date"])
+            end_date = _to_date(application_data["end_date"])
+            if not start_date or not end_date:
+                return self._err("Invalid start_date or end_date — expected YYYY-MM-DD")
+            year = start_date.year
             total_days = float(application_data["total_days"])
 
             async with await self._get_session() as session:
@@ -864,8 +868,8 @@ class HROps(BaseTool):
                     """),
                     {
                         "emp_id": employee_id,
-                        "start_date": application_data["start_date"],
-                        "end_date": application_data["end_date"],
+                        "start_date": start_date,
+                        "end_date": end_date,
                     },
                 )).fetchone()
                 if overlap:
@@ -885,8 +889,8 @@ class HROps(BaseTool):
                     {
                         "employee_id": employee_id,
                         "leave_type_id": application_data["leave_type_id"],
-                        "start_date": application_data["start_date"],
-                        "end_date": application_data["end_date"],
+                        "start_date": start_date,
+                        "end_date": end_date,
                         "total_days": total_days,
                         "half_day": application_data.get("half_day", False),
                         "half_day_period": application_data.get("half_day_period"),

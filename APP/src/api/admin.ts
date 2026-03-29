@@ -20,8 +20,24 @@ export async function getSystemHealth(): Promise<SystemHealth | null> {
   try {
     return await apiFetch<SystemHealth>('/admin/health');
   } catch {
-    // Non-admin users receive 403 — return null for graceful degradation
-    return null;
+    // Non-admin: fall back to the public /health endpoint (DB + Redis only)
+    try {
+      const pub = await apiFetch<{
+        status: string;
+        services: {database: string; redis: string};
+      }>('/health', {skipAuth: true});
+      return {
+        status: pub.status as 'ok' | 'degraded',
+        services: {
+          database: pub.services.database,
+          redis: pub.services.redis,
+          llm_manager: 'unknown',
+        },
+        connections: {websocket_active: 0},
+      };
+    } catch {
+      return null;
+    }
   }
 }
 

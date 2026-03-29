@@ -1,11 +1,224 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform,
+  Modal, Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useTheme} from '../hooks/useTheme';
 import {applyLeave, getLeaveTypes, type LeaveType} from '../api/hrApi';
+
+// ── Inline Date Picker (no external deps) ─────────────────────────────────────
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const ITEM_H = 44;
+const VISIBLE = 5; // items visible in the wheel
+const now = new Date();
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+type WheelProps = {
+  items: string[];
+  selectedIndex: number;
+  onSelect: (i: number) => void;
+  colors: ReturnType<typeof useTheme>;
+};
+
+const Wheel: React.FC<WheelProps> = ({items, selectedIndex, onSelect, colors}) => {
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({y: selectedIndex * ITEM_H, animated: false});
+  }, [selectedIndex]);
+
+  return (
+    <View style={{height: ITEM_H * VISIBLE, overflow: 'hidden', flex: 1}}>
+      {/* highlight band */}
+      <View style={[wheelStyles.band, {
+        top: ITEM_H * Math.floor(VISIBLE / 2),
+        borderTopColor: colors.accent + '60',
+        borderBottomColor: colors.accent + '60',
+      }]} />
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_H}
+        decelerationRate="fast"
+        contentContainerStyle={{paddingVertical: ITEM_H * Math.floor(VISIBLE / 2)}}
+        onMomentumScrollEnd={e => {
+          const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+          onSelect(Math.max(0, Math.min(idx, items.length - 1)));
+        }}>
+        {items.map((label, i) => (
+          <TouchableOpacity
+            key={i}
+            onPress={() => {
+              onSelect(i);
+              scrollRef.current?.scrollTo({y: i * ITEM_H, animated: true});
+            }}
+            style={wheelStyles.item}>
+            <Text style={[
+              wheelStyles.itemText,
+              {color: i === selectedIndex ? colors.text : colors.textDim,
+               fontWeight: i === selectedIndex ? '700' : '400',
+               fontSize: i === selectedIndex ? 17 : 14},
+            ]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
+
+const wheelStyles = StyleSheet.create({
+  band: {
+    position: 'absolute', left: 0, right: 0, height: ITEM_H,
+    borderTopWidth: 1, borderBottomWidth: 1, zIndex: 1, pointerEvents: 'none',
+  },
+  item: {height: ITEM_H, alignItems: 'center', justifyContent: 'center'},
+  itemText: {textAlign: 'center'},
+});
+
+type DatePickerProps = {
+  visible: boolean;
+  value: string;          // YYYY-MM-DD or ''
+  onConfirm: (d: string) => void;
+  onCancel: () => void;
+  colors: ReturnType<typeof useTheme>;
+};
+
+const DatePickerModal: React.FC<DatePickerProps> = ({visible, value, onConfirm, onCancel, colors}) => {
+  const [selYear, setSelYear] = useState(now.getFullYear());
+  const [selMonth, setSelMonth] = useState(now.getMonth() + 1);   // 1-12
+  const [selDay, setSelDay] = useState(now.getDate());
+
+  useEffect(() => {
+    if (!visible) { return; }
+    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, m, d] = value.split('-').map(Number);
+      setSelYear(y); setSelMonth(m); setSelDay(d);
+    } else {
+      setSelYear(now.getFullYear()); setSelMonth(now.getMonth() + 1); setSelDay(now.getDate());
+    }
+  }, [visible, value]);
+
+  const baseYear = now.getFullYear();
+  const years  = Array.from({length: 6}, (_, i) => String(baseYear + i));
+  const months = MONTHS.map((m, i) => `${String(i + 1).padStart(2, '0')} ${m}`);
+  const totalDays = daysInMonth(selYear, selMonth);
+  const days = Array.from({length: totalDays}, (_, i) => String(i + 1).padStart(2, '0'));
+
+  const yearIdx  = years.findIndex(y => Number(y) === selYear);
+  const monthIdx = selMonth - 1;
+  const dayIdx   = Math.min(selDay - 1, totalDays - 1);
+
+  const handleConfirm = () => {
+    const safeDay = Math.min(selDay, daysInMonth(selYear, selMonth));
+    onConfirm(
+      `${selYear}-${String(selMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`,
+    );
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
+      <TouchableOpacity style={pickerStyles.overlay} activeOpacity={1} onPress={onCancel} />
+      <View style={[pickerStyles.sheet, {backgroundColor: colors.surfaceLight, borderTopColor: colors.border}]}>
+        {/* Title bar */}
+        <View style={[pickerStyles.titleBar, {borderBottomColor: colors.border}]}>
+          <TouchableOpacity onPress={onCancel} style={pickerStyles.titleBtn}>
+            <Text style={{color: colors.textMuted, fontSize: 15}}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={[pickerStyles.titleText, {color: colors.text}]}>Select Date</Text>
+          <TouchableOpacity onPress={handleConfirm} style={pickerStyles.titleBtn}>
+            <Text style={{color: colors.accent, fontSize: 15, fontWeight: '700'}}>Done</Text>
+          </TouchableOpacity>
+        </View>
+        {/* Wheels */}
+        <View style={pickerStyles.wheelsRow}>
+          <Wheel
+            items={years}
+            selectedIndex={Math.max(0, yearIdx)}
+            onSelect={i => setSelYear(Number(years[i]))}
+            colors={colors}
+          />
+          <Wheel
+            items={months}
+            selectedIndex={monthIdx}
+            onSelect={i => setSelMonth(i + 1)}
+            colors={colors}
+          />
+          <Wheel
+            items={days}
+            selectedIndex={dayIdx}
+            onSelect={i => setSelDay(i + 1)}
+            colors={colors}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const pickerStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  sheet: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    borderTopWidth: 1, paddingBottom: 36,
+  },
+  titleBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  titleBtn: {padding: 4, minWidth: 60},
+  titleText: {fontSize: 16, fontWeight: '600'},
+  wheelsRow: {flexDirection: 'row', paddingHorizontal: 8, paddingTop: 8},
+});
+
+// ── Date Input Field ───────────────────────────────────────────────────────────
+
+type DateFieldProps = {
+  label: string;
+  value: string;
+  onPick: () => void;
+  colors: ReturnType<typeof useTheme>;
+};
+
+const DateField: React.FC<DateFieldProps> = ({label, value, onPick, colors}) => (
+  <>
+    <Text style={[fieldStyles.label, {color: colors.textMuted}]}>
+      {label} <Text style={{color: colors.accent}}>*</Text>
+    </Text>
+    <TouchableOpacity
+      onPress={onPick}
+      activeOpacity={0.8}
+      style={[fieldStyles.wrap, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
+      <Icon name="calendar-outline" size={16} color={colors.textDim} style={{paddingLeft: 14}} />
+      <Text style={[fieldStyles.text, {color: value ? colors.text : colors.textDim}]}>
+        {value || 'Select date'}
+      </Text>
+      <Icon name="chevron-down-outline" size={14} color={colors.textDim} style={{paddingRight: 14}} />
+    </TouchableOpacity>
+  </>
+);
+
+const fieldStyles = StyleSheet.create({
+  label: {fontSize: 12, fontWeight: '600', marginBottom: 8, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5},
+  wrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 12, borderWidth: 1, marginBottom: 16, height: 50,
+  },
+  text: {flex: 1, fontSize: 15, paddingLeft: 2},
+});
+
+// ── Screen ─────────────────────────────────────────────────────────────────────
 
 type Props = {
   navigation: any;
@@ -24,26 +237,39 @@ export const LeaveApplicationScreen: React.FC<Props> = ({navigation}) => {
   const [typesLoading, setTypesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<'start' | 'end' | null>(null);
 
   useEffect(() => {
     getLeaveTypes()
       .then(res => {
         if (res?.data?.leave_types) {
           setLeaveTypes(res.data.leave_types);
-          if (res.data.leave_types.length > 0) {
-            setSelectedType(res.data.leave_types[0].id);
-          }
+          if (res.data.leave_types.length > 0) { setSelectedType(res.data.leave_types[0].id); }
         }
       })
-      .catch(() => {/* ignore */})
+      .catch(() => {})
       .finally(() => setTypesLoading(false));
   }, []);
+
+  // Auto-compute total days when both dates are set
+  useEffect(() => {
+    if (startDate && endDate &&
+        /^\d{4}-\d{2}-\d{2}$/.test(startDate) &&
+        /^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      const start = new Date(startDate);
+      const end   = new Date(endDate);
+      if (end >= start) {
+        const diff = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+        setTotalDays(String(diff));
+      }
+    }
+  }, [startDate, endDate]);
 
   const handleSubmit = async () => {
     setError(null);
     if (!selectedType) { setError('Please select a leave type.'); return; }
-    if (!startDate.match(/^\d{4}-\d{2}-\d{2}$/)) { setError('Start date must be YYYY-MM-DD.'); return; }
-    if (!endDate.match(/^\d{4}-\d{2}-\d{2}$/)) { setError('End date must be YYYY-MM-DD.'); return; }
+    if (!startDate) { setError('Please select a start date.'); return; }
+    if (!endDate)   { setError('Please select an end date.'); return; }
     const days = parseFloat(totalDays);
     if (!totalDays || isNaN(days) || days <= 0) { setError('Enter valid number of days.'); return; }
 
@@ -86,6 +312,8 @@ export const LeaveApplicationScreen: React.FC<Props> = ({navigation}) => {
       </View>
     );
   }
+
+  const pickerValue = pickerTarget === 'start' ? startDate : endDate;
 
   return (
     <KeyboardAvoidingView
@@ -137,36 +365,22 @@ export const LeaveApplicationScreen: React.FC<Props> = ({navigation}) => {
         )}
 
         {/* Start Date */}
-        <Text style={[styles.label, {color: colors.textMuted}]}>
-          Start Date <Text style={{color: colors.accent}}>*</Text>
-        </Text>
-        <View style={[styles.inputWrap, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
-          <Icon name="calendar-outline" size={16} color={colors.textDim} style={styles.inputIcon} />
-          <TextInput
-            value={startDate}
-            onChangeText={setStartDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.textDim}
-            style={[styles.input, {color: colors.text}]}
-          />
-        </View>
+        <DateField
+          label="Start Date"
+          value={startDate}
+          onPick={() => setPickerTarget('start')}
+          colors={colors}
+        />
 
         {/* End Date */}
-        <Text style={[styles.label, {color: colors.textMuted}]}>
-          End Date <Text style={{color: colors.accent}}>*</Text>
-        </Text>
-        <View style={[styles.inputWrap, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
-          <Icon name="calendar-outline" size={16} color={colors.textDim} style={styles.inputIcon} />
-          <TextInput
-            value={endDate}
-            onChangeText={setEndDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.textDim}
-            style={[styles.input, {color: colors.text}]}
-          />
-        </View>
+        <DateField
+          label="End Date"
+          value={endDate}
+          onPick={() => setPickerTarget('end')}
+          colors={colors}
+        />
 
-        {/* Total Days */}
+        {/* Total Days (auto-computed, still editable) */}
         <Text style={[styles.label, {color: colors.textMuted}]}>
           Number of Days <Text style={{color: colors.accent}}>*</Text>
         </Text>
@@ -222,6 +436,19 @@ export const LeaveApplicationScreen: React.FC<Props> = ({navigation}) => {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Date picker modal */}
+      <DatePickerModal
+        visible={pickerTarget !== null}
+        value={pickerValue}
+        onConfirm={d => {
+          if (pickerTarget === 'start') { setStartDate(d); }
+          else { setEndDate(d); }
+          setPickerTarget(null);
+        }}
+        onCancel={() => setPickerTarget(null)}
+        colors={colors}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -238,9 +465,7 @@ const styles = StyleSheet.create({
   scrollContent: {padding: 20, paddingBottom: 40},
   label: {fontSize: 12, fontWeight: '600', marginBottom: 8, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5},
   typeRow: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20},
-  typeChip: {
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
-  },
+  typeChip: {paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1},
   typeChipText: {fontSize: 13, fontWeight: '500'},
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
@@ -259,16 +484,10 @@ const styles = StyleSheet.create({
     shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.4, shadowRadius: 20, elevation: 8,
   },
   submitBtnText: {color: '#fff', fontSize: 16, fontWeight: '700'},
-  // Success state
   successWrap: {flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32},
-  iconCircle: {
-    width: 80, height: 80, borderRadius: 24,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 24,
-  },
+  iconCircle: {width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 24},
   successTitle: {fontSize: 22, fontWeight: '800', marginBottom: 12},
   successSub: {fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 40},
-  doneBtn: {
-    width: '100%', padding: 16, borderRadius: 14, alignItems: 'center',
-  },
+  doneBtn: {width: '100%', padding: 16, borderRadius: 14, alignItems: 'center'},
   doneBtnText: {color: '#fff', fontSize: 16, fontWeight: '700'},
 });

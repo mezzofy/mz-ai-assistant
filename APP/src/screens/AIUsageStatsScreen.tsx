@@ -205,10 +205,12 @@ export const AIUsageStatsScreen: React.FC<{navigation: any}> = ({navigation}) =>
                 <Text style={[styles.statusLabel, {color: colors.text}]}>Redis Cache</Text>
                 <StatusPill label={redisOk ? 'Online' : 'Unavailable'} ok={redisOk} colors={colors} />
               </View>
-              <View style={[styles.statusRow, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border + '40'}]}>
-                <Text style={[styles.statusLabel, {color: colors.text}]}>LLM Manager</Text>
-                <StatusPill label={llmOk ? 'Online' : 'Not Initialized'} ok={llmOk} colors={colors} />
-              </View>
+              {health?.services.llm_manager !== 'unknown' && (
+                <View style={[styles.statusRow, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border + '40'}]}>
+                  <Text style={[styles.statusLabel, {color: colors.text}]}>LLM Manager</Text>
+                  <StatusPill label={llmOk ? 'Online' : 'Not Initialized'} ok={llmOk} colors={colors} />
+                </View>
+              )}
               <View style={[styles.statusRow, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border + '40'}]}>
                 <Text style={[styles.statusLabel, {color: colors.text}]}>Overall</Text>
                 <StatusPill
