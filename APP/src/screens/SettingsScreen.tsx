@@ -60,28 +60,28 @@ export const SettingsScreen: React.FC<{navigation: any}> = ({navigation}) => {
         <Text style={[styles.title, {color: colors.text}]}>Settings</Text>
       </View>
       <ScrollView style={styles.list}>
-        {/* Profile Card */}
-        <View style={[styles.profileCard, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
+        {/* Profile Card — tap to open Profile */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Profile')}
+          activeOpacity={0.85}
+          style={[styles.profileCard, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
           <View style={[styles.avatar, {backgroundColor: colors.accent}]}>
             <Text style={styles.avatarText}>
               {user.name.split(' ').map(n => n[0]).join('')}
             </Text>
           </View>
-          <View>
+          <View style={{flex: 1}}>
             <Text style={[styles.profileName, {color: colors.text}]}>{user.name}</Text>
-            <Text style={[styles.profileEmail, {color: colors.textMuted}]}>{user.email}</Text>
+            <Text style={[styles.profileRole, {color: colors.textMuted}]}>
+              {user.role.replace(/_/g, ' ').toUpperCase()}
+            </Text>
+            <Text style={[styles.profileEmail, {color: colors.textDim}]}>{user.email}</Text>
             <DeptBadge dept={user.department} />
           </View>
-        </View>
+          <Icon name="chevron-forward" size={16} color={colors.textDim} />
+        </TouchableOpacity>
 
         <View style={[styles.group, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
-          {/* Edit Profile → navigates to ProfileScreen */}
-          <SettingsRow
-            icon="person-outline"
-            label="Edit Profile"
-            colors={colors}
-            onPress={() => navigation.navigate('Profile')}
-          />
 
           {/* Notifications — On / Off segmented control */}
           <View style={[styles.row, {borderBottomColor: colors.border + '40'}]}>
@@ -200,7 +200,8 @@ const styles = StyleSheet.create({
   avatar: {width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center'},
   avatarText: {fontSize: 22, fontWeight: '800', color: '#fff'},
   profileName: {fontSize: 17, fontWeight: '700'},
-  profileEmail: {fontSize: 13, marginVertical: 2},
+  profileRole: {fontSize: 11, fontWeight: '700', letterSpacing: 0.6, marginTop: 1, marginBottom: 1},
+  profileEmail: {fontSize: 12, marginBottom: 4},
   group: {borderRadius: 14, overflow: 'hidden', marginBottom: 12, borderWidth: 1},
   row: {flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth},
   rowIcon: {width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center'},

@@ -25,6 +25,7 @@ import {OTPVerificationScreen} from './src/screens/OTPVerificationScreen';
 import {ForgotPasswordScreen} from './src/screens/ForgotPasswordScreen';
 import {NewPasswordScreen} from './src/screens/NewPasswordScreen';
 import {AccountActivationScreen} from './src/screens/AccountActivationScreen';
+import {LeaveApplicationScreen} from './src/screens/LeaveApplicationScreen';
 import {PrivacySecurityScreen} from './src/screens/PrivacySecurityScreen';
 import {ChangePasswordScreen} from './src/screens/ChangePasswordScreen';
 import {ScheduleStatsScreen} from './src/screens/ScheduleStatsScreen';
@@ -196,6 +197,11 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="NotificationHistory"
                 component={NotificationHistoryScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="LeaveApplication"
+                component={LeaveApplicationScreen}
                 options={{animation: 'slide_from_right'}}
               />
             </>

@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {useAuthStore} from '../stores/authStore';
@@ -110,17 +110,20 @@ export const LoginScreen: React.FC<Props> = ({navigation}) => {
             <Text style={{color: colors.accent}}>Reset here</Text>
           </Text>
         </TouchableOpacity>
+      </View>
 
+      {/* Footer — activate account stays pinned at the bottom */}
+      <SafeAreaView>
         <TouchableOpacity
           onPress={() => navigation.navigate('AccountActivation')}
           activeOpacity={0.7}
-          style={styles.forgotWrap}>
-          <Text style={[styles.forgot, {color: colors.textDim}]}>
+          style={styles.footer}>
+          <Text style={[styles.footerText, {color: colors.textDim}]}>
             {'New user? '}
             <Text style={{color: colors.accent}}>Activate account</Text>
           </Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 };
@@ -161,4 +164,6 @@ const styles = StyleSheet.create({
   loginBtnText: {color: '#fff', fontSize: 16, fontWeight: '700'},
   forgotWrap: {marginTop: 20, alignItems: 'center'},
   forgot: {textAlign: 'center', fontSize: 13},
+  footer: {paddingVertical: 20, alignItems: 'center'},
+  footerText: {fontSize: 13},
 });
