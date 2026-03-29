@@ -25,8 +25,8 @@ android {
         applicationId "com.mezzofyai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 46
-        versionName "1.52.0"
+        versionCode 47
+        versionName "1.53.0"
     }
 
     signingConfigs {
