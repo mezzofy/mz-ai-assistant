@@ -92,9 +92,9 @@ export default function HRLeaveManagementPage() {
     },
   })
 
-  const dashboard: HRLeaveDashboard | null = dashData?.dashboard || dashData || null
+  const dashboard: HRLeaveDashboard | null = dashData?.data?.dashboard || dashData?.data || dashData?.dashboard || null
   const summaries = dashboard?.employee_summaries || []
-  const pendingApps: HRLeaveApplication[] = pendingData?.applications || pendingData || []
+  const pendingApps: HRLeaveApplication[] = pendingData?.data?.applications || pendingData?.applications || []
 
   const currentYear = new Date().getFullYear()
   const years = [currentYear - 1, currentYear, currentYear + 1]

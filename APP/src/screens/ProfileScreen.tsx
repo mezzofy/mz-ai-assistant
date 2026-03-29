@@ -35,6 +35,7 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [leaveApps, setLeaveApps] = useState<LeaveApplication[]>([]);
   const [hrLoading, setHrLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +47,7 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
         ]);
         if (!cancelled) {
           if (balRes?.data) { setLeaveBalance(balRes.data); }
-          if (appsRes?.data?.applications) { setLeaveApps(appsRes.data.applications.slice(0, 5)); }
+          if (appsRes?.data?.applications) { setLeaveApps(appsRes.data.applications); }
         }
       } catch {
         // 403/404 = not an employee — section stays hidden
@@ -73,6 +74,13 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const roleDisplay = user.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const deptDisplay = user.department.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const hasEmployee = !!leaveBalance;
+
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear - 1, currentYear];
+  const filteredApps = leaveApps.filter(a => {
+    const y = a.start_date ? parseInt(a.start_date.slice(0, 4), 10) : 0;
+    return y === selectedYear;
+  });
 
   const statusColor = (s: string) => {
     if (s === 'approved') { return colors.success; }
@@ -142,41 +150,71 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
               <Text style={[styles.applyBtnText, {color: colors.accent}]}>Apply Leave</Text>
             </TouchableOpacity>
 
-            {/* Recent Leave Applications */}
-            {leaveApps.length > 0 && (
-              <>
-                <View style={[styles.divider, {borderColor: colors.border}]} />
-                <Text style={[styles.subSectionTitle, {color: colors.textDim}]}>RECENT APPLICATIONS</Text>
-                {leaveApps.map(app => (
-                  <View key={app.id} style={styles.leaveAppRow}>
-                    <View style={styles.leaveAppInfo}>
+          </View>
+        )}
+
+        {/* Leave History Card */}
+        {!hrLoading && hasEmployee && (
+          <View style={[styles.card, {backgroundColor: colors.surfaceLight, borderColor: colors.border}]}>
+            <View style={styles.leaveHistoryHeader}>
+              <Text style={[styles.sectionTitle, {color: colors.textMuted}]}>LEAVE HISTORY</Text>
+              <View style={styles.yearSelector}>
+                {years.map(y => (
+                  <TouchableOpacity
+                    key={y}
+                    onPress={() => setSelectedYear(y)}
+                    style={[styles.yearBtn, {backgroundColor: selectedYear === y ? colors.accent : colors.surface}]}>
+                    <Text style={[styles.yearBtnText, {color: selectedYear === y ? '#fff' : colors.textMuted}]}>
+                      {y}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            {filteredApps.length === 0 ? (
+              <Text style={[styles.noAppsText, {color: colors.textDim}]}>
+                No leave applications for {selectedYear}
+              </Text>
+            ) : (
+              filteredApps.map((app, idx) => (
+                <View
+                  key={app.id}
+                  style={[
+                    styles.historyRow,
+                    idx < filteredApps.length - 1 && {borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border + '40'},
+                  ]}>
+                  <View style={styles.leaveAppInfo}>
+                    <View style={styles.historyTopRow}>
                       <Text style={[styles.leaveAppType, {color: colors.text}]}>
-                        {app.leave_type_name ?? 'Leave'} · {app.total_days}d
+                        {app.leave_type_name ?? 'Leave'}
                       </Text>
-                      <Text style={[styles.leaveAppDates, {color: colors.textMuted}]}>
-                        {app.start_date} → {app.end_date}
-                      </Text>
-                    </View>
-                    <View style={styles.leaveAppRight}>
                       <View style={[styles.statusBadge, {backgroundColor: statusColor(app.status) + '20'}]}>
                         <Text style={[styles.statusText, {color: statusColor(app.status)}]}>
                           {app.status}
                         </Text>
                       </View>
-                      {app.status === 'pending' && (
-                        <TouchableOpacity
-                          onPress={() => handleCancelLeave(app.id)}
-                          disabled={cancellingId === app.id}
-                          style={styles.cancelBtn}>
-                          <Text style={[styles.cancelBtnText, {color: colors.danger}]}>
-                            {cancellingId === app.id ? '…' : 'Cancel'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
                     </View>
+                    <Text style={[styles.leaveAppDates, {color: colors.textMuted}]}>
+                      {app.start_date} → {app.end_date} · {app.total_days}d
+                    </Text>
+                    {app.reason ? (
+                      <Text style={[styles.historyReason, {color: colors.textDim}]} numberOfLines={1}>
+                        {app.reason}
+                      </Text>
+                    ) : null}
                   </View>
-                ))}
-              </>
+                  {app.status === 'pending' && (
+                    <TouchableOpacity
+                      onPress={() => handleCancelLeave(app.id)}
+                      disabled={cancellingId === app.id}
+                      style={styles.cancelBtn}>
+                      <Text style={[styles.cancelBtnText, {color: colors.danger}]}>
+                        {cancellingId === app.id ? '…' : 'Cancel'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))
             )}
           </View>
         )}
@@ -281,11 +319,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10, borderRadius: 10, borderWidth: 1,
   },
   applyBtnText: {fontSize: 14, fontWeight: '600'},
-  divider: {borderTopWidth: StyleSheet.hairlineWidth, marginHorizontal: 16, marginBottom: 8},
-  subSectionTitle: {
-    fontSize: 10, fontWeight: '700', letterSpacing: 0.8,
-    paddingHorizontal: 16, paddingBottom: 6,
-  },
   leaveAppRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 10, gap: 8,
@@ -298,4 +331,19 @@ const styles = StyleSheet.create({
   statusText: {fontSize: 11, fontWeight: '600', textTransform: 'capitalize'},
   cancelBtn: {paddingHorizontal: 4},
   cancelBtnText: {fontSize: 12, fontWeight: '600'},
+  // Leave History card
+  leaveHistoryHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingRight: 16,
+  },
+  yearSelector: {flexDirection: 'row', gap: 6},
+  yearBtn: {paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6},
+  yearBtnText: {fontSize: 12, fontWeight: '600'},
+  noAppsText: {fontSize: 13, textAlign: 'center', paddingVertical: 20, paddingHorizontal: 16},
+  historyRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12, gap: 8,
+  },
+  historyTopRow: {flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2},
+  historyReason: {fontSize: 11, marginTop: 2},
 });
