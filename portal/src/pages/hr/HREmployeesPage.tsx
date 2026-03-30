@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { portalApi } from '../../api/portal'
 import type { HREmployee } from '../../types'
 
-const DEPARTMENTS = ['engineering', 'sales', 'marketing', 'finance', 'hr', 'operations', 'support', 'management', 'it']
-const COUNTRIES = ['SG', 'MY', 'HK', 'AU', 'US', 'GB']
+const DEPARTMENTS = ['product', 'sales', 'marketing', 'finance', 'hr', 'operations', 'support', 'management', 'it']
+const COUNTRIES = ['SG', 'MY', 'HK', 'IN', 'AU', 'US', 'GB']
 
 export default function HREmployeesPage() {
   const navigate = useNavigate()

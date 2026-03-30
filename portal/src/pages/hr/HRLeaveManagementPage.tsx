@@ -5,8 +5,8 @@ import { portalApi } from '../../api/portal'
 import { useAuthStore } from '../../stores/authStore'
 import type { HRLeaveDashboard, HRLeaveApplication } from '../../types'
 
-const DEPARTMENTS = ['engineering', 'sales', 'marketing', 'finance', 'hr', 'operations', 'support', 'management', 'it']
-const COUNTRIES = ['SG', 'MY', 'HK', 'AU', 'US', 'GB']
+const DEPARTMENTS = ['product', 'sales', 'marketing', 'finance', 'hr', 'operations', 'support', 'management', 'it']
+const COUNTRIES = ['SG', 'MY', 'HK', 'IN', 'AU', 'US', 'GB']
 const APPROVER_ROLES = ['hr_staff', 'hr_manager', 'executive', 'admin', 'management']
 
 type Tab = 'summary' | 'approvals'

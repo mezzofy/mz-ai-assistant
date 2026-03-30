@@ -4,8 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { portalApi } from '../../api/portal'
 import type { HREmployee } from '../../types'
 
-const DEPARTMENTS = ['engineering', 'sales', 'marketing', 'finance', 'hr', 'operations', 'support', 'management', 'it']
-const COUNTRIES = ['SG', 'MY', 'HK', 'AU', 'US', 'GB']
+const DEPARTMENTS = ['product', 'sales', 'marketing', 'finance', 'hr', 'operations', 'support', 'management', 'it']
+const COUNTRIES = ['SG', 'MY', 'HK', 'IN', 'AU', 'US', 'GB']
 const EMPLOYMENT_TYPES: Array<{ value: HREmployee['employment_type']; label: string }> = [
   { value: 'full_time', label: 'Full Time' },
   { value: 'part_time', label: 'Part Time' },
