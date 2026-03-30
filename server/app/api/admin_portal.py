@@ -402,7 +402,7 @@ async def create_scheduler_job(
         result = await db.execute(
             text("""
                 INSERT INTO scheduled_jobs (user_id, name, agent, message, schedule, workflow_name, deliver_to, next_run)
-                VALUES (:user_id, :name, :agent, :message, :schedule, :workflow_name, :deliver_to::jsonb, :next_run)
+                VALUES (:user_id, :name, :agent, :message, :schedule, :workflow_name, CAST(:deliver_to AS JSONB), :next_run)
                 RETURNING id, name, agent, message, schedule, workflow_name, deliver_to, is_active, next_run, created_at
             """),
             {
