@@ -56,7 +56,7 @@ export const getMyLeaveBalance = () =>
 
 export const getMyLeaveApplications = () =>
   apiFetch<HRResponse<{applications: LeaveApplication[]; count: number}>>(
-    `${HR}/leave/applications`,
+    `${HR}/leave/applications?mine=true`,
   );
 
 export const getLeaveTypes = (country?: string) =>
