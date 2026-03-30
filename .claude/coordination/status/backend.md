@@ -1,8 +1,34 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-30
-**Session:** leave-summary-dashboard-bug-fix
-**Context:** ~15% at checkpoint
-**Reason:** Subtask complete — BUG-leave-summary-empty fixed and deployed
+**Session:** crm-email-activity-logging
+**Context:** ~20% at checkpoint
+**Reason:** Subtask complete — CRM email activity auto-logging implemented and deployed
+
+## Completed This Session (2026-03-30)
+
+- Added `log_lead_activity` tool to CRMOps → `server/app/tools/database/crm_ops.py`
+- Wired auto-logging into all 3 email workflows in SalesAgent → `server/app/agents/sales_agent.py`
+- Committed: `ac737fb` — `feat: auto-log email_sent activities to CRM communication log (v1.56.1)`
+- Deployed to EC2 via SCP; `mezzofy-api.service` confirmed `active`
+
+### crm_ops.py changes
+- New `log_lead_activity` tool registered in `get_tools()` (after `get_stale_leads`)
+- New `_log_lead_activity()` handler: validates type enum, inserts into `lead_activities` with `meta::jsonb`
+
+### sales_agent.py changes
+- `_prospecting_workflow()`: tracks `lead_crm_ids` dict per index; logs "Intro email sent" after successful send
+- `_daily_followup_workflow()`: logs "Follow-up email sent" after successful send + update_lead
+- `_customer_onboarding_workflow()`: captures `onboarding_lead_id` from create_lead; logs "Welcome email sent"
+- `_general_sales_workflow()`: no change — `log_lead_activity` auto-exposed via ToolExecutor CRMOps registration
+
+## Resume Instructions
+CRM email activity logging task COMPLETE.
+Action needed: push eric-design branch to GitHub via GitHub Desktop.
+If new backend tasks arrive: read plan at `.claude/coordination/plans/`, run /boot-backend.
+
+---
+
+## Previous Session (2026-03-30) — leave-summary-dashboard-bug-fix
 
 ## Completed This Session
 
