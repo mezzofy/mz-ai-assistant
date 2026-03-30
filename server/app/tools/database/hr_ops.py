@@ -1418,17 +1418,24 @@ class HROps(BaseTool):
 
         if manager_user_id:
             try:
-                from app.tools.communication.push_ops import get_user_push_targets, send_push
+                from app.tools.communication.push_ops import get_user_push_targets, send_push, log_notification
+                push_title = "Leave Approval Required"
+                push_body = f"{employee_name} requested {days_label} of {leave_type}"
+                push_data = {"type": "leave_approval", "application_id": app_id}
                 targets = await get_user_push_targets(str(manager_user_id))
-                for t in targets:
-                    await send_push(
-                        user_id=str(manager_user_id),
-                        device_token=t["device_token"],
-                        platform=t["platform"],
-                        title="Leave Approval Required",
-                        body=f"{employee_name} requested {days_label} of {leave_type}",
-                        data={"type": "leave_approval", "application_id": app_id},
-                    )
+                if targets:
+                    for t in targets:
+                        await send_push(
+                            user_id=str(manager_user_id),
+                            device_token=t["device_token"],
+                            platform=t["platform"],
+                            title=push_title,
+                            body=push_body,
+                            data=push_data,
+                        )
+                else:
+                    # No devices registered — still log so it appears in Notifications tab
+                    await log_notification(user_id=str(manager_user_id), title=push_title, body=push_body, data=push_data)
             except Exception as e:
                 logger.warning(f"Failed to push manager {manager_user_id} for leave {app_id}: {e}")
 
@@ -1515,25 +1522,26 @@ class HROps(BaseTool):
 
         if employee_user_id:
             try:
-                from app.tools.communication.push_ops import get_user_push_targets, send_push
+                from app.tools.communication.push_ops import get_user_push_targets, send_push, log_notification
                 push_title = f"Leave {status_label} \u2713" if is_approved else "Leave Not Approved"
                 push_body = (
                     f"Your {days_label} {leave_type} from {start_date} has been {status_label.lower()}"
                 )
+                push_data = {"type": "leave_decision", "application_id": application_id, "status": new_status}
                 targets = await get_user_push_targets(str(employee_user_id))
-                for t in targets:
-                    await send_push(
-                        user_id=str(employee_user_id),
-                        device_token=t["device_token"],
-                        platform=t["platform"],
-                        title=push_title,
-                        body=push_body,
-                        data={
-                            "type": "leave_decision",
-                            "application_id": application_id,
-                            "status": new_status,
-                        },
-                    )
+                if targets:
+                    for t in targets:
+                        await send_push(
+                            user_id=str(employee_user_id),
+                            device_token=t["device_token"],
+                            platform=t["platform"],
+                            title=push_title,
+                            body=push_body,
+                            data=push_data,
+                        )
+                else:
+                    # No devices registered — still log so it appears in Notifications tab
+                    await log_notification(user_id=str(employee_user_id), title=push_title, body=push_body, data=push_data)
             except Exception as e:
                 logger.warning(f"Failed to push employee {employee_user_id} for decision {application_id}: {e}")
 
