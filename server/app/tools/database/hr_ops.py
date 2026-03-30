@@ -1303,7 +1303,7 @@ class HROps(BaseTool):
 
                 total_active = (await session.execute(text(sql_total_active), emp_params)).scalar() or 0
 
-                on_leave_params = {"today": today_str, **emp_params}
+                on_leave_params = {"today": today, **emp_params}
                 on_leave_today = (await session.execute(text(sql_on_leave_today), on_leave_params)).scalar() or 0
 
                 pending_approvals = (await session.execute(text(sql_pending_approvals))).scalar() or 0
