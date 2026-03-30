@@ -813,6 +813,7 @@ class HROps(BaseTool):
         self,
         application_data: dict,
         employee_id: str,
+        actor_user_id: Optional[str] = None,
     ) -> dict:
         required = ["leave_type_id", "start_date", "end_date", "total_days"]
         for f in required:
@@ -912,7 +913,7 @@ class HROps(BaseTool):
 
                 await self._log_hr_audit(
                     session=session,
-                    actor_id=employee_id,
+                    actor_id=actor_user_id,
                     target_type="leave_application",
                     target_id=app_id,
                     action="leave_applied",

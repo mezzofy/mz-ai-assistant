@@ -309,6 +309,7 @@ async def apply_leave(
     result = await hr._apply_leave(
         application_data=body.model_dump(exclude={"employee_id"}),
         employee_id=employee_id,
+        actor_user_id=user_id,
     )
     if not result.get("success"):
         _fail(result.get("error", "Failed to apply for leave"))
