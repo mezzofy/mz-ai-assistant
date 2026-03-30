@@ -1,5 +1,27 @@
 # Context Checkpoint: Backend Agent
 **Date:** 2026-03-30
+**Session:** scheduler-admin-endpoints
+
+## Completed This Session (2026-03-30) — scheduler-admin-endpoints
+
+- ✅ Fix 1: Removed `updated_at = NOW()` from PUT `/scheduler/jobs/{job_id}` SET clause — column doesn't exist on `scheduled_jobs`, was causing every PUT to fail with a DB error
+- ✅ Fix 2: Added `POST /scheduler/jobs` — creates a new scheduled job with agent validation, 5-field cron validation, `compute_next_run()` import, RETURNING insert, admin auth
+- ✅ Fix 3: Added `DELETE /scheduler/jobs/{job_id}` — 404 guard + DELETE + commit, returns `{"deleted": True, "job_id": ...}`
+- ✅ Committed: `cbf8098` — "fix: scheduler PUT updated_at bug + add admin create/delete endpoints (v1.57.0)"
+- ✅ Deployed to EC2 via SCP + `mezzofy-api.service` restart — confirmed `active`
+
+## Files Modified
+- `server/app/api/admin_portal.py` — `updated_at` fix, `CreateSchedulerJobRequest` model + POST endpoint, DELETE endpoint
+
+## Resume Instructions
+scheduler-admin-endpoints task COMPLETE.
+Action needed: push eric-design branch to GitHub via GitHub Desktop.
+If new backend tasks arrive: read plan at `.claude/coordination/plans/`, run /boot-backend.
+
+---
+
+## Previous Session (2026-03-30) — crm-email-activity-logging
+**Date:** 2026-03-30
 **Session:** crm-email-activity-logging
 **Context:** ~20% at checkpoint
 **Reason:** Subtask complete — CRM email activity auto-logging implemented and deployed

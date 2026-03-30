@@ -1,4 +1,32 @@
 # Context Checkpoint: Frontend Agent
+**Date:** 2026-03-30
+**Session:** 15 — Scheduler create/delete job UI (v1.57.0)
+
+## Completed This Session (Session 15)
+
+- ✅ `portal/src/api/portal.ts` — added `createJob` and `deleteJob` API functions after `updateJob`
+- ✅ `portal/src/pages/SchedulerPage.tsx` — added "+ New Job" button in header, Create Job form panel with field validation, `createJobMutation`, Trash2 delete button per row, inline delete confirmation row, `deleteJobMutation`; imported `Trash2` from lucide-react
+- ✅ TypeScript check: `npx tsc --noEmit` — 0 errors
+- ✅ Build: success (440.38 kB JS, 18.54 kB CSS, 3.77s)
+- ✅ Committed: `feat: scheduler portal create/delete job UI (v1.57.0)` on branch `eric-design`
+
+## Files Modified (Session 15)
+- `portal/src/api/portal.ts` (modified — added createJob + deleteJob after updateJob)
+- `portal/src/pages/SchedulerPage.tsx` (modified — create/delete features added, Trash2 import)
+
+## Design Decisions (Session 15)
+- Create form shown above the job table grid, bordered orange to draw attention; collapses on cancel/success
+- Delete confirmation is an inline expanded `<tr>` row under the targeted job row — stays contextual, no modal needed
+- Used `React.Fragment` to wrap each job row + its conditional delete confirmation row (valid table structure)
+- Agent select is a `<select>` dropdown with hardcoded options: finance, sales, marketing, support, management, hr
+- `EMPTY_CREATE_FORM` constant extracted to keep reset logic clean
+- Create form does mutual exclusion with delete confirmation (opening one closes the other)
+
+## Status: COMPLETE — All tasks done, committed, no blockers
+
+---
+
+# Context Checkpoint: Frontend Agent
 **Date:** 2026-03-29
 **Session:** 14 — My Leaves tab + CRM Lead Detail page (leave-fix-and-leads-detail)
 
