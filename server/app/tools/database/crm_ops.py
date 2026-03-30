@@ -266,6 +266,45 @@ class CRMOps(BaseTool):
                 },
                 "handler": self._get_stale_leads,
             },
+            {
+                "name": "log_lead_activity",
+                "description": (
+                    "Log an activity (email_sent, note, call, meeting, follow_up_set) "
+                    "to a lead's communication log"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "lead_id": {
+                            "type": "string",
+                            "description": "UUID of the lead",
+                        },
+                        "type": {
+                            "type": "string",
+                            "description": "Activity type",
+                            "enum": ["note", "email_sent", "call", "meeting", "follow_up_set"],
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "Short title for the activity",
+                        },
+                        "body": {
+                            "type": "string",
+                            "description": "Full body / details of the activity (optional)",
+                        },
+                        "meta": {
+                            "type": "object",
+                            "description": "Arbitrary JSON metadata, e.g. {to, subject} for emails (optional)",
+                        },
+                        "actor_name": {
+                            "type": "string",
+                            "description": "Display name of the actor (default: 'AI Assistant')",
+                        },
+                    },
+                    "required": ["lead_id", "type", "title"],
+                },
+                "handler": self._log_lead_activity,
+            },
         ]
 
     # ── Private helpers ────────────────────────────────────────────────────────
@@ -631,6 +670,48 @@ class CRMOps(BaseTool):
         except Exception as e:
             logger.error(f"get_stale_leads failed: {e}")
             return self._err(f"Stale leads query failed: {e}")
+
+    async def _log_lead_activity(
+        self,
+        lead_id: str,
+        type: str,
+        title: str,
+        body: Optional[str] = None,
+        meta: Optional[dict] = None,
+        actor_name: str = "AI Assistant",
+    ) -> dict:
+        _VALID_ACTIVITY_TYPES = {"note", "email_sent", "call", "meeting", "follow_up_set"}
+        if type not in _VALID_ACTIVITY_TYPES:
+            return self._err(
+                f"Invalid activity type '{type}'. Must be one of: {', '.join(sorted(_VALID_ACTIVITY_TYPES))}"
+            )
+
+        try:
+            import json as _json
+            from sqlalchemy import text
+
+            sql = """
+                INSERT INTO lead_activities (lead_id, actor_name, type, title, body, meta)
+                VALUES (:lead_id, :actor_name, :type, :title, :body, :meta::jsonb)
+            """
+            params: dict[str, Any] = {
+                "lead_id": lead_id,
+                "actor_name": actor_name,
+                "type": type,
+                "title": title,
+                "body": body,
+                "meta": _json.dumps(meta) if meta is not None else None,
+            }
+
+            async with await self._get_session() as session:
+                await session.execute(text(sql), params)
+                await session.commit()
+
+            logger.info(f"log_lead_activity: [{type}] '{title}' → lead {lead_id}")
+            return self._ok({"logged": True, "type": type, "title": title})
+        except Exception as e:
+            logger.error(f"log_lead_activity failed: {e}")
+            return self._err(f"Failed to log activity: {e}")
 
     # ── Automation helpers (called by scheduled tasks) ─────────────────────────
 

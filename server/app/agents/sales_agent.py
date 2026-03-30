@@ -90,7 +90,8 @@ class SalesAgent(BaseAgent):
         from app.tools.database.crm_ops import CRMOps
         crm = CRMOps(self.config)
         saved_count = 0
-        for lead in leads[:10]:
+        lead_crm_ids: dict[int, str] = {}  # index → lead_id
+        for idx, lead in enumerate(leads[:10]):
             crm_result = await crm.execute(
                 "create_lead",
                 name=str(lead.get("name", "Unknown")),
@@ -102,30 +103,42 @@ class SalesAgent(BaseAgent):
             )
             if crm_result.get("success"):
                 saved_count += 1
+                lead_crm_ids[idx] = crm_result.get("output", {}).get("lead_id", "")
         tools_called.append("create_lead")
 
         # Step 3: Compose and send intro emails
         self._require_permission(task, "email_send")
         sent_count = 0
-        for lead in leads[:5]:  # Limit initial outreach
-            email_result = lead.get("email", "")
-            if not email_result:
+        for idx, lead in enumerate(leads[:5]):  # Limit initial outreach
+            lead_email = lead.get("email", "")
+            if not lead_email:
                 continue
             compose_result = await email_skill.compose_email(
                 template="intro",
                 recipient_name=str(lead.get("name", "there")),
-                recipient_email=str(email_result),
+                recipient_email=str(lead_email),
                 company_name=str(lead.get("company", "")),
             )
             if compose_result.get("success"):
                 composed = compose_result["output"]
+                subject = composed["subject"]
                 send_result = await email_skill.send_email(
-                    to=str(email_result),
-                    subject=composed["subject"],
+                    to=str(lead_email),
+                    subject=subject,
                     body_html=composed["body_html"],
                 )
                 if send_result.get("success"):
                     sent_count += 1
+                    lead_id = lead_crm_ids.get(idx, "")
+                    if lead_id:
+                        await crm.execute(
+                            "log_lead_activity",
+                            lead_id=lead_id,
+                            type="email_sent",
+                            title="Intro email sent",
+                            actor_name="Sam (AI)",
+                            meta={"to": lead_email, "subject": subject},
+                        )
         tools_called.extend(["compose_email", "send_email"])
 
         summary = (
@@ -241,25 +254,36 @@ class SalesAgent(BaseAgent):
 
         sent = 0
         for lead in leads[:20]:
-            email = lead.get("email", "")
-            if not email:
+            lead_email = lead.get("email", "")
+            if not lead_email:
                 continue
+            lead_id = lead.get("id", "")
             compose = await email_skill.compose_email(
                 template="followup",
                 recipient_name=str(lead.get("name", "there")),
-                recipient_email=str(email),
+                recipient_email=str(lead_email),
                 company_name=str(lead.get("company", "")),
             )
             if compose.get("success"):
                 c = compose["output"]
+                subject = c["subject"]
                 send = await email_skill.send_email(
-                    to=str(email),
-                    subject=c["subject"],
+                    to=str(lead_email),
+                    subject=subject,
                     body_html=c["body_html"],
                 )
                 if send.get("success"):
                     sent += 1
-                    await crm.execute("update_lead", lead_id=lead.get("id"), status="contacted")
+                    await crm.execute("update_lead", lead_id=lead_id, status="contacted")
+                    if lead_id:
+                        await crm.execute(
+                            "log_lead_activity",
+                            lead_id=lead_id,
+                            type="email_sent",
+                            title="Follow-up email sent",
+                            actor_name="Sam (AI)",
+                            meta={"to": lead_email, "subject": subject},
+                        )
         tools_called.extend(["compose_email", "send_email", "update_lead"])
 
         summary = f"Daily follow-up: sent {sent} emails to {len(leads)} stale leads."
@@ -277,7 +301,7 @@ class SalesAgent(BaseAgent):
         # Save to CRM
         from app.tools.database.crm_ops import CRMOps
         crm = CRMOps(self.config)
-        await crm.execute(
+        crm_result = await crm.execute(
             "create_lead",
             name=payload.get("contact_name", customer_name),
             company=customer_name,
@@ -286,6 +310,7 @@ class SalesAgent(BaseAgent):
             status="new",
         )
         tools_called.append("create_lead")
+        onboarding_lead_id = crm_result.get("output", {}).get("lead_id", "") if crm_result.get("success") else ""
 
         # Send welcome email
         if customer_email:
@@ -300,11 +325,21 @@ class SalesAgent(BaseAgent):
                 )
                 if compose.get("success"):
                     c = compose["output"]
-                    await email_skill.send_email(
+                    welcome_subject = f"Welcome to Mezzofy, {customer_name}!"
+                    send_result = await email_skill.send_email(
                         to=customer_email,
-                        subject=f"Welcome to Mezzofy, {customer_name}!",
+                        subject=welcome_subject,
                         body_html=c["body_html"],
                     )
+                    if send_result.get("success") and onboarding_lead_id:
+                        await crm.execute(
+                            "log_lead_activity",
+                            lead_id=onboarding_lead_id,
+                            type="email_sent",
+                            title="Welcome email sent",
+                            actor_name="Sam (AI)",
+                            meta={"to": customer_email, "subject": welcome_subject},
+                        )
                 tools_called.extend(["compose_email", "send_email"])
             except ValueError:
                 pass
