@@ -1237,7 +1237,7 @@ class HROps(BaseTool):
             params: dict[str, Any] = {"year": year}
 
             # Build employee filter conditions (reused across stat queries)
-            emp_conditions: list[str] = ["e.status = 'active'"]
+            emp_conditions: list[str] = ["e.is_active = true"]
             emp_params: dict[str, Any] = {}
 
             if filters.get("department"):
