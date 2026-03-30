@@ -34,6 +34,62 @@ from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger("mezzofy.tools.hr")
 
+# ── Email templates ───────────────────────────────────────────────────────────
+
+_LEAVE_REQUEST_EMAIL_TEMPLATE = """<!DOCTYPE html>
+<html>
+<body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
+<div style="max-width:600px;margin:0 auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+  <div style="background:#f97316;padding:24px;text-align:center;">
+    <h1 style="color:white;margin:0;font-size:22px;">Leave Approval Required</h1>
+  </div>
+  <div style="padding:32px;">
+    <p style="color:#374151;margin:0 0 16px;">Hi there,</p>
+    <p style="color:#374151;margin:0 0 24px;"><strong>{employee_name}</strong> has submitted a leave request that requires your approval.</p>
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:0 0 24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Leave Type</td><td style="color:#111827;font-weight:600;">{leave_type}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0;">Start Date</td><td style="color:#111827;font-weight:600;">{start_date}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0;">End Date</td><td style="color:#111827;font-weight:600;">{end_date}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0;">Total Days</td><td style="color:#111827;font-weight:600;">{total_days}</td></tr>
+        {reason_row}
+      </table>
+    </div>
+    <div style="text-align:center;margin:0 0 24px;">
+      <a href="{portal_url}" style="background:#f97316;color:white;text-decoration:none;padding:12px 32px;border-radius:6px;font-weight:600;display:inline-block;">Review &amp; Approve</a>
+    </div>
+    <p style="color:#9ca3af;font-size:13px;margin:0;">If you cannot approve, an admin can action this via the HR portal.<br>HR &#8594; Leave &#8594; Pending Approvals</p>
+  </div>
+</div>
+</body>
+</html>"""
+
+_LEAVE_DECISION_EMAIL_TEMPLATE = """<!DOCTYPE html>
+<html>
+<body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:20px;">
+<div style="max-width:600px;margin:0 auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+  <div style="background:{status_color};padding:24px;text-align:center;">
+    <h1 style="color:white;margin:0;font-size:22px;">Leave {status_label}</h1>
+  </div>
+  <div style="padding:32px;">
+    <p style="color:#374151;margin:0 0 16px;">Hi {employee_name},</p>
+    <p style="color:#374151;margin:0 0 24px;">Your leave request has been <strong>{status_label_lower}</strong>.</p>
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:0 0 24px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="color:#6b7280;padding:6px 0;width:130px;">Leave Type</td><td style="color:#111827;font-weight:600;">{leave_type}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0;">Start Date</td><td style="color:#111827;font-weight:600;">{start_date}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0;">End Date</td><td style="color:#111827;font-weight:600;">{end_date}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0;">Total Days</td><td style="color:#111827;font-weight:600;">{total_days}</td></tr>
+        <tr><td style="color:#6b7280;padding:6px 0;">Status</td><td style="color:{status_color};font-weight:600;">{status_label}</td></tr>
+        {comment_row}
+      </table>
+    </div>
+    <p style="color:#9ca3af;font-size:13px;margin:0;">For questions, contact your HR team or manager.</p>
+  </div>
+</div>
+</body>
+</html>"""
+
 
 def _to_date(value) -> Optional[date]:
     """Convert a string like '2024-01-15' to datetime.date, or return None/date as-is."""
@@ -926,6 +982,19 @@ class HROps(BaseTool):
                 await session.commit()
 
             logger.info(f"apply_leave: application {app_id} created for employee {employee_id}")
+            # Notify manager after commit (failure must not affect response)
+            try:
+                await self._notify_leave_submission(
+                    employee_id=employee_id,
+                    app_id=app_id,
+                    leave_type_id=application_data["leave_type_id"],
+                    start_date=start_date,
+                    end_date=end_date,
+                    total_days=total_days,
+                    reason=application_data.get("reason"),
+                )
+            except Exception as _notif_err:
+                logger.warning(f"Leave submission notification failed for app {app_id}: {_notif_err}")
             return self._ok({"application_id": app_id, "status": "pending"})
         except Exception as e:
             logger.error(f"apply_leave failed: {e}")
@@ -1034,7 +1103,7 @@ class HROps(BaseTool):
                 # Fetch application
                 app_row = (await session.execute(
                     text("""
-                        SELECT la.id, la.status, la.total_days, la.start_date,
+                        SELECT la.id, la.status, la.total_days, la.start_date, la.end_date,
                                la.employee_id, la.leave_type_id,
                                lb.id AS balance_id, lb.year
                         FROM hr_leave_applications la
@@ -1126,9 +1195,28 @@ class HROps(BaseTool):
                     action=new_status,
                     changes={"previous_status": current_status, "comment": comment},
                 )
+                # Capture notification data before session closes
+                notif_employee_id = str(app_row["employee_id"])
+                notif_leave_type_id = str(app_row["leave_type_id"])
+                notif_start_date = app_row["start_date"]
+                notif_end_date = app_row["end_date"]
                 await session.commit()
 
             logger.info(f"update_leave_status: {application_id} → {new_status}")
+            # Notify employee after commit (failure must not affect response)
+            try:
+                await self._notify_leave_decision(
+                    application_id=application_id,
+                    employee_id=notif_employee_id,
+                    leave_type_id=notif_leave_type_id,
+                    start_date=notif_start_date,
+                    end_date=notif_end_date,
+                    total_days=total_days,
+                    new_status=new_status,
+                    comment=comment,
+                )
+            except Exception as _notif_err:
+                logger.warning(f"Leave decision notification failed for {application_id}: {_notif_err}")
             return self._ok({"updated": True, "application_id": application_id, "new_status": new_status})
         except Exception as e:
             logger.error(f"update_leave_status failed: {e}")
@@ -1198,32 +1286,256 @@ class HROps(BaseTool):
             logger.error(f"get_leave_summary_dashboard failed: {e}")
             return self._err(f"Failed to get leave summary: {e}")
 
-    async def _get_pending_approvals(self, manager_employee_id: str) -> dict:
+    async def _get_pending_approvals(self, manager_employee_id: Optional[str] = None) -> dict:
+        """
+        Return pending leave applications.
+        If manager_employee_id is None: return ALL pending (admin/HR view).
+        Otherwise: return only direct reports of the given manager.
+        """
         try:
             from sqlalchemy import text
+            if manager_employee_id is None:
+                # Admin/HR view — all pending
+                sql = """
+                    SELECT la.id, la.employee_id, la.leave_type_id, la.start_date,
+                           la.end_date, la.total_days, la.half_day, la.reason,
+                           la.status, la.created_at,
+                           lt.name AS leave_type_name,
+                           e.full_name AS employee_name, e.staff_id, e.department,
+                           mgr.full_name AS manager_name
+                    FROM hr_leave_applications la
+                    JOIN hr_employees e ON la.employee_id = e.id
+                    JOIN hr_leave_types lt ON la.leave_type_id = lt.id
+                    LEFT JOIN hr_employees mgr ON mgr.id = e.manager_id
+                    WHERE la.status = 'pending'
+                    ORDER BY la.created_at ASC
+                """
+                params: dict = {}
+            else:
+                # Manager view — direct reports only
+                sql = """
+                    SELECT la.id, la.employee_id, la.leave_type_id, la.start_date,
+                           la.end_date, la.total_days, la.half_day, la.reason,
+                           la.status, la.created_at,
+                           lt.name AS leave_type_name,
+                           e.full_name AS employee_name, e.staff_id, e.department,
+                           NULL::text AS manager_name
+                    FROM hr_leave_applications la
+                    JOIN hr_employees e ON la.employee_id = e.id
+                    JOIN hr_leave_types lt ON la.leave_type_id = lt.id
+                    WHERE e.manager_id = :manager_id
+                      AND la.status = 'pending'
+                    ORDER BY la.created_at ASC
+                """
+                params = {"manager_id": manager_employee_id}
+
             async with await self._get_session() as session:
-                result = await session.execute(
-                    text("""
-                        SELECT la.id, la.employee_id, la.leave_type_id, la.start_date,
-                               la.end_date, la.total_days, la.half_day, la.reason,
-                               la.status, la.created_at,
-                               lt.name AS leave_type_name,
-                               e.full_name AS employee_name, e.staff_id, e.department
-                        FROM hr_leave_applications la
-                        JOIN hr_employees e ON la.employee_id = e.id
-                        JOIN hr_leave_types lt ON la.leave_type_id = lt.id
-                        WHERE e.manager_id = :manager_id
-                          AND la.status = 'pending'
-                        ORDER BY la.created_at ASC
-                    """),
-                    {"manager_id": manager_employee_id},
-                )
+                result = await session.execute(text(sql), params)
                 rows = [self._serialize(dict(r)) for r in result.mappings().all()]
 
             return self._ok({"pending_approvals": rows, "count": len(rows)})
         except Exception as e:
             logger.error(f"get_pending_approvals failed: {e}")
             return self._err(f"Failed to get pending approvals: {e}")
+
+    async def _notify_leave_submission(
+        self,
+        employee_id: str,
+        app_id: str,
+        leave_type_id: str,
+        start_date,
+        end_date,
+        total_days: float,
+        reason: Optional[str],
+    ) -> None:
+        """Email + push notification to manager when an employee submits leave."""
+        notify_cfg = self.config.get("hr", {}).get("notifications", {})
+        if not notify_cfg.get("notify_manager_on_application", True):
+            return
+
+        from sqlalchemy import text
+        from app.core.database import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as session:
+            row = (await session.execute(
+                text("""
+                    SELECT
+                        emp.full_name AS employee_name,
+                        lt.name AS leave_type_name,
+                        mgr.user_id AS manager_user_id,
+                        u_mgr.email AS manager_email
+                    FROM hr_employees emp
+                    JOIN hr_leave_types lt ON lt.id = :lt_id
+                    LEFT JOIN hr_employees mgr ON mgr.id = emp.manager_id
+                    LEFT JOIN users u_mgr ON u_mgr.id = mgr.user_id
+                    WHERE emp.id = :emp_id
+                """),
+                {"emp_id": employee_id, "lt_id": leave_type_id},
+            )).mappings().one_or_none()
+
+        if row is None:
+            return
+
+        employee_name = row["employee_name"] or "An employee"
+        leave_type = row["leave_type_name"] or "Leave"
+        manager_user_id = row["manager_user_id"]
+        manager_email = row["manager_email"]
+
+        days_int = int(total_days) if total_days == int(total_days) else total_days
+        days_label = f"{days_int} day{'s' if days_int != 1 else ''}"
+
+        portal_domain = (
+            self.config.get("admin_portal", {}).get("portal_domain")
+            or "https://assistant.mezzofy.com"
+        )
+        portal_url = f"{portal_domain}/mission-control/hr/leave"
+
+        if manager_email:
+            reason_row = (
+                f'<tr><td style="color:#6b7280;padding:6px 0;width:130px;">Reason</td>'
+                f'<td style="color:#111827;">{reason}</td></tr>'
+                if reason else ""
+            )
+            html = _LEAVE_REQUEST_EMAIL_TEMPLATE.format(
+                employee_name=employee_name,
+                leave_type=leave_type,
+                start_date=str(start_date),
+                end_date=str(end_date),
+                total_days=days_label,
+                reason_row=reason_row,
+                portal_url=portal_url,
+            )
+            try:
+                from app.core.email_sender import send_transactional_email
+                await send_transactional_email(
+                    to=manager_email,
+                    subject=f"Leave Approval Required — {employee_name}",
+                    body_html=html,
+                )
+                logger.info(f"Leave submission email sent to manager {manager_email} for app {app_id}")
+            except Exception as e:
+                logger.warning(f"Failed to email manager {manager_email} for leave {app_id}: {e}")
+
+        if manager_user_id:
+            try:
+                from app.tools.communication.push_ops import get_user_push_targets, send_push
+                targets = await get_user_push_targets(str(manager_user_id))
+                for t in targets:
+                    await send_push(
+                        user_id=str(manager_user_id),
+                        device_token=t["device_token"],
+                        platform=t["platform"],
+                        title="Leave Approval Required",
+                        body=f"{employee_name} requested {days_label} of {leave_type}",
+                        data={"type": "leave_approval", "application_id": app_id},
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to push manager {manager_user_id} for leave {app_id}: {e}")
+
+    async def _notify_leave_decision(
+        self,
+        application_id: str,
+        employee_id: str,
+        leave_type_id: str,
+        start_date,
+        end_date,
+        total_days: float,
+        new_status: str,
+        comment: Optional[str],
+    ) -> None:
+        """Email + push notification to employee on leave approval or rejection."""
+        if new_status not in ("approved", "rejected"):
+            return
+
+        notify_cfg = self.config.get("hr", {}).get("notifications", {})
+        if not notify_cfg.get("notify_employee_on_decision", True):
+            return
+
+        from sqlalchemy import text
+        from app.core.database import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as session:
+            row = (await session.execute(
+                text("""
+                    SELECT
+                        emp.full_name AS employee_name,
+                        lt.name AS leave_type_name,
+                        u.id AS user_id,
+                        u.email AS employee_email
+                    FROM hr_employees emp
+                    JOIN hr_leave_types lt ON lt.id = :lt_id
+                    LEFT JOIN users u ON u.id = emp.user_id
+                    WHERE emp.id = :emp_id
+                """),
+                {"emp_id": employee_id, "lt_id": leave_type_id},
+            )).mappings().one_or_none()
+
+        if row is None:
+            return
+
+        employee_email = row["employee_email"]
+        employee_user_id = row["user_id"]
+        employee_name = row["employee_name"] or "there"
+        leave_type = row["leave_type_name"] or "Leave"
+
+        days_int = int(total_days) if total_days == int(total_days) else total_days
+        days_label = f"{days_int} day{'s' if days_int != 1 else ''}"
+
+        is_approved = new_status == "approved"
+        status_label = "Approved" if is_approved else "Rejected"
+        status_color = "#00D4AA" if is_approved else "#EF4444"
+
+        if employee_email:
+            comment_row = (
+                f'<tr><td style="color:#6b7280;padding:6px 0;width:130px;">Comment</td>'
+                f'<td style="color:#374151;">{comment}</td></tr>'
+                if comment else ""
+            )
+            html = _LEAVE_DECISION_EMAIL_TEMPLATE.format(
+                employee_name=employee_name,
+                leave_type=leave_type,
+                start_date=str(start_date),
+                end_date=str(end_date),
+                total_days=days_label,
+                status_label=status_label,
+                status_label_lower=status_label.lower(),
+                status_color=status_color,
+                comment_row=comment_row,
+            )
+            try:
+                from app.core.email_sender import send_transactional_email
+                await send_transactional_email(
+                    to=employee_email,
+                    subject=f"Your Leave Has Been {status_label}",
+                    body_html=html,
+                )
+                logger.info(f"Leave decision email sent to {employee_email} for app {application_id}")
+            except Exception as e:
+                logger.warning(f"Failed to email employee {employee_email} for decision {application_id}: {e}")
+
+        if employee_user_id:
+            try:
+                from app.tools.communication.push_ops import get_user_push_targets, send_push
+                push_title = f"Leave {status_label} \u2713" if is_approved else "Leave Not Approved"
+                push_body = (
+                    f"Your {days_label} {leave_type} from {start_date} has been {status_label.lower()}"
+                )
+                targets = await get_user_push_targets(str(employee_user_id))
+                for t in targets:
+                    await send_push(
+                        user_id=str(employee_user_id),
+                        device_token=t["device_token"],
+                        platform=t["platform"],
+                        title=push_title,
+                        body=push_body,
+                        data={
+                            "type": "leave_decision",
+                            "application_id": application_id,
+                            "status": new_status,
+                        },
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to push employee {employee_user_id} for decision {application_id}: {e}")
 
     async def _list_leave_types(self, country: Optional[str] = None) -> dict:
         try:

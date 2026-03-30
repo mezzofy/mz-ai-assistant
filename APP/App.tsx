@@ -1,10 +1,11 @@
 import React, {useEffect} from 'react';
 import {StatusBar} from 'react-native';
-import {NavigationContainer} from '@react-navigation/native';
+import {NavigationContainer, createNavigationContainerRef} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
+import messaging from '@react-native-firebase/messaging';
 
 import {BRAND, LIGHT_THEME} from './src/utils/theme';
 import {useAuthStore} from './src/stores/authStore';
@@ -26,6 +27,7 @@ import {ForgotPasswordScreen} from './src/screens/ForgotPasswordScreen';
 import {NewPasswordScreen} from './src/screens/NewPasswordScreen';
 import {AccountActivationScreen} from './src/screens/AccountActivationScreen';
 import {LeaveApplicationScreen} from './src/screens/LeaveApplicationScreen';
+import {LeaveApprovalScreen} from './src/screens/LeaveApprovalScreen';
 import {PrivacySecurityScreen} from './src/screens/PrivacySecurityScreen';
 import {ChangePasswordScreen} from './src/screens/ChangePasswordScreen';
 import {ScheduleStatsScreen} from './src/screens/ScheduleStatsScreen';
@@ -34,6 +36,7 @@ import {initPushNotifications} from './src/notifications/pushHandler';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+export const navigationRef = createNavigationContainerRef<any>();
 
 const TAB_ICONS: Record<string, {active: string; inactive: string}> = {
   Chat: {active: 'chatbubble', inactive: 'chatbubble-outline'},
@@ -103,6 +106,35 @@ function App(): React.JSX.Element {
     }
   }, [isLoggedIn, notifications]);
 
+  // Handle push notification tap — route to the appropriate screen
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    // App was backgrounded and user tapped a notification
+    const unsubscribe = messaging().onNotificationOpenedApp(remoteMessage => {
+      const type = remoteMessage?.data?.type;
+      if (type === 'leave_approval' || type === 'leave_decision') {
+        navigationRef.current?.navigate('LeaveApproval');
+      }
+    });
+
+    // App was killed and user tapped a notification (cold start)
+    messaging()
+      .getInitialNotification()
+      .then(remoteMessage => {
+        if (!remoteMessage) return;
+        const type = remoteMessage?.data?.type;
+        if (type === 'leave_approval' || type === 'leave_decision') {
+          setTimeout(() => {
+            navigationRef.current?.navigate('LeaveApproval');
+          }, 500);
+        }
+      })
+      .catch(() => {});
+
+    return unsubscribe;
+  }, [isLoggedIn]);
+
   return (
     <SafeAreaProvider>
       <StatusBar
@@ -110,6 +142,7 @@ function App(): React.JSX.Element {
         backgroundColor={colors.primary}
       />
       <NavigationContainer
+        ref={navigationRef}
         theme={{
           dark: isDark,
           colors: {
@@ -202,6 +235,11 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="LeaveApplication"
                 component={LeaveApplicationScreen}
+                options={{animation: 'slide_from_right'}}
+              />
+              <Stack.Screen
+                name="LeaveApproval"
+                component={LeaveApprovalScreen}
                 options={{animation: 'slide_from_right'}}
               />
             </>

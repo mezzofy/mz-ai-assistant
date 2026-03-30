@@ -85,3 +85,38 @@ export const cancelLeave = (applicationId: string) =>
       body: JSON.stringify({status: 'cancelled', comment: 'Cancelled by employee'}),
     },
   );
+
+export interface PendingApproval {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  staff_id: string;
+  department?: string;
+  leave_type_name: string;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  half_day?: boolean;
+  reason?: string;
+  status: string;
+  created_at: string;
+  manager_name?: string;
+}
+
+export const getPendingApprovals = () =>
+  apiFetch<HRResponse<{pending_approvals: PendingApproval[]; count: number}>>(
+    `${HR}/leave/pending-approvals`,
+  );
+
+export const updateLeaveStatus = (
+  applicationId: string,
+  status: 'approved' | 'rejected' | 'cancelled',
+  comment?: string,
+) =>
+  apiFetch<HRResponse<{updated: boolean; application_id: string; new_status: string}>>(
+    `${HR}/leave/applications/${applicationId}/status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({status, comment}),
+    },
+  );

@@ -416,24 +416,43 @@ async def update_leave_status(
     return _ok(result["output"])
 
 
+_HR_ADMIN_ROLES = {"admin", "executive", "management", "hr_staff", "hr_manager"}
+
+
 @router.get("/leave/pending-approvals")
 async def get_pending_approvals(
     current_user: dict = Depends(get_current_user),
 ):
-    """Get pending leave applications for current user's direct reports."""
+    """
+    Get pending leave applications.
+    HR admins (admin/executive/management/hr_staff/hr_manager) see ALL pending.
+    Managers see only their direct reports. Others get an empty list.
+    """
     from app.tools.database.hr_ops import HROps
     from app.core.config import get_config
 
     user_id = str(current_user.get("user_id", ""))
+    user_role = current_user.get("role", "")
+    permissions = current_user.get("permissions", [])
     hr = HROps(get_config())
 
-    # Resolve manager's employee record
-    emp_result = await hr._resolve_employee_by_user(user_id)
-    if not emp_result.get("success"):
-        return _ok({"pending_approvals": [], "count": 0})
+    is_hr_admin = (
+        user_role in _HR_ADMIN_ROLES
+        or "*" in permissions
+        or "hr_leave_manage" in permissions
+    )
 
-    manager_employee_id = emp_result["output"]["id"]
-    result = await hr._get_pending_approvals(manager_employee_id=manager_employee_id)
+    if is_hr_admin:
+        # Return all pending leaves — admin/HR overview
+        result = await hr._get_pending_approvals(manager_employee_id=None)
+    else:
+        # Scoped to direct reports of this manager
+        emp_result = await hr._resolve_employee_by_user(user_id)
+        if not emp_result.get("success"):
+            return _ok({"pending_approvals": [], "count": 0})
+        manager_employee_id = emp_result["output"]["id"]
+        result = await hr._get_pending_approvals(manager_employee_id=manager_employee_id)
+
     if not result.get("success"):
         _fail(result.get("error", "Failed to get pending approvals"))
     return _ok(result["output"])
