@@ -39,6 +39,10 @@ export const portalApi = {
   toggleJob: (jobId: string) => client.patch(`/api/admin-portal/scheduler/jobs/${jobId}/toggle`),
   updateJob: (jobId: string, data: Record<string, unknown>) =>
     client.put(`/api/admin-portal/scheduler/jobs/${jobId}`, data),
+  createJob: (data: { name: string; message: string; agent: string; schedule: string; workflow_name?: string; deliver_to?: Record<string, unknown> }) =>
+    client.post('/api/admin-portal/scheduler/jobs', data),
+  deleteJob: (jobId: string) =>
+    client.delete(`/api/admin-portal/scheduler/jobs/${jobId}`),
 
   // Agents
   getAgents: () => client.get('/api/admin-portal/agents'),

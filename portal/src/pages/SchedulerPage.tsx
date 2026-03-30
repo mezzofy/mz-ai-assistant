@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Trash2 } from 'lucide-react'
 import { portalApi } from '../api/portal'
 import type { ScheduledJob } from '../types'
+
+const AGENT_OPTIONS = ['finance', 'sales', 'marketing', 'support', 'management', 'hr']
+
+const EMPTY_CREATE_FORM = { name: '', agent: 'sales', message: '', schedule: '', workflow_name: '' }
 
 export default function SchedulerPage() {
   const qc = useQueryClient()
@@ -9,6 +14,14 @@ export default function SchedulerPage() {
   const [toast, setToast] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [editForm, setEditForm] = useState<{ name: string; schedule: string; agent: string; workflow_name: string }>({ name: '', schedule: '', agent: '', workflow_name: '' })
+
+  // Create job state
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [createForm, setCreateForm] = useState(EMPTY_CREATE_FORM)
+  const [createError, setCreateError] = useState('')
+
+  // Delete job state
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null)
 
   const { data } = useQuery({
     queryKey: ['scheduler-jobs'],
@@ -44,6 +57,29 @@ export default function SchedulerPage() {
     },
   })
 
+  const createJobMutation = useMutation({
+    mutationFn: (data: typeof createForm) => portalApi.createJob(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['scheduler-jobs'] })
+      setShowCreateForm(false)
+      setCreateForm(EMPTY_CREATE_FORM)
+      setCreateError('')
+      setToast('Job created successfully')
+      setTimeout(() => setToast(''), 4000)
+    },
+  })
+
+  const deleteJobMutation = useMutation({
+    mutationFn: (jobId: string) => portalApi.deleteJob(jobId),
+    onSuccess: (_, jobId) => {
+      qc.invalidateQueries({ queryKey: ['scheduler-jobs'] })
+      if (selectedJob?.id === jobId) setSelectedJob(null)
+      setDeletingJobId(null)
+      setToast('Job deleted')
+      setTimeout(() => setToast(''), 3000)
+    },
+  })
+
   useEffect(() => {
     if (selectedJob) {
       setEditForm({
@@ -58,11 +94,37 @@ export default function SchedulerPage() {
 
   const jobs: ScheduledJob[] = data?.jobs || []
 
+  function handleCreateSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!createForm.name.trim() || !createForm.message.trim() || !createForm.schedule.trim()) {
+      setCreateError('Name, Message, and Schedule are required.')
+      return
+    }
+    setCreateError('')
+    createJobMutation.mutate(createForm)
+  }
+
+  function handleCancelCreate() {
+    setShowCreateForm(false)
+    setCreateForm(EMPTY_CREATE_FORM)
+    setCreateError('')
+  }
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-        Scheduler
-      </h1>
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+          Scheduler
+        </h1>
+        <button
+          onClick={() => { setShowCreateForm(true); setDeletingJobId(null) }}
+          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ background: '#f97316' }}
+        >
+          + New Job
+        </button>
+      </div>
 
       {toast && (
         <div
@@ -70,6 +132,104 @@ export default function SchedulerPage() {
           style={{ background: 'rgba(0, 212, 170, 0.15)', color: '#00D4AA', borderLeft: '3px solid #00D4AA' }}
         >
           ✓ {toast}
+        </div>
+      )}
+
+      {/* Create Job Form */}
+      {showCreateForm && (
+        <div className="rounded-xl border p-5 space-y-4" style={{ background: '#111827', borderColor: '#f97316' }}>
+          <div className="text-sm font-semibold text-white">Create New Job</div>
+          <form onSubmit={handleCreateSubmit} className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Name */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Name <span style={{ color: '#f97316' }}>*</span></label>
+                <input
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Daily Sales Report"
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                />
+              </div>
+              {/* Agent */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Agent <span style={{ color: '#f97316' }}>*</span></label>
+                <select
+                  value={createForm.agent}
+                  onChange={(e) => setCreateForm(f => ({ ...f, agent: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                >
+                  {AGENT_OPTIONS.map(a => (
+                    <option key={a} value={a}>{a.charAt(0).toUpperCase() + a.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Message */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Message <span style={{ color: '#f97316' }}>*</span></label>
+              <textarea
+                rows={3}
+                value={createForm.message}
+                onChange={(e) => setCreateForm(f => ({ ...f, message: e.target.value }))}
+                placeholder="What should the agent do?"
+                className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none resize-none"
+                style={{ background: '#1E2A3A', borderColor: '#374151' }}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Schedule */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Schedule <span style={{ color: '#f97316' }}>*</span></label>
+                <input
+                  value={createForm.schedule}
+                  onChange={(e) => setCreateForm(f => ({ ...f, schedule: e.target.value }))}
+                  placeholder="0 9 * * 1-5"
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none font-mono"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                />
+                <p className="text-xs mt-1" style={{ color: '#6B7280' }}>Cron: min hour day month weekday</p>
+              </div>
+              {/* Workflow Name */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Workflow Name <span style={{ color: '#6B7280' }}>(optional)</span></label>
+                <input
+                  value={createForm.workflow_name}
+                  onChange={(e) => setCreateForm(f => ({ ...f, workflow_name: e.target.value }))}
+                  placeholder="e.g. weekly-report"
+                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                />
+              </div>
+            </div>
+
+            {createError && (
+              <p className="text-xs" style={{ color: '#EF4444' }}>{createError}</p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={createJobMutation.isPending}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                style={{ background: '#f97316' }}
+              >
+                {createJobMutation.isPending ? 'Creating...' : 'Create'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelCreate}
+                className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors"
+                style={{ background: '#1E2A3A' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -93,53 +253,94 @@ export default function SchedulerPage() {
               </thead>
               <tbody>
                 {jobs.map((job) => (
-                  <tr
-                    key={job.id}
-                    className="border-t cursor-pointer hover:bg-white/5 transition-colors"
-                    style={{
-                      borderColor: '#1E2A3A',
-                      background: selectedJob?.id === job.id ? 'rgba(249, 115, 22, 0.08)' : undefined,
-                    }}
-                    onClick={() => setSelectedJob(job)}
-                  >
-                    <td className="px-4 py-2.5 text-gray-200 font-medium">{job.name}</td>
-                    <td className="py-2.5 text-gray-400">{job.user_email.split('@')[0]}</td>
-                    <td className="py-2.5 font-mono text-gray-300">{job.schedule}</td>
-                    <td className="py-2.5 text-gray-400">
-                      {job.next_run ? new Date(job.next_run).toLocaleDateString() : '—'}
-                    </td>
-                    <td className="py-2.5">
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs"
-                        style={{
-                          background: job.is_active ? 'rgba(0, 212, 170, 0.1)' : 'rgba(107, 114, 128, 0.1)',
-                          color: job.is_active ? '#00D4AA' : '#6B7280',
-                        }}
-                      >
-                        {job.is_active ? 'Active' : 'Paused'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); triggerMutation.mutate(job.id) }}
-                          className="px-2 py-1 rounded text-xs transition-colors hover:bg-indigo-500/20"
-                          style={{ color: '#f97316' }}
-                          title="Run now"
+                  <React.Fragment key={job.id}>
+                    <tr
+                      className="border-t cursor-pointer hover:bg-white/5 transition-colors"
+                      style={{
+                        borderColor: '#1E2A3A',
+                        background: selectedJob?.id === job.id ? 'rgba(249, 115, 22, 0.08)' : undefined,
+                      }}
+                      onClick={() => setSelectedJob(job)}
+                    >
+                      <td className="px-4 py-2.5 text-gray-200 font-medium">{job.name}</td>
+                      <td className="py-2.5 text-gray-400">{job.user_email.split('@')[0]}</td>
+                      <td className="py-2.5 font-mono text-gray-300">{job.schedule}</td>
+                      <td className="py-2.5 text-gray-400">
+                        {job.next_run ? new Date(job.next_run).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="py-2.5">
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs"
+                          style={{
+                            background: job.is_active ? 'rgba(0, 212, 170, 0.1)' : 'rgba(107, 114, 128, 0.1)',
+                            color: job.is_active ? '#00D4AA' : '#6B7280',
+                          }}
                         >
-                          ▶
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(job.id) }}
-                          className="px-2 py-1 rounded text-xs transition-colors"
-                          style={{ color: job.is_active ? '#F59E0B' : '#00D4AA' }}
-                          title={job.is_active ? 'Pause' : 'Resume'}
-                        >
-                          {job.is_active ? '⏸' : '▶'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                          {job.is_active ? 'Active' : 'Paused'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        <div className="flex gap-1 items-center">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); triggerMutation.mutate(job.id) }}
+                            className="px-2 py-1 rounded text-xs transition-colors hover:bg-indigo-500/20"
+                            style={{ color: '#f97316' }}
+                            title="Run now"
+                          >
+                            ▶
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleMutation.mutate(job.id) }}
+                            className="px-2 py-1 rounded text-xs transition-colors"
+                            style={{ color: job.is_active ? '#F59E0B' : '#00D4AA' }}
+                            title={job.is_active ? 'Pause' : 'Resume'}
+                          >
+                            {job.is_active ? '⏸' : '▶'}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeletingJobId(job.id)
+                              setShowCreateForm(false)
+                            }}
+                            className="px-2 py-1 rounded text-xs transition-colors hover:bg-red-500/20"
+                            style={{ color: '#ef4444' }}
+                            title="Delete job"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Inline delete confirmation */}
+                    {deletingJobId === job.id && (
+                      <tr style={{ borderColor: '#1E2A3A' }} className="border-t">
+                        <td colSpan={6} className="px-4 py-3">
+                          <div
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs"
+                            style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                          >
+                            <span style={{ color: '#F87171' }}>Delete <strong className="text-white">{job.name}</strong>? This cannot be undone.</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); deleteJobMutation.mutate(job.id) }}
+                              disabled={deleteJobMutation.isPending}
+                              className="px-3 py-1 rounded-md font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                              style={{ background: '#ef4444' }}
+                            >
+                              {deleteJobMutation.isPending ? 'Deleting...' : 'Yes, Delete'}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeletingJobId(null) }}
+                              className="px-3 py-1 rounded-md text-gray-400 hover:text-white transition-colors"
+                              style={{ background: '#1E2A3A' }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
                 {jobs.length === 0 && (
                   <tr>
