@@ -343,7 +343,7 @@ function HRLeaveApplicationModal({
     queryFn: () => portalApi.getLeaveTypes().then((r) => r.data),
   })
 
-  const leaveTypes = typesData?.leave_types || typesData || []
+  const leaveTypes = typesData?.data?.leave_types || typesData?.leave_types || []
 
   const applyMutation = useMutation({
     mutationFn: () =>
