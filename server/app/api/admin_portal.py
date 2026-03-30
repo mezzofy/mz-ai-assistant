@@ -353,6 +353,90 @@ async def list_scheduler_jobs(
     return {"jobs": jobs, "total": len(jobs)}
 
 
+class CreateSchedulerJobRequest(BaseModel):
+    name: str
+    message: str
+    agent: str
+    schedule: str
+    workflow_name: Optional[str] = None
+    deliver_to: Optional[dict] = None
+
+
+_ADMIN_VALID_AGENTS = {"finance", "sales", "marketing", "support", "management", "hr"}
+
+
+@router.post("/scheduler/jobs", status_code=201)
+async def create_scheduler_job(
+    body: CreateSchedulerJobRequest,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new scheduled job (admin)."""
+    import json as _json
+
+    # Validate agent
+    if body.agent not in _ADMIN_VALID_AGENTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"agent must be one of: {', '.join(sorted(_ADMIN_VALID_AGENTS))}",
+        )
+
+    # Validate cron schedule (5 fields)
+    if len(body.schedule.strip().split()) != 5:
+        raise HTTPException(
+            status_code=400,
+            detail="schedule must be a 5-field cron expression: minute hour day-of-month month day-of-week",
+        )
+
+    # Compute next_run
+    from app.webhooks.scheduler import compute_next_run
+    try:
+        next_run = compute_next_run(body.schedule.strip())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid cron expression: {e}")
+
+    user_id = current_user.get("user_id")
+    deliver_to = body.deliver_to or {}
+
+    try:
+        result = await db.execute(
+            text("""
+                INSERT INTO scheduled_jobs (user_id, name, agent, message, schedule, workflow_name, deliver_to, next_run)
+                VALUES (:user_id, :name, :agent, :message, :schedule, :workflow_name, :deliver_to::jsonb, :next_run)
+                RETURNING id, name, agent, message, schedule, workflow_name, deliver_to, is_active, next_run, created_at
+            """),
+            {
+                "user_id": user_id,
+                "name": body.name.strip(),
+                "agent": body.agent.strip(),
+                "message": body.message.strip(),
+                "schedule": body.schedule.strip(),
+                "workflow_name": body.workflow_name.strip() if body.workflow_name else None,
+                "deliver_to": _json.dumps(deliver_to),
+                "next_run": next_run,
+            },
+        )
+        row = result.fetchone()
+        await db.commit()
+        return {
+            "id": str(row.id),
+            "name": row.name,
+            "agent": row.agent,
+            "message": row.message,
+            "schedule": row.schedule,
+            "workflow_name": row.workflow_name,
+            "deliver_to": row.deliver_to,
+            "is_active": row.is_active,
+            "next_run": row.next_run.isoformat() if row.next_run else None,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create scheduler job: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create scheduled job")
+
+
 @router.get("/scheduler/jobs/{job_id}/history")
 async def get_job_history(
     job_id: str,
@@ -1676,7 +1760,7 @@ async def update_job(
     set_clauses = ", ".join(f"{k} = :{k}" for k in updates)
     updates["id"] = job_id
     await db.execute(
-        text(f"UPDATE scheduled_jobs SET {set_clauses}, updated_at = NOW() WHERE id = :id"),
+        text(f"UPDATE scheduled_jobs SET {set_clauses} WHERE id = :id"),
         updates,
     )
 
@@ -1721,6 +1805,34 @@ async def update_job(
         "user_email": updated.user_email,
         "user_name": updated.user_name,
     }
+
+
+@router.delete("/scheduler/jobs/{job_id}")
+async def delete_scheduler_job(
+    job_id: str,
+    current_user: dict = AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a scheduled job (admin)."""
+    try:
+        result = await db.execute(
+            text("SELECT id FROM scheduled_jobs WHERE id = :id"),
+            {"id": job_id},
+        )
+        if not result.fetchone():
+            raise HTTPException(status_code=404, detail="Scheduled job not found")
+
+        await db.execute(
+            text("DELETE FROM scheduled_jobs WHERE id = :id"),
+            {"id": job_id},
+        )
+        await db.commit()
+        return {"deleted": True, "job_id": job_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete scheduler job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete scheduled job")
 
 
 @router.delete("/users/{user_id}")
