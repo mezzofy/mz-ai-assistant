@@ -1231,17 +1231,29 @@ class HROps(BaseTool):
         filters = filters or {}
         try:
             from sqlalchemy import text
+            from datetime import date
+
             conditions: list[str] = ["lb.year = :year"]
             params: dict[str, Any] = {"year": year}
+
+            # Build employee filter conditions (reused across stat queries)
+            emp_conditions: list[str] = ["e.status = 'active'"]
+            emp_params: dict[str, Any] = {}
 
             if filters.get("department"):
                 conditions.append("e.department = :department")
                 params["department"] = filters["department"]
+                emp_conditions.append("e.department = :department")
+                emp_params["department"] = filters["department"]
             if filters.get("country"):
                 conditions.append("e.country = :country")
                 params["country"] = filters["country"]
+                emp_conditions.append("e.country = :country")
+                emp_params["country"] = filters["country"]
 
             where = "WHERE " + " AND ".join(conditions)
+            emp_where = "WHERE " + " AND ".join(emp_conditions)
+
             sql = f"""
                 SELECT e.id AS employee_id, e.full_name, e.staff_id,
                        e.department, e.country,
@@ -1254,9 +1266,56 @@ class HROps(BaseTool):
                 {where}
                 ORDER BY e.full_name, lt.name
             """
+
+            today = date.today()
+            today_str = today.isoformat()
+            current_month = today.month
+
+            # Stat card queries
+            sql_total_active = f"SELECT COUNT(*) FROM hr_employees e {emp_where}"
+            sql_on_leave_today = f"""
+                SELECT COUNT(DISTINCT la.employee_id)
+                FROM hr_leave_applications la
+                JOIN hr_employees e ON la.employee_id = e.id
+                WHERE la.status = 'approved'
+                  AND :today BETWEEN la.start_date AND la.end_date
+                  {("AND " + " AND ".join(emp_conditions[1:])) if len(emp_conditions) > 1 else ""}
+            """
+            sql_pending_approvals = "SELECT COUNT(*) FROM hr_leave_applications WHERE status = 'pending'"
+            sql_leaves_this_month = f"""
+                SELECT COUNT(*) FROM hr_leave_applications la
+                JOIN hr_employees e ON la.employee_id = e.id
+                WHERE la.status = 'approved'
+                  AND DATE_PART('year', la.start_date) = :year
+                  AND DATE_PART('month', la.start_date) = :month
+                  {("AND " + " AND ".join(emp_conditions[1:])) if len(emp_conditions) > 1 else ""}
+            """
+            sql_pending_counts = """
+                SELECT employee_id, COUNT(*) AS pending_count
+                FROM hr_leave_applications
+                WHERE status = 'pending'
+                GROUP BY employee_id
+            """
+
             async with await self._get_session() as session:
                 result = await session.execute(text(sql), params)
                 rows = [self._serialize(dict(r)) for r in result.mappings().all()]
+
+                total_active = (await session.execute(text(sql_total_active), emp_params)).scalar() or 0
+
+                on_leave_params = {"today": today_str, **emp_params}
+                on_leave_today = (await session.execute(text(sql_on_leave_today), on_leave_params)).scalar() or 0
+
+                pending_approvals = (await session.execute(text(sql_pending_approvals))).scalar() or 0
+
+                month_params = {"year": year, "month": current_month, **emp_params}
+                leaves_this_month = (await session.execute(text(sql_leaves_this_month), month_params)).scalar() or 0
+
+                pending_result = await session.execute(text(sql_pending_counts))
+                pending_counts: dict[str, int] = {
+                    str(r["employee_id"]): int(r["pending_count"])
+                    for r in pending_result.mappings().all()
+                }
 
             # Group by employee
             by_emp: dict[str, dict] = {}
@@ -1269,19 +1328,28 @@ class HROps(BaseTool):
                         "staff_id": r["staff_id"],
                         "department": r["department"],
                         "country": r["country"],
+                        "pending_applications": pending_counts.get(str(eid), 0),
                         "leave_balances": [],
                     }
                 by_emp[eid]["leave_balances"].append({
-                    "leave_type": r["leave_type_name"],
-                    "code": r["leave_type_code"],
-                    "entitled": r["entitled_days"],
+                    "leave_type_name": r["leave_type_name"],
+                    "leave_type_code": r["leave_type_code"],
+                    "entitled_days": r["entitled_days"],
                     "carried_over": r["carried_over"],
-                    "taken": r["taken_days"],
-                    "pending": r["pending_days"],
-                    "remaining": r["remaining_days"],
+                    "taken_days": r["taken_days"],
+                    "pending_days": r["pending_days"],
+                    "remaining_days": r["remaining_days"],
                 })
 
-            return self._ok({"summary": list(by_emp.values()), "year": year, "count": len(by_emp)})
+            return self._ok({
+                "total_active_employees": int(total_active),
+                "on_leave_today": int(on_leave_today),
+                "pending_approvals": int(pending_approvals),
+                "leaves_this_month": int(leaves_this_month),
+                "employee_summaries": list(by_emp.values()),
+                "year": year,
+                "count": len(by_emp),
+            })
         except Exception as e:
             logger.error(f"get_leave_summary_dashboard failed: {e}")
             return self._err(f"Failed to get leave summary: {e}")
