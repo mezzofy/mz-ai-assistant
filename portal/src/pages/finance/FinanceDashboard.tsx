@@ -45,13 +45,15 @@ export default function FinanceDashboard() {
   const pnl = dashboard?.pnl_mtd
   const recentJEs = dashboard?.recent_journal_entries || []
 
+  const currency = entities.find(e => e.id === selectedEntity)?.base_currency || 'SGD'
+
   return (
-    <div style={{ padding: '24px', color: '#F9FAFB' }}>
+    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className="flex items-center justify-between">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Finance</h1>
-          <p style={{ color: '#6B7280', fontSize: 13, margin: '4px 0 0' }}>Financial operations & reporting</p>
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Finance</h1>
+          <p className="text-sm" style={{ color: '#6B7280', margin: '4px 0 0' }}>Financial operations & reporting</p>
         </div>
         <select
           value={selectedEntity}
@@ -64,15 +66,15 @@ export default function FinanceDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <KpiCard title="AR Outstanding" value={kpis?.ar_outstanding} color="#f97316" />
-        <KpiCard title="AP Outstanding" value={kpis?.ap_outstanding} color="#dc2626" />
-        <KpiCard title="Cash Balance" value={kpis?.cash_balance} color="#16a34a" />
-        <KpiCard title="Net P&L MTD" value={pnl?.net_profit} color={(pnl?.net_profit ?? 0) >= 0 ? '#16a34a' : '#dc2626'} />
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <KpiCard title="AR Outstanding" value={kpis?.ar_outstanding} currency={currency} color="#f97316" />
+        <KpiCard title="AP Outstanding" value={kpis?.ap_outstanding} currency={currency} color="#dc2626" />
+        <KpiCard title="Cash Balance" value={kpis?.cash_balance} currency={currency} color="#16a34a" />
+        <KpiCard title="Net P&L MTD" value={pnl?.net_profit} currency={currency} color={(pnl?.net_profit ?? 0) >= 0 ? '#16a34a' : '#dc2626'} />
       </div>
 
       {/* Quick Actions */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 10 }}>
         {[
           { label: '+ Invoice', path: '/mission-control/finance/invoices' },
           { label: '+ Bill', path: '/mission-control/finance/bills' },
@@ -80,7 +82,8 @@ export default function FinanceDashboard() {
           { label: 'Reports', path: '/mission-control/finance/reports' },
         ].map(btn => (
           <button key={btn.label} onClick={() => navigate(btn.path)}
-            style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+            style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
             {btn.label}
           </button>
         ))}

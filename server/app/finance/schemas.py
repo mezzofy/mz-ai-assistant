@@ -77,6 +77,7 @@ class EntityCreate(BaseModel):
     base_currency: str = "SGD"
     parent_entity_id: Optional[UUID] = None
     tax_id: Optional[str] = None
+    business_id: Optional[str] = None
     registered_address: Optional[str] = None
     fiscal_year_start: int = 1
 

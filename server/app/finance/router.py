@@ -100,10 +100,10 @@ async def create_entity(
         text("""
             INSERT INTO fin_entities
                 (id, code, name, entity_type, country_code, base_currency,
-                 parent_entity_id, tax_id, registered_address, fiscal_year_start)
+                 parent_entity_id, tax_id, business_id, registered_address, fiscal_year_start)
             VALUES
                 (:id, :code, :name, :type, :country, :currency,
-                 :parent, :tax_id, :address, :fy_start)
+                 :parent, :tax_id, :business_id, :address, :fy_start)
         """),
         {
             "id": str(entity_id),
@@ -114,6 +114,7 @@ async def create_entity(
             "currency": body.base_currency,
             "parent": str(body.parent_entity_id) if body.parent_entity_id else None,
             "tax_id": body.tax_id,
+            "business_id": body.business_id,
             "address": body.registered_address,
             "fy_start": body.fiscal_year_start,
         },

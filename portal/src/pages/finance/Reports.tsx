@@ -53,9 +53,11 @@ export default function Reports() {
   const selectStyle = { background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13 }
   const inputStyle = { ...selectStyle, width: 150 }
 
+  const currency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
+
   return (
-    <div style={{ padding: 24, color: '#F9FAFB' }}>
-      <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 20px' }}>Financial Reports</h1>
+    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+      <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Financial Reports</h1>
 
       {/* Controls */}
       <div style={{ background: '#1F2937', borderRadius: 8, border: '1px solid #1E3A5F', padding: 20, marginBottom: 20 }}>
@@ -81,7 +83,8 @@ export default function Reports() {
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
           </div>
           <button onClick={handleGenerate} disabled={loading}
-            style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '9px 20px', cursor: 'pointer', fontSize: 13, fontWeight: 600, height: 38 }}>
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+            style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
             {loading ? 'Generating...' : 'Generate'}
           </button>
         </div>

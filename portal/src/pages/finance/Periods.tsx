@@ -36,11 +36,11 @@ export default function Periods() {
   }
 
   return (
-    <div style={{ padding: 24, color: '#F9FAFB' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+      <div className="flex items-center justify-between">
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Accounting Periods</h1>
-          <p style={{ color: '#6B7280', fontSize: 13, margin: '4px 0 0' }}>Finance settings — period management</p>
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Accounting Periods</h1>
+          <p className="text-sm" style={{ color: '#6B7280', margin: '4px 0 0' }}>Finance settings — period management</p>
         </div>
         <select value={entityId} onChange={e => setEntityId(e.target.value)}
           style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>

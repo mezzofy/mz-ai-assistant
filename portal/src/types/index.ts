@@ -316,6 +316,7 @@ export interface FinEntity {
   base_currency: string
   parent_entity_id?: string
   tax_id?: string
+  business_id?: string
   is_active: boolean
   created_at: string
 }

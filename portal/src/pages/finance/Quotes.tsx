@@ -41,17 +41,20 @@ export default function Quotes() {
       .finally(() => setLoading(false))
   }, [entityId, activeTab])
 
+  const currency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
+
   return (
-    <div style={{ padding: 24, color: '#F9FAFB' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Quotes</h1>
+    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Quotes</h1>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <select value={entityId} onChange={e => setEntityId(e.target.value)}
             style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
             {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
           <button onClick={() => navigate('/mission-control/finance/quotes/new')}
-            style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+            style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
             + New Quote
           </button>
         </div>

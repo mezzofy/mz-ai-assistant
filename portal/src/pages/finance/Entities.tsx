@@ -6,7 +6,7 @@ export default function Entities() {
   const [entities, setEntities] = useState<FinEntity[]>([])
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ code: '', name: '', entity_type: 'subsidiary', country_code: 'SG', base_currency: 'SGD', tax_id: '' })
+  const [form, setForm] = useState({ code: '', name: '', entity_type: 'subsidiary', country_code: 'SG', base_currency: 'SGD', business_id: '', tax_id: '' })
   const [saving, setSaving] = useState(false)
 
   const load = () => {
@@ -24,7 +24,7 @@ export default function Entities() {
     try {
       await portalApi.createFinanceEntity(form)
       setShowModal(false)
-      setForm({ code: '', name: '', entity_type: 'subsidiary', country_code: 'SG', base_currency: 'SGD', tax_id: '' })
+      setForm({ code: '', name: '', entity_type: 'subsidiary', country_code: 'SG', base_currency: 'SGD', business_id: '', tax_id: '' })
       load()
     } catch { /* ignore */ } finally {
       setSaving(false)
@@ -35,14 +35,15 @@ export default function Entities() {
   const ENTITY_TYPES = ['subsidiary', 'holding', 'branch', 'group']
 
   return (
-    <div style={{ padding: 24, color: '#F9FAFB' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+      <div className="flex items-center justify-between">
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Legal Entities</h1>
-          <p style={{ color: '#6B7280', fontSize: 13, margin: '4px 0 0' }}>Finance settings — entity management</p>
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Legal Entities</h1>
+          <p className="text-sm" style={{ color: '#6B7280', margin: '4px 0 0' }}>Finance settings — entity management</p>
         </div>
         <button onClick={() => setShowModal(true)}
-          style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+          style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
           + New Entity
         </button>
       </div>
@@ -56,19 +57,20 @@ export default function Entities() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#374151' }}>
-                {['Code', 'Name', 'Type', 'Country', 'Currency', 'Tax ID', 'Status'].map(h => (
+                {['Code', 'Name', 'Type', 'Country', 'Currency', 'Business ID', 'Tax ID', 'Status'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#9CA3AF', fontWeight: 500 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {entities.map(e => (
+              {[...entities].sort((a, b) => a.code.localeCompare(b.code)).map(e => (
                 <tr key={e.id} style={{ borderTop: '1px solid #374151' }}>
                   <td style={{ padding: '10px 14px', color: '#f97316', fontFamily: 'monospace', fontSize: 12 }}>{e.code}</td>
                   <td style={{ padding: '10px 14px', fontWeight: 500 }}>{e.name}</td>
                   <td style={{ padding: '10px 14px', color: '#9CA3AF', textTransform: 'capitalize' }}>{e.entity_type}</td>
                   <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{e.country_code || '—'}</td>
                   <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{e.base_currency}</td>
+                  <td style={{ padding: '10px 14px', color: '#6B7280', fontSize: 12 }}>{(e as any).business_id || '—'}</td>
                   <td style={{ padding: '10px 14px', color: '#6B7280', fontSize: 12 }}>{e.tax_id || '—'}</td>
                   <td style={{ padding: '10px 14px' }}>
                     <span style={{ background: e.is_active ? '#16a34a22' : '#6B728022', color: e.is_active ? '#16a34a' : '#9CA3AF', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
@@ -90,6 +92,7 @@ export default function Entities() {
               {[
                 { label: 'Code *', key: 'code' },
                 { label: 'Name *', key: 'name' },
+                { label: 'Business ID', key: 'business_id' },
                 { label: 'Tax ID', key: 'tax_id' },
               ].map(f => (
                 <div key={f.key}>

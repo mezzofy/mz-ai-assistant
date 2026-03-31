@@ -43,10 +43,12 @@ export default function JournalEntries() {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, status: 'reversed' as const } : e))
   }
 
+  const currency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
+
   return (
-    <div style={{ padding: 24, color: '#F9FAFB' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Journal Entries</h1>
+    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Journal Entries</h1>
         <select value={entityId} onChange={e => setEntityId(e.target.value)}
           style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
           {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
