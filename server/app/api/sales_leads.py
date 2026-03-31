@@ -167,7 +167,7 @@ async def get_lead(
         text("""
             SELECT sl.id, sl.company_name, sl.contact_name, sl.contact_email,
                    sl.contact_phone, sl.industry, sl.location, sl.source, sl.source_ref,
-                   sl.status, sl.assigned_to, sl.notes, sl.created_at, sl.updated_at,
+                   sl.status, sl.lead_type, sl.assigned_to, sl.notes, sl.created_at, sl.updated_at,
                    sl.last_contacted, sl.follow_up_date, sl.last_status_update,
                    u.name AS pic_name, u.email AS pic_email
             FROM sales_leads sl

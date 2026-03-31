@@ -1937,7 +1937,7 @@ async def get_crm_leads(
             SELECT
                 sl.id, sl.company_name, sl.contact_name, sl.contact_email,
                 sl.contact_phone, sl.industry, sl.location, sl.source,
-                sl.status, sl.notes, sl.created_at, sl.created_at AS updated_at,
+                sl.status, sl.notes, sl.lead_type, sl.created_at, sl.created_at AS updated_at,
                 sl.follow_up_date, sl.last_contacted, NULL::text AS source_ref,
                 sl.assigned_to,
                 u.name AS assigned_to_name, u.email AS assigned_to_email

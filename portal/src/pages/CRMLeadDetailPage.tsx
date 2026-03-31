@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
-import type { Lead, User } from '../types'
+import type { Lead } from '../types'
 
 const STATUS_COLORS: Record<string, string> = {
   new: '#7A8FA6',
@@ -100,21 +100,6 @@ export default function CRMLeadDetailPage() {
     enabled: !!id,
   })
 
-  const { data: usersData } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => portalApi.getUsers().then((r) => r.data),
-  })
-  const users: User[] = usersData?.users || []
-
-  const updateMutation = useMutation({
-    mutationFn: (data: Record<string, unknown>) => portalApi.updateLead(id!, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['crm-lead-detail', id] })
-      qc.invalidateQueries({ queryKey: ['crm-leads'] })
-      qc.invalidateQueries({ queryKey: ['crm-lead-activities', id] })
-    },
-  })
-
   const addActivityMutation = useMutation({
     mutationFn: (data: { type: string; title: string; body?: string }) =>
       portalApi.addLeadActivity(id!, data),
@@ -185,46 +170,15 @@ export default function CRMLeadDetailPage() {
           <LeadField label="Industry" value={lead.industry} />
           <LeadField label="Location" value={lead.location} />
           <LeadField label="Source" value={lead.source} />
-          <div>
-            <div className="text-xs mb-1" style={{ color: '#6B7280' }}>Status</div>
-            <select
-              value={lead.status}
-              onChange={(e) => updateMutation.mutate({ status: e.target.value })}
-              className="px-2 py-1 rounded-lg text-xs text-white border outline-none"
-              style={{ background: '#1E2A3A', borderColor: '#374151' }}
-            >
-              {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <div className="text-xs mb-1" style={{ color: '#6B7280' }}>Assigned To</div>
-            <select
-              value={lead.assigned_to || ''}
-              onChange={(e) => updateMutation.mutate({ assigned_to: e.target.value || null })}
-              className="px-2 py-1 rounded-lg text-xs text-white border outline-none"
-              style={{ background: '#1E2A3A', borderColor: '#374151' }}
-            >
-              <option value="">— Unassigned —</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <div className="text-xs mb-1" style={{ color: '#6B7280' }}>Type</div>
-            <select
-              value={(lead as any).lead_type || 'buyer'}
-              onChange={(e) => updateMutation.mutate({ lead_type: e.target.value })}
-              className="px-2 py-1 rounded-lg text-xs text-white border outline-none"
-              style={{ background: '#1E2A3A', borderColor: '#374151' }}
-            >
-              <option value="buyer">Buyer</option>
-              <option value="merchant">Merchant</option>
-              <option value="partner">Partner</option>
-            </select>
-          </div>
+          <LeadField label="Status" value={STATUS_LABELS[lead.status] || lead.status} />
+          <LeadField
+            label="Assigned To"
+            value={(lead as any).pic_name || (lead as any).assigned_to_name || lead.assigned_to_email?.split('@')[0] || '—'}
+          />
+          <LeadField
+            label="Type"
+            value={((lead as any).lead_type || 'buyer').charAt(0).toUpperCase() + ((lead as any).lead_type || 'buyer').slice(1)}
+          />
           <LeadField
             label="Follow-up Date"
             value={lead.follow_up_date ? new Date(lead.follow_up_date).toLocaleDateString() : null}
