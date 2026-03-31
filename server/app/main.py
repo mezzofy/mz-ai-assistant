@@ -177,6 +177,9 @@ app.include_router(notifications_api.router, prefix="/notifications")
 app.include_router(admin_portal.router, prefix="/api/admin-portal", tags=["admin-portal"])
 app.include_router(plans_api.router,    prefix="/api",              tags=["plans"])
 
+from app.finance.router import finance_router
+app.include_router(finance_router, prefix="/api/finance", tags=["Finance"])
+
 
 # ── Health check ──────────────────────────────────────────────────────────────
 
