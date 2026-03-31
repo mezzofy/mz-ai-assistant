@@ -212,6 +212,19 @@ export default function CRMLeadDetailPage() {
               ))}
             </select>
           </div>
+          <div>
+            <div className="text-xs mb-1" style={{ color: '#6B7280' }}>Type</div>
+            <select
+              value={(lead as any).lead_type || 'buyer'}
+              onChange={(e) => updateMutation.mutate({ lead_type: e.target.value })}
+              className="px-2 py-1 rounded-lg text-xs text-white border outline-none"
+              style={{ background: '#1E2A3A', borderColor: '#374151' }}
+            >
+              <option value="buyer">Buyer</option>
+              <option value="merchant">Merchant</option>
+              <option value="partner">Partner</option>
+            </select>
+          </div>
           <LeadField
             label="Follow-up Date"
             value={lead.follow_up_date ? new Date(lead.follow_up_date).toLocaleDateString() : null}
