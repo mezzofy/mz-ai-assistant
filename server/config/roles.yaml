@@ -17,6 +17,7 @@ roles:
     department: finance
     permissions:
       - finance_read
+      - finance_reports
       - hr_self_service
 
   finance_manager:
@@ -24,6 +25,19 @@ roles:
     permissions:
       - finance_read
       - finance_write
+      - finance_invoices
+      - finance_bills
+      - finance_payments
+      - finance_expenses
+      - finance_journal
+      - finance_reports
+      - finance_audit
+      - finance_tax
+      - finance_entities
+      - finance_shareholders
+      - finance_customers
+      - finance_vendors
+      - finance_bank
       - email_send
       - calendar_access
       - scheduler_manage         # Can create scheduled finance reports
@@ -128,6 +142,8 @@ roles:
       - management_read
       - management_admin
       - finance_read
+      - finance_reports
+      - finance_invoices
       - sales_read
       - marketing_read
       - support_read
@@ -164,6 +180,66 @@ permission_tool_map:
   finance_write:
     - create_invoice
     - update_financial_record
+  finance_invoices:
+    - create_invoice
+    - update_invoice
+    - get_invoice
+    - list_invoices
+    - send_invoice
+  finance_bills:
+    - create_bill
+    - update_bill
+    - get_bill
+    - list_bills
+    - approve_bill
+  finance_payments:
+    - create_payment
+    - get_payment
+    - list_payments
+    - reconcile_payment
+  finance_expenses:
+    - create_expense
+    - update_expense
+    - approve_expense
+    - list_expenses
+  finance_journal:
+    - create_journal_entry
+    - post_journal_entry
+    - reverse_journal_entry
+    - list_journal_entries
+  finance_reports:
+    - get_profit_loss
+    - get_balance_sheet
+    - get_cash_flow
+    - get_trial_balance
+    - get_aged_receivables
+    - get_aged_payables
+  finance_audit:
+    - query_audit_log
+    - get_audit_trail
+  finance_tax:
+    - manage_tax_codes
+    - generate_tax_return
+    - file_tax_return
+  finance_entities:
+    - create_entity
+    - update_entity
+    - list_entities
+  finance_shareholders:
+    - manage_shareholders
+    - get_cap_table
+  finance_customers:
+    - create_fin_customer
+    - update_fin_customer
+    - list_fin_customers
+  finance_vendors:
+    - create_vendor
+    - update_vendor
+    - list_vendors
+  finance_bank:
+    - manage_bank_accounts
+    - reconcile_bank_account
+    - get_bank_balances
   sales_read:
     - search_leads
     - get_lead
