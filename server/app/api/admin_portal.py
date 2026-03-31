@@ -1969,6 +1969,7 @@ async def get_crm_leads(
             "location": r.location,
             "source": r.source,
             "status": r.status,
+            "lead_type": r.lead_type,
             "notes": r.notes,
             "created_at": r.created_at.isoformat() if r.created_at else None,
             "updated_at": r.updated_at.isoformat() if r.updated_at else None,
