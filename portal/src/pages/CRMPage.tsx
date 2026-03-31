@@ -36,7 +36,7 @@ export default function CRMPage() {
   const [editLead, setEditLead] = useState<Lead | null>(null)
   const [newForm, setNewForm] = useState({
     company_name: '', contact_name: '', contact_email: '',
-    contact_phone: '', industry: '', location: '', source: 'manual', status: 'new', notes: '',
+    contact_phone: '', industry: '', location: '', source: 'manual', status: 'new', notes: '', lead_type: 'buyer',
   })
 
   const qc = useQueryClient()
@@ -72,7 +72,7 @@ export default function CRMPage() {
       qc.invalidateQueries({ queryKey: ['crm-countries'] })
       qc.invalidateQueries({ queryKey: ['crm-pipeline'] })
       setShowNewModal(false)
-      setNewForm({ company_name: '', contact_name: '', contact_email: '', contact_phone: '', industry: '', location: '', source: 'manual', status: 'new', notes: '' })
+      setNewForm({ company_name: '', contact_name: '', contact_email: '', contact_phone: '', industry: '', location: '', source: 'manual', status: 'new', notes: '', lead_type: 'buyer' })
     },
   })
 
@@ -197,6 +197,7 @@ export default function CRMPage() {
               <th className="py-3">Industry</th>
               <th className="py-3">Source</th>
               <th className="py-3">Status</th>
+              <th className="py-3">Type</th>
               <th className="py-3">Assigned To</th>
               <th className="py-3">Follow-up</th>
               <th className="py-3">Created</th>
@@ -205,7 +206,7 @@ export default function CRMPage() {
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={9} className="py-12 text-center" style={{ color: '#6B7280' }}>Loading...</td></tr>
+              <tr><td colSpan={10} className="py-12 text-center" style={{ color: '#6B7280' }}>Loading...</td></tr>
             )}
             {leads.map((lead) => (
               <tr
@@ -235,6 +236,11 @@ export default function CRMPage() {
                     {STATUS_LABELS[lead.status] || lead.status}
                   </span>
                 </td>
+                <td style={{ padding: '10px 14px' }}>
+                  <span style={{ background: '#374151', color: '#9CA3AF', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500, textTransform: 'capitalize' }}>
+                    {(lead as any).lead_type || 'buyer'}
+                  </span>
+                </td>
                 <td className="py-2.5 text-gray-400">
                   {lead.assigned_to_name || lead.assigned_to_email?.split('@')[0] || '—'}
                 </td>
@@ -260,7 +266,7 @@ export default function CRMPage() {
               </tr>
             ))}
             {!isLoading && leads.length === 0 && !error && (
-              <tr><td colSpan={9} className="py-12 text-center" style={{ color: '#6B7280' }}>No leads found</td></tr>
+              <tr><td colSpan={10} className="py-12 text-center" style={{ color: '#6B7280' }}>No leads found</td></tr>
             )}
           </tbody>
         </table>
@@ -330,6 +336,18 @@ export default function CRMPage() {
                   {Object.entries(STATUS_LABELS).map(([v, l]) => (
                     <option key={v} value={v}>{l}</option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: '#9CA3AF', marginBottom: 4 }}>Type</label>
+                <select
+                  value={newForm.lead_type}
+                  onChange={e => setNewForm(p => ({ ...p, lead_type: e.target.value }))}
+                  style={{ width: '100%', background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13 }}
+                >
+                  <option value="buyer">Buyer</option>
+                  <option value="merchant">Merchant</option>
+                  <option value="partner">Partner</option>
                 </select>
               </div>
               <div className="col-span-2">
@@ -409,6 +427,18 @@ export default function CRMPage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: '#9CA3AF', marginBottom: 4 }}>Type</label>
+                <select
+                  value={(editLead as any).lead_type || 'buyer'}
+                  onChange={e => setEditLead(prev => prev ? { ...prev, lead_type: e.target.value } as any : null)}
+                  style={{ width: '100%', background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13 }}
+                >
+                  <option value="buyer">Buyer</option>
+                  <option value="merchant">Merchant</option>
+                  <option value="partner">Partner</option>
+                </select>
+              </div>
               <div className="col-span-2">
                 <label className="block text-xs text-gray-400 mb-1">Assigned To</label>
                 <select
@@ -448,6 +478,7 @@ export default function CRMPage() {
                     location: editLead.location || undefined,
                     source: editLead.source,
                     status: editLead.status,
+                    lead_type: (editLead as any).lead_type || undefined,
                     notes: editLead.notes || undefined,
                     assigned_to: editLead.assigned_to || undefined,
                   },

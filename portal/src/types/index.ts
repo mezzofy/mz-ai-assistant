@@ -135,6 +135,7 @@ export interface Lead {
   location: string | null
   source: string
   status: string
+  lead_type?: string
   notes: string | null
   created_at: string
   updated_at: string | null
@@ -381,6 +382,10 @@ export interface FinCustomer {
   payment_terms: number
   is_active: boolean
   created_at: string
+  industry?: string
+  location?: string
+  account_manager?: string
+  customer_type?: string
 }
 
 export interface FinVendor {

@@ -2009,10 +2009,10 @@ async def create_crm_lead(
         text("""
             INSERT INTO sales_leads
                 (id, company_name, contact_name, contact_email, contact_phone,
-                 industry, location, source, status, notes, created_at)
+                 industry, location, source, status, notes, lead_type, created_at)
             VALUES
                 (:id, :company_name, :contact_name, :contact_email, :contact_phone,
-                 :industry, :location, :source, :status, :notes, :created_at)
+                 :industry, :location, :source, :status, :notes, :lead_type, :created_at)
         """),
         {
             "id": lead_id,
@@ -2025,6 +2025,7 @@ async def create_crm_lead(
             "source": body.get("source") or "manual",
             "status": body.get("status") or "new",
             "notes": body.get("notes"),
+            "lead_type": body.get("lead_type") or "buyer",
             "created_at": now,
         },
     )
@@ -2043,7 +2044,7 @@ async def update_crm_lead(
     allowed = {
         "company_name", "contact_name", "contact_email", "contact_phone",
         "industry", "location", "source", "status", "notes", "follow_up_date",
-        "assigned_to",
+        "assigned_to", "lead_type",
     }
     updates = {k: v for k, v in body.items() if k in allowed}
     if not updates:

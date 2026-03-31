@@ -8,8 +8,9 @@ export default function Customers() {
   const [entities, setEntities] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ name: '', customer_code: '', company_name: '', email: '', phone: '', currency: 'SGD', payment_terms: 30 })
+  const [form, setForm] = useState({ name: '', company_name: '', email: '', phone: '', currency: 'SGD', payment_terms: 30, industry: '', location: '', account_manager: '', customer_type: 'buyer', is_active: true })
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     portalApi.getFinanceEntities().then(r => {
@@ -30,13 +31,16 @@ export default function Customers() {
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError(null)
     try {
       await portalApi.createFinanceCustomer({ ...form, entity_id: entityId })
       setShowModal(false)
-      setForm({ name: '', customer_code: '', company_name: '', email: '', phone: '', currency: 'SGD', payment_terms: 30 })
+      setForm({ name: '', company_name: '', email: '', phone: '', currency: 'SGD', payment_terms: 30, industry: '', location: '', account_manager: '', customer_type: 'buyer', is_active: true })
       const r = await portalApi.getFinanceCustomers(entityId)
       setCustomers(r.data?.data || [])
-    } catch { /* ignore */ } finally {
+    } catch (err: any) {
+      setSaveError(err?.response?.data?.detail || err?.message || 'Failed to create customer')
+    } finally {
       setSaving(false)
     }
   }
@@ -71,7 +75,7 @@ export default function Customers() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#374151' }}>
-                {['Code', 'Name', 'Company', 'Email', 'Currency', 'Terms', 'Status'].map(h => (
+                {['Code', 'Name', 'Type', 'Industry', 'Location', 'Currency', 'Terms', 'Status'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#9CA3AF', fontWeight: 500 }}>{h}</th>
                 ))}
               </tr>
@@ -81,8 +85,9 @@ export default function Customers() {
                 <tr key={c.id} style={{ borderTop: '1px solid #374151' }}>
                   <td style={{ padding: '10px 14px', color: '#f97316', fontFamily: 'monospace', fontSize: 12 }}>{c.customer_code}</td>
                   <td style={{ padding: '10px 14px', fontWeight: 500 }}>{c.name}</td>
-                  <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{c.company_name || '—'}</td>
-                  <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{c.email || '—'}</td>
+                  <td style={{ padding: '10px 14px', color: '#9CA3AF', textTransform: 'capitalize' }}>{(c as any).customer_type || '—'}</td>
+                  <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{(c as any).industry || '—'}</td>
+                  <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{(c as any).location || '—'}</td>
                   <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{c.currency}</td>
                   <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{c.payment_terms}d</td>
                   <td style={{ padding: '10px 14px' }}>
@@ -104,7 +109,6 @@ export default function Customers() {
             <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>New Customer</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[
-                { label: 'Customer Code *', key: 'customer_code' },
                 { label: 'Name *', key: 'name' },
                 { label: 'Company Name', key: 'company_name' },
                 { label: 'Email', key: 'email' },
@@ -125,7 +129,39 @@ export default function Customers() {
                   <input type="number" value={form.payment_terms} onChange={e => setForm(p => ({ ...p, payment_terms: +e.target.value }))} style={inputStyle} />
                 </div>
               </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Type *</div>
+                <select value={form.customer_type} onChange={e => setForm(p => ({ ...p, customer_type: e.target.value }))} style={inputStyle}>
+                  <option value="buyer">Buyer</option>
+                  <option value="merchant">Merchant</option>
+                  <option value="partner">Partner</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Industry</div>
+                <input value={form.industry} onChange={e => setForm(p => ({ ...p, industry: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Location</div>
+                <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Account Manager</div>
+                <input value={form.account_manager} onChange={e => setForm(p => ({ ...p, account_manager: e.target.value }))} style={inputStyle} />
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Status</div>
+                <select value={form.is_active ? 'active' : 'inactive'} onChange={e => setForm(p => ({ ...p, is_active: e.target.value === 'active' }))} style={inputStyle}>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
             </div>
+            {saveError && (
+              <div style={{ color: '#dc2626', fontSize: 12, padding: '8px 12px', background: '#dc262622', borderRadius: 4, marginTop: 12 }}>
+                {saveError}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowModal(false)} style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
               <button onClick={handleSave} disabled={saving} style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>

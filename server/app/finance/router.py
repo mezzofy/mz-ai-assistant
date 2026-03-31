@@ -599,11 +599,13 @@ async def create_customer(
             INSERT INTO fin_customers
                 (id, entity_id, lead_id, customer_code, name, company_name,
                  email, phone, billing_address, shipping_address,
-                 currency, payment_terms, credit_limit, tax_id, notes)
+                 currency, payment_terms, credit_limit, tax_id, notes,
+                 industry, location, account_manager, customer_type, is_active)
             VALUES
                 (:id, :eid, :lid, :code, :name, :company,
                  :email, :phone, :billing::jsonb, :shipping::jsonb,
-                 :curr, :terms, :limit, :tax, :notes)
+                 :curr, :terms, :limit, :tax, :notes,
+                 :industry, :location, :account_manager, :customer_type, :is_active)
         """),
         {
             "id": str(cust_id),
@@ -621,6 +623,11 @@ async def create_customer(
             "limit": str(body.credit_limit) if body.credit_limit else None,
             "tax": body.tax_id,
             "notes": body.notes,
+            "industry": body.industry,
+            "location": body.location,
+            "account_manager": body.account_manager,
+            "customer_type": body.customer_type,
+            "is_active": body.is_active,
         },
     )
     await db.commit()

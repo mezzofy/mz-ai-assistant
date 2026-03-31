@@ -215,6 +215,11 @@ class CustomerCreate(BaseModel):
     tax_id: Optional[str] = None
     notes: Optional[str] = None
     lead_id: Optional[UUID] = None
+    industry: Optional[str] = None
+    location: Optional[str] = None
+    account_manager: Optional[str] = None
+    customer_type: str = "buyer"  # merchant | buyer | partner
+    is_active: bool = True
 
 
 class CustomerResponse(CustomerCreate):
