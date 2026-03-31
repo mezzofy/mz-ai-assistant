@@ -35,6 +35,7 @@ import Shareholders from './pages/finance/Shareholders'
 import Entities from './pages/finance/Entities'
 import Periods from './pages/finance/Periods'
 import TaxCodes from './pages/finance/TaxCodes'
+import Quotes from './pages/finance/Quotes'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="finance/entities" element={<FinanceRoute><Entities /></FinanceRoute>} />
             <Route path="finance/periods" element={<FinanceRoute><Periods /></FinanceRoute>} />
             <Route path="finance/tax" element={<FinanceRoute><TaxCodes /></FinanceRoute>} />
+            <Route path="finance/quotes" element={<FinanceRoute><Quotes /></FinanceRoute>} />
             <Route path="hr" element={<HRRoute><Outlet /></HRRoute>}>
               <Route path="employees" element={<HREmployeesPage />} />
               <Route path="employees/new" element={<HREmployeeFormPage />} />
