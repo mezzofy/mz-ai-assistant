@@ -162,42 +162,55 @@ export default function CRMLeadDetailPage() {
 
       {/* Lead Info Card */}
       <div className="rounded-xl border p-6" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-3">
-          <LeadField label="Company" value={lead.company_name} />
-          <LeadField label="Contact Name" value={lead.contact_name} />
-          <LeadField label="Email" value={lead.contact_email} />
-          <LeadField label="Phone" value={lead.contact_phone} />
-          <LeadField label="Industry" value={lead.industry} />
-          <LeadField label="Location" value={lead.location} />
-          <LeadField label="Source" value={lead.source} />
-          <LeadField label="Status" value={STATUS_LABELS[lead.status] || lead.status} />
-          <LeadField
-            label="Assigned To"
-            value={(lead as any).pic_name || (lead as any).assigned_to_name || lead.assigned_to_email?.split('@')[0] || '—'}
-          />
-          <LeadField
-            label="Type"
-            value={((lead as any).lead_type || 'buyer').charAt(0).toUpperCase() + ((lead as any).lead_type || 'buyer').slice(1)}
-          />
-          <LeadField
-            label="Follow-up Date"
-            value={lead.follow_up_date ? new Date(lead.follow_up_date).toLocaleDateString() : null}
-          />
-          <LeadField
-            label="Last Contacted"
-            value={lead.last_contacted ? new Date(lead.last_contacted).toLocaleDateString() : null}
-          />
-          <LeadField
-            label="Created At"
-            value={lead.created_at ? new Date(lead.created_at).toLocaleDateString() : null}
-          />
-        </div>
-        {lead.notes && (
-          <div className="mt-6">
-            <div className="text-xs mb-2" style={{ color: '#6B7280' }}>Notes</div>
-            <div className="text-sm whitespace-pre-wrap" style={{ color: '#D1D5DB' }}>{lead.notes}</div>
+        <div className="space-y-5">
+          {/* Row 1: Company / Type / Industry / Location */}
+          <div className="grid grid-cols-4 gap-6">
+            <LeadField label="Company" value={lead.company_name} />
+            <LeadField
+              label="Type"
+              value={((lead as any).lead_type || 'buyer').charAt(0).toUpperCase() + ((lead as any).lead_type || 'buyer').slice(1)}
+            />
+            <LeadField label="Industry" value={lead.industry} />
+            <LeadField label="Location" value={lead.location} />
           </div>
-        )}
+          {/* Row 2: Contact Name / Email / Phone / Source */}
+          <div className="grid grid-cols-4 gap-6">
+            <LeadField label="Contact Name" value={lead.contact_name} />
+            <LeadField label="Email" value={lead.contact_email} />
+            <LeadField label="Phone" value={lead.contact_phone} />
+            <LeadField label="Source" value={lead.source} />
+          </div>
+          {/* Row 3: Created At / Follow-up Date / Last Contacted */}
+          <div className="grid grid-cols-3 gap-6">
+            <LeadField
+              label="Created At"
+              value={lead.created_at ? new Date(lead.created_at).toLocaleDateString() : null}
+            />
+            <LeadField
+              label="Follow-up Date"
+              value={lead.follow_up_date ? new Date(lead.follow_up_date).toLocaleDateString() : null}
+            />
+            <LeadField
+              label="Last Contacted"
+              value={lead.last_contacted ? new Date(lead.last_contacted).toLocaleDateString() : null}
+            />
+          </div>
+          {/* Row 4: Status / Assigned To */}
+          <div className="grid grid-cols-4 gap-6">
+            <LeadField label="Status" value={STATUS_LABELS[lead.status] || lead.status} />
+            <LeadField
+              label="Assigned To"
+              value={(lead as any).pic_name || (lead as any).assigned_to_name || lead.assigned_to_email?.split('@')[0] || '—'}
+            />
+          </div>
+          {/* Row 5: Notes */}
+          {lead.notes && (
+            <div>
+              <div className="text-xs mb-2" style={{ color: '#6B7280' }}>Notes</div>
+              <div className="text-sm whitespace-pre-wrap" style={{ color: '#D1D5DB' }}>{lead.notes}</div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Communication Log */}
