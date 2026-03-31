@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { portalApi } from '../../api/portal'
 import { FinExpense } from '../../types'
+import { CheckCircle, XCircle } from 'lucide-react'
 
 const STATUS_TABS = ['All', 'pending', 'approved', 'rejected', 'reimbursed']
 const STATUS_COLOR: Record<string, string> = {
@@ -14,8 +15,15 @@ export default function Expenses() {
   const [entities, setEntities] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
-  const [newForm, setNewForm] = useState({ expense_date: new Date().toISOString().slice(0,10), category: '', description: '', vendor_name: '', currency: 'SGD', amount: '', tax_amount: '' })
+  const [newForm, setNewForm] = useState({ expense_date: new Date().toISOString().slice(0,10), category: '', description: '', vendor_id: '', currency: 'SGD', amount: '', tax_amount: '' })
   const [creating, setCreating] = useState(false)
+  const [vendors, setVendors] = useState<any[]>([])
+  const [showNewVendor, setShowNewVendor] = useState(false)
+  const [newVendorForm, setNewVendorForm] = useState({ vendor_code: '', name: '', email: '', phone: '' })
+  const [creatingVendor, setCreatingVendor] = useState(false)
+  const [categories, setCategories] = useState<string[]>(['Travel', 'Meals & Entertainment', 'Office Supplies', 'Equipment', 'Software & Subscriptions', 'Marketing', 'Professional Fees', 'Utilities', 'Rent', 'Other'])
+  const [showNewCategory, setShowNewCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
 
   useEffect(() => {
     portalApi.getFinanceEntities().then(r => {
@@ -34,6 +42,11 @@ export default function Expenses() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [entityId, activeTab])
+
+  useEffect(() => {
+    if (!entityId) return
+    portalApi.getFinanceVendors(entityId).then(r => setVendors(r.data?.data || [])).catch(() => {})
+  }, [entityId])
 
   const handleAction = async (id: string, action: 'approve' | 'reject') => {
     await portalApi.approveExpense(id, action)
@@ -100,12 +113,12 @@ export default function Expenses() {
                     {exp.status === 'pending' && (
                       <>
                         <button onClick={() => handleAction(exp.id, 'approve')}
-                          style={{ background: '#16a34a22', color: '#16a34a', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
-                          Approve
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#16a34a22', color: '#16a34a', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
+                          <CheckCircle size={11} /> Approve
                         </button>
                         <button onClick={() => handleAction(exp.id, 'reject')}
-                          style={{ background: '#dc262622', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>
-                          Reject
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#dc262622', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>
+                          <XCircle size={11} /> Reject
                         </button>
                       </>
                     )}
@@ -118,33 +131,118 @@ export default function Expenses() {
       </div>
       {showNewModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: '#1F2937', borderRadius: 10, padding: 28, width: 440, border: '1px solid #374151' }}>
+          <div style={{ background: '#1F2937', borderRadius: 10, padding: 28, width: 440, border: '1px solid #374151', maxHeight: '85vh', overflowY: 'auto' }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>New Expense</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {[
-                { label: 'Date *', key: 'expense_date', type: 'date' },
-                { label: 'Category *', key: 'category', type: 'text' },
-                { label: 'Description *', key: 'description', type: 'text' },
-                { label: 'Vendor Name', key: 'vendor_name', type: 'text' },
-                { label: 'Currency', key: 'currency', type: 'text' },
-                { label: 'Amount *', key: 'amount', type: 'number' },
-                { label: 'Tax Amount', key: 'tax_amount', type: 'number' },
-              ].map(f => (
-                <div key={f.key}>
-                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>{f.label}</div>
-                  <input type={f.type} value={(newForm as any)[f.key]} onChange={e => setNewForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Date *</div>
+                <input type="date" value={newForm.expense_date} onChange={e => setNewForm(p => ({ ...p, expense_date: e.target.value }))}
+                  style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Category *</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <select value={newForm.category} onChange={e => setNewForm(p => ({ ...p, category: e.target.value }))}
+                    style={{ flex: 1, background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13 }}>
+                    <option value="">— Select category —</option>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button onClick={() => setShowNewCategory(v => !v)} style={{ background: '#374151', color: '#9CA3AF', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>+ New</button>
                 </div>
-              ))}
+              </div>
+              {showNewCategory && (
+                <div style={{ background: '#111827', borderRadius: 6, padding: 12, border: '1px solid #374151' }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 11, marginBottom: 8 }}>Add custom category</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder="Category name"
+                      style={{ flex: 1, background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 4, padding: '6px 8px', fontSize: 12, boxSizing: 'border-box' as const }} />
+                    <button onClick={() => {
+                      if (!newCategoryName.trim()) return
+                      setCategories(prev => [...prev, newCategoryName.trim()])
+                      setNewForm(p => ({ ...p, category: newCategoryName.trim() }))
+                      setNewCategoryName('')
+                      setShowNewCategory(false)
+                    }} style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 12px', cursor: 'pointer', fontSize: 12 }}>Add & Select</button>
+                  </div>
+                </div>
+              )}
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Description *</div>
+                <input value={newForm.description} onChange={e => setNewForm(p => ({ ...p, description: e.target.value }))}
+                  style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Vendor</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <select value={newForm.vendor_id} onChange={e => setNewForm(p => ({ ...p, vendor_id: e.target.value }))}
+                    style={{ flex: 1, background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13 }}>
+                    <option value="">— Select vendor (optional) —</option>
+                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                  <button onClick={() => setShowNewVendor(v => !v)} style={{ background: '#374151', color: '#9CA3AF', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>+ New</button>
+                </div>
+              </div>
+              {showNewVendor && (
+                <div style={{ background: '#111827', borderRadius: 6, padding: 12, border: '1px solid #374151' }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 11, marginBottom: 8 }}>Quick-create vendor</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
+                    {[['Code *', 'vendor_code'], ['Name *', 'name'], ['Email', 'email'], ['Phone', 'phone']].map(([label, key]) => (
+                      <div key={key} style={{ flex: '1 1 45%' }}>
+                        <div style={{ color: '#6B7280', fontSize: 11, marginBottom: 3 }}>{label}</div>
+                        <input value={(newVendorForm as any)[key]} onChange={e => setNewVendorForm(p => ({ ...p, [key]: e.target.value }))}
+                          style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 4, padding: '6px 8px', fontSize: 12, width: '100%', boxSizing: 'border-box' as const }} />
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={async () => {
+                    setCreatingVendor(true)
+                    try {
+                      const r = await portalApi.createFinanceVendor({ entity_id: entityId, ...newVendorForm })
+                      const created = r.data?.data
+                      const list = (await portalApi.getFinanceVendors(entityId)).data?.data || []
+                      setVendors(list)
+                      if (created?.id) setNewForm(p => ({ ...p, vendor_id: created.id }))
+                      setShowNewVendor(false)
+                      setNewVendorForm({ vendor_code: '', name: '', email: '', phone: '' })
+                    } catch { } finally { setCreatingVendor(false) }
+                  }} disabled={creatingVendor} style={{ marginTop: 8, background: '#f97316', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>
+                    {creatingVendor ? 'Creating...' : 'Create & Select'}
+                  </button>
+                </div>
+              )}
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Currency</div>
+                <input value={newForm.currency} onChange={e => setNewForm(p => ({ ...p, currency: e.target.value }))}
+                  style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Amount *</div>
+                <input type="number" value={newForm.amount} onChange={e => setNewForm(p => ({ ...p, amount: e.target.value }))}
+                  style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Tax Amount</div>
+                <input type="number" value={newForm.tax_amount} onChange={e => setNewForm(p => ({ ...p, tax_amount: e.target.value }))}
+                  style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowNewModal(false)} style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
               <button onClick={async () => {
                 setCreating(true)
                 try {
-                  await portalApi.createExpense({ entity_id: entityId, ...newForm, amount: parseFloat(newForm.amount) || 0, tax_amount: parseFloat(newForm.tax_amount) || 0 })
+                  await portalApi.createExpense({
+                    entity_id: entityId,
+                    expense_date: newForm.expense_date,
+                    category: newForm.category,
+                    description: newForm.description,
+                    vendor_id: newForm.vendor_id || undefined,
+                    currency: newForm.currency,
+                    amount: parseFloat(newForm.amount) || 0,
+                    tax_amount: parseFloat(newForm.tax_amount) || 0,
+                  })
                   setShowNewModal(false)
-                  setNewForm({ expense_date: new Date().toISOString().slice(0,10), category: '', description: '', vendor_name: '', currency: currency, amount: '', tax_amount: '' })
+                  setNewForm({ expense_date: new Date().toISOString().slice(0,10), category: '', description: '', vendor_id: '', currency: currency, amount: '', tax_amount: '' })
                   setLoading(true)
                   portalApi.getExpenses(entityId, activeTab === 'All' ? undefined : activeTab).then(r => setExpenses(r.data?.data || [])).finally(() => setLoading(false))
                 } catch { /* ignore */ } finally { setCreating(false) }

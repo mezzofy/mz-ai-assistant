@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { portalApi } from '../../api/portal'
 import { FinEntity } from '../../types'
+import { Eye, Pencil, Trash2 } from 'lucide-react'
 
 export default function Entities() {
   const [entities, setEntities] = useState<FinEntity[]>([])
@@ -82,17 +83,16 @@ export default function Entities() {
                     </span>
                   </td>
                   <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                    <button onClick={() => setViewEntity(e)}
-                      style={{ background: '#3b82f622', color: '#3b82f6', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
-                      View
+                    <button onClick={() => setViewEntity(e)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#3b82f622', color: '#3b82f6', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
+                      <Eye size={11} /> View
                     </button>
                     <button onClick={() => { setEditEntity(e); setEditForm({ code: e.code, name: e.name, entity_type: e.entity_type, country_code: e.country_code || 'SG', base_currency: e.base_currency, business_id: (e as any).business_id || '', tax_id: e.tax_id || '' }) }}
-                      style={{ background: '#f9731622', color: '#f97316', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
-                      Edit
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f9731622', color: '#f97316', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
+                      <Pencil size={11} /> Edit
                     </button>
                     <button onClick={async () => { if (!confirm('Delete this entity?')) return; await (portalApi as any).deleteFinanceEntity(e.id); load() }}
-                      style={{ background: '#dc262622', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>
-                      Delete
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#dc262622', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>
+                      <Trash2 size={11} /> Delete
                     </button>
                   </td>
                 </tr>
