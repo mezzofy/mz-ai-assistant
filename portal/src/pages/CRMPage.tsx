@@ -478,7 +478,7 @@ export default function CRMPage() {
                     location: editLead.location || undefined,
                     source: editLead.source,
                     status: editLead.status,
-                    lead_type: (editLead as any).lead_type || undefined,
+                    lead_type: (editLead as any).lead_type || 'buyer',
                     notes: editLead.notes || undefined,
                     assigned_to: editLead.assigned_to || undefined,
                   },
