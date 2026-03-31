@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AppShell from './components/layout/AppShell'
 import AdminRoute from './components/AdminRoute'
 import HRRoute from './components/HRRoute'
+import FinanceRoute from './components/FinanceRoute'
 import LoginPage from './pages/LoginPage'
 import OtpPage from './pages/OtpPage'
 import DashboardPage from './pages/DashboardPage'
@@ -20,6 +21,20 @@ import HREmployeesPage from './pages/hr/HREmployeesPage'
 import HREmployeeProfilePage from './pages/hr/HREmployeeProfilePage'
 import HREmployeeFormPage from './pages/hr/HREmployeeFormPage'
 import HRLeaveManagementPage from './pages/hr/HRLeaveManagementPage'
+import FinanceDashboard from './pages/finance/FinanceDashboard'
+import Invoices from './pages/finance/Invoices'
+import JournalEntries from './pages/finance/JournalEntries'
+import Bills from './pages/finance/Bills'
+import Payments from './pages/finance/Payments'
+import Customers from './pages/finance/Customers'
+import Vendors from './pages/finance/Vendors'
+import Expenses from './pages/finance/Expenses'
+import Reports from './pages/finance/Reports'
+import BankAccounts from './pages/finance/BankAccounts'
+import Shareholders from './pages/finance/Shareholders'
+import Entities from './pages/finance/Entities'
+import Periods from './pages/finance/Periods'
+import TaxCodes from './pages/finance/TaxCodes'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +68,20 @@ export default function App() {
             <Route path="crm" element={<CRMPage />} />
             <Route path="crm/leads/:id" element={<CRMLeadDetailPage />} />
             <Route path="background-tasks" element={<BackgroundTasksPage />} />
+            <Route path="finance" element={<FinanceRoute><FinanceDashboard /></FinanceRoute>} />
+            <Route path="finance/journal" element={<FinanceRoute><JournalEntries /></FinanceRoute>} />
+            <Route path="finance/invoices" element={<FinanceRoute><Invoices /></FinanceRoute>} />
+            <Route path="finance/bills" element={<FinanceRoute><Bills /></FinanceRoute>} />
+            <Route path="finance/payments" element={<FinanceRoute><Payments /></FinanceRoute>} />
+            <Route path="finance/customers" element={<FinanceRoute><Customers /></FinanceRoute>} />
+            <Route path="finance/vendors" element={<FinanceRoute><Vendors /></FinanceRoute>} />
+            <Route path="finance/expenses" element={<FinanceRoute><Expenses /></FinanceRoute>} />
+            <Route path="finance/reports" element={<FinanceRoute><Reports /></FinanceRoute>} />
+            <Route path="finance/bank-accounts" element={<FinanceRoute><BankAccounts /></FinanceRoute>} />
+            <Route path="finance/shareholders" element={<FinanceRoute><Shareholders /></FinanceRoute>} />
+            <Route path="finance/entities" element={<FinanceRoute><Entities /></FinanceRoute>} />
+            <Route path="finance/periods" element={<FinanceRoute><Periods /></FinanceRoute>} />
+            <Route path="finance/tax" element={<FinanceRoute><TaxCodes /></FinanceRoute>} />
             <Route path="hr" element={<HRRoute><Outlet /></HRRoute>}>
               <Route path="employees" element={<HREmployeesPage />} />
               <Route path="employees/new" element={<HREmployeeFormPage />} />

@@ -1,4 +1,52 @@
 # Context Checkpoint: Frontend Agent
+**Date:** 2026-03-31
+**Session:** 16 — Finance Module Phase 7 (v1.58.0)
+
+## Completed This Session (Session 16)
+
+- ✅ `portal/src/components/FinanceRoute.tsx` — role-gated route wrapper (FINANCE_ROLES: finance_viewer, finance_manager, executive, admin, cfo, ceo)
+- ✅ `portal/src/types/index.ts` — appended all Finance types: FinEntity, FinAccount, JournalLine, JournalEntry, LineItem, FinCustomer, FinVendor, FinInvoice, FinQuote, FinBill, FinPayment, FinExpense, FinBankAccount, FinShareholder, FinPeriod, FinTaxCode, FinanceDashboardData
+- ✅ `portal/src/api/portal.ts` — added all Finance API methods to portalApi object (40+ methods)
+- ✅ Created 14 Finance pages in `portal/src/pages/finance/`: FinanceDashboard, Invoices, JournalEntries, Bills, Payments, Customers, Vendors, Expenses, Reports, BankAccounts, Shareholders, Entities, Periods, TaxCodes
+- ✅ `portal/src/components/layout/Sidebar.tsx` — FINANCE_ROLES + FINANCE_NAV_ITEMS constants, showFinance flag, Finance section inserted between Sales and HR
+- ✅ `portal/src/App.tsx` — 14 Finance imports + 14 Finance routes registered
+
+## Files Modified (Session 16)
+- `portal/src/components/FinanceRoute.tsx` (new)
+- `portal/src/types/index.ts` (modified — Finance types appended)
+- `portal/src/api/portal.ts` (modified — Finance API methods added)
+- `portal/src/pages/finance/FinanceDashboard.tsx` (new)
+- `portal/src/pages/finance/Invoices.tsx` (new)
+- `portal/src/pages/finance/JournalEntries.tsx` (new)
+- `portal/src/pages/finance/Bills.tsx` (new)
+- `portal/src/pages/finance/Payments.tsx` (new)
+- `portal/src/pages/finance/Customers.tsx` (new)
+- `portal/src/pages/finance/Vendors.tsx` (new)
+- `portal/src/pages/finance/Expenses.tsx` (new)
+- `portal/src/pages/finance/Reports.tsx` (new)
+- `portal/src/pages/finance/BankAccounts.tsx` (new)
+- `portal/src/pages/finance/Shareholders.tsx` (new)
+- `portal/src/pages/finance/Entities.tsx` (new)
+- `portal/src/pages/finance/Periods.tsx` (new)
+- `portal/src/pages/finance/TaxCodes.tsx` (new)
+- `portal/src/components/layout/Sidebar.tsx` (modified — Finance nav section added)
+- `portal/src/App.tsx` (modified — Finance routes registered)
+
+## Patterns Reused from HR Module
+- HRRoute.tsx → FinanceRoute.tsx (same pattern)
+- HR Sidebar section → Finance sidebar section (same NavLink + clsx pattern)
+- HR page data loading → Finance pages (useState/useEffect, entity selector, table display)
+
+## Notes
+- Sidebar "Quotes" link points to `/mission-control/finance/quotes` — no Quotes.tsx page created (no detailed spec). Add later.
+- Finance routes are flat (not nested under Outlet), as specified
+- All pages use useState/useEffect (not react-query) to match other finance page patterns
+
+## Status: COMPLETE — All tasks done, no blockers
+
+---
+
+# Context Checkpoint: Frontend Agent
 **Date:** 2026-03-30
 **Session:** 15 — Scheduler create/delete job UI (v1.57.0)
 

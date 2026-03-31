@@ -165,4 +165,78 @@ export const portalApi = {
   // HR — Dashboard
   getHRLeaveDashboard: (params?: { year?: number; department?: string; country?: string }) =>
     client.get('/api/admin-portal/hr/dashboard/leave-summary', { params }),
+
+  // Finance API
+  getFinanceDashboard: (entityId: string) =>
+    client.get(`/api/finance/dashboard?entity_id=${entityId}`),
+  getFinanceEntities: () =>
+    client.get('/api/finance/entities'),
+  createFinanceEntity: (data: any) =>
+    client.post('/api/finance/entities', data),
+  getFinanceAccounts: (entityId: string) =>
+    client.get(`/api/finance/accounts?entity_id=${entityId}`),
+  createFinanceAccount: (data: any) =>
+    client.post('/api/finance/accounts', data),
+  getFinancePeriods: (entityId: string) =>
+    client.get(`/api/finance/periods?entity_id=${entityId}`),
+  createFinancePeriod: (data: any) =>
+    client.post('/api/finance/periods', data),
+  closeFinancePeriod: (periodId: string) =>
+    client.post(`/api/finance/periods/${periodId}/close`),
+  getJournalEntries: (entityId: string, status?: string) =>
+    client.get(`/api/finance/journal?entity_id=${entityId}${status ? `&status=${status}` : ''}`),
+  createJournalEntry: (data: any) =>
+    client.post('/api/finance/journal', data),
+  postJournalEntry: (id: string) =>
+    client.post(`/api/finance/journal/${id}/post`),
+  reverseJournalEntry: (id: string) =>
+    client.post(`/api/finance/journal/${id}/reverse`),
+  getFinanceCustomers: (entityId: string) =>
+    client.get(`/api/finance/customers?entity_id=${entityId}`),
+  createFinanceCustomer: (data: any) =>
+    client.post('/api/finance/customers', data),
+  getFinanceVendors: (entityId: string) =>
+    client.get(`/api/finance/vendors?entity_id=${entityId}`),
+  createFinanceVendor: (data: any) =>
+    client.post('/api/finance/vendors', data),
+  getInvoices: (entityId: string, status?: string) =>
+    client.get(`/api/finance/invoices?entity_id=${entityId}${status ? `&status=${status}` : ''}`),
+  createInvoice: (data: any) =>
+    client.post('/api/finance/invoices', data),
+  sendInvoice: (id: string) =>
+    client.post(`/api/finance/invoices/${id}/send`),
+  voidInvoice: (id: string) =>
+    client.post(`/api/finance/invoices/${id}/void`),
+  getQuotes: (entityId: string) =>
+    client.get(`/api/finance/quotes?entity_id=${entityId}`),
+  createQuote: (data: any) =>
+    client.post('/api/finance/quotes', data),
+  getBills: (entityId: string, status?: string) =>
+    client.get(`/api/finance/bills?entity_id=${entityId}${status ? `&status=${status}` : ''}`),
+  createBill: (data: any) =>
+    client.post('/api/finance/bills', data),
+  getPayments: (entityId: string) =>
+    client.get(`/api/finance/payments?entity_id=${entityId}`),
+  createPayment: (data: any) =>
+    client.post('/api/finance/payments', data),
+  getBankAccounts: (entityId: string) =>
+    client.get(`/api/finance/bank-accounts?entity_id=${entityId}`),
+  createBankAccount: (data: any) =>
+    client.post('/api/finance/bank-accounts', data),
+  getExpenses: (entityId: string, status?: string) =>
+    client.get(`/api/finance/expenses?entity_id=${entityId}${status ? `&status=${status}` : ''}`),
+  createExpense: (data: any) =>
+    client.post('/api/finance/expenses', data),
+  approveExpense: (id: string, action: 'approve' | 'reject') =>
+    client.post(`/api/finance/expenses/${id}/approve?action=${action}`),
+  getShareholders: (entityId: string) =>
+    client.get(`/api/finance/shareholders?entity_id=${entityId}`),
+  createShareholder: (data: any) =>
+    client.post('/api/finance/shareholders', data),
+  getTaxCodes: (entityId: string) =>
+    client.get(`/api/finance/tax-codes?entity_id=${entityId}`),
+  getTaxReturns: (entityId: string) =>
+    client.get(`/api/finance/tax-returns?entity_id=${entityId}`),
+  getFinanceReport: (reportType: string, data: any) =>
+    client.post(`/api/finance/reports/${reportType}`, data),
 }

@@ -1,0 +1,128 @@
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { portalApi } from '../../api/portal'
+import { FinInvoice } from '../../types'
+
+const STATUS_TABS = ['All', 'draft', 'sent', 'partial', 'paid', 'overdue']
+const STATUS_COLOR: Record<string, string> = {
+  draft: '#6B7280', sent: '#3b82f6', partial: '#f59e0b',
+  paid: '#16a34a', overdue: '#dc2626', cancelled: '#6B7280', void: '#374151'
+}
+
+export default function Invoices() {
+  const navigate = useNavigate()
+  const [invoices, setInvoices] = useState<FinInvoice[]>([])
+  const [activeTab, setActiveTab] = useState('All')
+  const [entityId, setEntityId] = useState('')
+  const [entities, setEntities] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    portalApi.getFinanceEntities().then(r => {
+      const ents = r.data?.data || []
+      setEntities(ents)
+      if (ents.length > 0) setEntityId(ents[0].id)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!entityId) return
+    setLoading(true)
+    const status = activeTab === 'All' ? undefined : activeTab
+    portalApi.getInvoices(entityId, status)
+      .then(r => setInvoices(r.data?.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [entityId, activeTab])
+
+  const handleSend = async (id: string) => {
+    await portalApi.sendInvoice(id)
+    setInvoices(prev => prev.map(i => i.id === id ? { ...i, status: 'sent' as const } : i))
+  }
+
+  const handleVoid = async (id: string) => {
+    if (!confirm('Void this invoice?')) return
+    await portalApi.voidInvoice(id)
+    setInvoices(prev => prev.map(i => i.id === id ? { ...i, status: 'void' as const } : i))
+  }
+
+  return (
+    <div style={{ padding: 24, color: '#F9FAFB' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Invoices</h1>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <select value={entityId} onChange={e => setEntityId(e.target.value)}
+            style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
+            {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <button onClick={() => navigate('/mission-control/finance/invoices')}
+            style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            + New Invoice
+          </button>
+        </div>
+      </div>
+
+      {/* Status tabs */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #374151' }}>
+        {STATUS_TABS.map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            style={{ background: 'none', border: 'none', borderBottom: activeTab === tab ? '2px solid #f97316' : '2px solid transparent', color: activeTab === tab ? '#f97316' : '#9CA3AF', padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: activeTab === tab ? 600 : 400, textTransform: 'capitalize' }}>
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div style={{ background: '#1F2937', borderRadius: 8, border: '1px solid #1E3A5F', overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: 'center', color: '#6B7280' }}>Loading...</div>
+        ) : invoices.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: '#6B7280' }}>No invoices found</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: '#374151' }}>
+                {['Invoice #', 'Customer', 'Date', 'Due', 'Total', 'Outstanding', 'Status', 'Actions'].map(h => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#9CA3AF', fontWeight: 500 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.map(inv => (
+                <tr key={inv.id} style={{ borderTop: '1px solid #374151' }}>
+                  <td style={{ padding: '10px 14px', color: '#f97316', fontFamily: 'monospace', fontSize: 12 }}>{inv.invoice_number}</td>
+                  <td style={{ padding: '10px 14px' }}>{(inv as any).customer_name || inv.customer_id}</td>
+                  <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{inv.invoice_date}</td>
+                  <td style={{ padding: '10px 14px', color: '#9CA3AF' }}>{inv.due_date}</td>
+                  <td style={{ padding: '10px 14px', fontWeight: 600 }}>{inv.currency} {inv.total_amount?.toLocaleString('en-SG', { minimumFractionDigits: 2 })}</td>
+                  <td style={{ padding: '10px 14px', color: inv.outstanding > 0 ? '#f59e0b' : '#16a34a' }}>
+                    {inv.currency} {inv.outstanding?.toLocaleString('en-SG', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <span style={{ background: (STATUS_COLOR[inv.status] || '#6B7280') + '22', color: STATUS_COLOR[inv.status] || '#6B7280', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                      {inv.status?.toUpperCase()}
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    {inv.status === 'draft' && (
+                      <button onClick={() => handleSend(inv.id)}
+                        style={{ background: '#3b82f622', color: '#3b82f6', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
+                        Send
+                      </button>
+                    )}
+                    {inv.status !== 'void' && inv.status !== 'paid' && (
+                      <button onClick={() => handleVoid(inv.id)}
+                        style={{ background: '#dc262622', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>
+                        Void
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -304,3 +304,234 @@ export interface HRLeaveDashboard {
     last_updated: string
   }>
 }
+
+// ─── Finance Module Types ─────────────────────────────────────────────────
+
+export interface FinEntity {
+  id: string
+  code: string
+  name: string
+  entity_type: 'subsidiary' | 'holding' | 'branch' | 'group'
+  country_code?: string
+  base_currency: string
+  parent_entity_id?: string
+  tax_id?: string
+  is_active: boolean
+  created_at: string
+}
+
+export interface FinAccount {
+  id: string
+  entity_id: string
+  category_id: string
+  code: string
+  name: string
+  description?: string
+  currency: string
+  account_type: string
+  is_bank_account: boolean
+  is_control: boolean
+  is_active: boolean
+}
+
+export interface JournalLine {
+  id?: string
+  account_id: string
+  description?: string
+  debit_amount: number
+  credit_amount: number
+  currency?: string
+  tax_code?: string
+  line_order?: number
+}
+
+export interface JournalEntry {
+  id: string
+  entity_id: string
+  period_id?: string
+  entry_number: string
+  entry_date: string
+  description: string
+  reference?: string
+  currency: string
+  exchange_rate: number
+  status: 'draft' | 'posted' | 'reversed'
+  created_at: string
+  lines?: JournalLine[]
+}
+
+export interface LineItem {
+  description: string
+  quantity: number
+  unit_price: number
+  tax_rate?: number
+  amount?: number
+}
+
+export interface FinCustomer {
+  id: string
+  entity_id: string
+  customer_code: string
+  name: string
+  company_name?: string
+  email?: string
+  phone?: string
+  currency: string
+  payment_terms: number
+  is_active: boolean
+  created_at: string
+}
+
+export interface FinVendor {
+  id: string
+  entity_id: string
+  vendor_code: string
+  name: string
+  company_name?: string
+  email?: string
+  currency: string
+  payment_terms: number
+  is_active: boolean
+  created_at: string
+}
+
+export interface FinInvoice {
+  id: string
+  entity_id: string
+  invoice_number: string
+  customer_id: string
+  customer_name?: string
+  invoice_date: string
+  due_date: string
+  currency: string
+  subtotal: number
+  tax_amount: number
+  total_amount: number
+  paid_amount: number
+  outstanding: number
+  status: 'draft' | 'sent' | 'partial' | 'paid' | 'overdue' | 'cancelled' | 'void'
+  line_items: LineItem[]
+  created_at: string
+}
+
+export interface FinQuote {
+  id: string
+  entity_id: string
+  quote_number: string
+  customer_id: string
+  customer_name?: string
+  quote_date: string
+  expiry_date?: string
+  currency: string
+  subtotal: number
+  tax_amount: number
+  total_amount: number
+  status: 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'converted'
+  created_at: string
+}
+
+export interface FinBill {
+  id: string
+  entity_id: string
+  bill_number: string
+  vendor_id: string
+  vendor_name?: string
+  bill_date: string
+  due_date: string
+  currency: string
+  total_amount: number
+  paid_amount: number
+  outstanding: number
+  status: 'pending' | 'approved' | 'partial' | 'paid' | 'cancelled'
+  created_at: string
+}
+
+export interface FinPayment {
+  id: string
+  entity_id: string
+  payment_number: string
+  payment_type: 'receipt' | 'payment'
+  payment_date: string
+  currency: string
+  amount: number
+  payment_method?: string
+  reference?: string
+  created_at: string
+}
+
+export interface FinExpense {
+  id: string
+  entity_id: string
+  expense_number: string
+  expense_date: string
+  category: string
+  description: string
+  currency: string
+  amount: number
+  tax_amount: number
+  status: 'pending' | 'approved' | 'rejected' | 'reimbursed'
+  created_at: string
+}
+
+export interface FinBankAccount {
+  id: string
+  entity_id: string
+  bank_name: string
+  account_name: string
+  account_number?: string
+  currency: string
+  current_balance: number
+  last_reconciled?: string
+  is_active: boolean
+}
+
+export interface FinShareholder {
+  id: string
+  entity_id: string
+  name: string
+  shareholder_type: 'individual' | 'company'
+  share_class: string
+  shares_held: number
+  ownership_pct?: number
+  effective_date: string
+  is_active: boolean
+}
+
+export interface FinPeriod {
+  id: string
+  entity_id: string
+  name: string
+  period_type: 'monthly' | 'quarterly' | 'annual'
+  start_date: string
+  end_date: string
+  status: 'open' | 'closed' | 'locked'
+}
+
+export interface FinTaxCode {
+  id: string
+  entity_id: string
+  code: string
+  name: string
+  tax_type: string
+  rate: number
+  applies_to: string
+  is_active: boolean
+}
+
+export interface FinanceDashboardData {
+  kpis: {
+    ar_outstanding: number
+    ap_outstanding: number
+    cash_balance: number
+  }
+  pnl_mtd: {
+    total_income: number
+    total_expenses: number
+    net_profit: number
+  }
+  ar_aging: {
+    buckets: Record<string, any[]>
+    total_outstanding: number
+  }
+  recent_journal_entries: JournalEntry[]
+}

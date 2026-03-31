@@ -1,11 +1,27 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange } from 'lucide-react'
+import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange, BarChart3, BookOpen, FileText, MessageSquare, Inbox, CreditCard, UserCircle, Building2, Landmark, Receipt, PieChart, Settings } from 'lucide-react'
 import clsx from 'clsx'
 import { portalApi } from '../../api/portal'
 
 const HR_ROLES = ['hr_viewer', 'hr_staff', 'hr_manager', 'executive', 'admin']
+const FINANCE_ROLES = ['finance_viewer', 'finance_manager', 'executive', 'admin', 'cfo', 'ceo']
+
+const FINANCE_NAV_ITEMS = [
+  { path: '/mission-control/finance', label: 'Dashboard', icon: BarChart3 },
+  { path: '/mission-control/finance/journal', label: 'Journal Entries', icon: BookOpen },
+  { path: '/mission-control/finance/invoices', label: 'Invoices', icon: FileText },
+  { path: '/mission-control/finance/quotes', label: 'Quotes', icon: MessageSquare },
+  { path: '/mission-control/finance/bills', label: 'Bills', icon: Inbox },
+  { path: '/mission-control/finance/payments', label: 'Payments', icon: CreditCard },
+  { path: '/mission-control/finance/customers', label: 'Customers', icon: UserCircle },
+  { path: '/mission-control/finance/vendors', label: 'Vendors', icon: Building2 },
+  { path: '/mission-control/finance/bank-accounts', label: 'Bank Accounts', icon: Landmark },
+  { path: '/mission-control/finance/expenses', label: 'Expenses', icon: Receipt },
+  { path: '/mission-control/finance/reports', label: 'Reports', icon: PieChart },
+  { path: '/mission-control/finance/entities', label: 'Settings', icon: Settings },
+]
 
 const NAV_ITEMS = [
   { path: '/mission-control/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -34,6 +50,7 @@ export default function Sidebar() {
   const user = useAuthStore((s) => s.user)
   const [activeBgCount, setActiveBgCount] = useState(0)
   const showHR = user?.role ? HR_ROLES.includes(user.role) : false
+  const showFinance = user?.role ? FINANCE_ROLES.includes(user.role) : false
 
   useEffect(() => {
     let cancelled = false
@@ -138,6 +155,37 @@ export default function Sidebar() {
             </NavLink>
           ))}
         </>
+
+        {showFinance && (
+          <>
+            <div className="pt-2 pb-1">
+              <div className="px-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#4B5563' }}>
+                Finance
+              </div>
+            </div>
+            {FINANCE_NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/mission-control/finance'}
+                className={({ isActive }) =>
+                  clsx(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
+                    isActive
+                      ? 'text-white font-medium'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  )
+                }
+                style={({ isActive }) =>
+                  isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
+                }
+              >
+                <item.icon size={16} />
+                <span className="flex-1">{item.label}</span>
+              </NavLink>
+            ))}
+          </>
+        )}
 
         {showHR && (
           <>
