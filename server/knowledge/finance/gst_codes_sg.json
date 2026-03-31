@@ -1,0 +1,90 @@
+{
+  "country": "Singapore",
+  "effective_date": "2024-01-01",
+  "standard_rate": 9.0,
+  "codes": [
+    {
+      "code": "SR",
+      "name": "Standard Rate",
+      "rate": 9.0,
+      "type": "gst",
+      "applies_to": "sales",
+      "description": "Standard-rated supply"
+    },
+    {
+      "code": "ZR",
+      "name": "Zero Rate",
+      "rate": 0.0,
+      "type": "gst",
+      "applies_to": "sales",
+      "description": "Zero-rated supply (exports, international services)"
+    },
+    {
+      "code": "ES",
+      "name": "Exempt Supply",
+      "rate": 0.0,
+      "type": "gst",
+      "applies_to": "sales",
+      "description": "Exempt supply (financial services, residential property)"
+    },
+    {
+      "code": "OS",
+      "name": "Out of Scope",
+      "rate": 0.0,
+      "type": "gst",
+      "applies_to": "both",
+      "description": "Out of scope (third-country sales, private transactions)"
+    },
+    {
+      "code": "TX",
+      "name": "Input Tax",
+      "rate": 9.0,
+      "type": "gst",
+      "applies_to": "purchases",
+      "description": "Standard-rated purchase with claimable input tax"
+    },
+    {
+      "code": "BL",
+      "name": "Blocked Input Tax",
+      "rate": 9.0,
+      "type": "gst",
+      "applies_to": "purchases",
+      "description": "Input tax blocked (entertainment, motor cars)"
+    },
+    {
+      "code": "IM",
+      "name": "Imports",
+      "rate": 9.0,
+      "type": "gst",
+      "applies_to": "purchases",
+      "description": "GST on imports"
+    },
+    {
+      "code": "WHT15",
+      "name": "Withholding Tax 15%",
+      "rate": 15.0,
+      "type": "withholding",
+      "applies_to": "both",
+      "description": "Withholding tax on payments to non-residents"
+    },
+    {
+      "code": "WHT10",
+      "name": "Withholding Tax 10%",
+      "rate": 10.0,
+      "type": "withholding",
+      "applies_to": "both",
+      "description": "Withholding tax on management fees"
+    }
+  ],
+  "gst_f5_boxes": {
+    "box1": "Total value of standard-rated supplies",
+    "box2": "Total value of zero-rated supplies",
+    "box3": "Total value of exempt supplies",
+    "box4": "Total value of supplies (Box 1+2+3)",
+    "box5": "Total value of taxable purchases",
+    "box6": "Output tax due",
+    "box7": "Input tax and refunds claimed",
+    "box8": "GST to be paid to IRAS (Box 6 - Box 7)",
+    "box9": "GST to be claimed from IRAS (Box 7 - Box 6)"
+  }
+}

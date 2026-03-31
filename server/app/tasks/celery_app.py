@@ -27,6 +27,7 @@ celery_app = Celery(
         "app.tasks.orchestrator_tasks",
         "app.tasks.webhook_tasks",
         "app.tasks.sales_lead_tasks",
+        "app.tasks.finance_tasks",
     ],
 )
 
