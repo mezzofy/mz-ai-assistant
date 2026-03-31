@@ -56,7 +56,7 @@ export default function Reports() {
   const currency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
 
   return (
-    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+    <div className="space-y-5">
       <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Financial Reports</h1>
 
       {/* Controls */}

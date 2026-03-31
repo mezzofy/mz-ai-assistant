@@ -14,6 +14,9 @@ export default function Bills() {
   const [entityId, setEntityId] = useState('')
   const [entities, setEntities] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [showNewModal, setShowNewModal] = useState(false)
+  const [newForm, setNewForm] = useState({ vendor_name: '', bill_date: new Date().toISOString().slice(0,10), due_date: '', reference: '', currency: 'SGD', notes: '' })
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     portalApi.getFinanceEntities().then(r => {
@@ -41,13 +44,20 @@ export default function Bills() {
   const currency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
 
   return (
-    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Bills</h1>
-        <select value={entityId} onChange={e => setEntityId(e.target.value)}
-          style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
-          {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-        </select>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <select value={entityId} onChange={e => setEntityId(e.target.value)}
+            style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
+            {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <button onClick={() => setShowNewModal(true)}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+            style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
+            + New Bill
+          </button>
+        </div>
       </div>
 
       {/* Status tabs */}
@@ -104,6 +114,44 @@ export default function Bills() {
           </table>
         )}
       </div>
+      {showNewModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#1F2937', borderRadius: 10, padding: 28, width: 480, border: '1px solid #374151' }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>New Bill</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                { label: 'Vendor Name *', key: 'vendor_name', type: 'text' },
+                { label: 'Bill Date *', key: 'bill_date', type: 'date' },
+                { label: 'Due Date *', key: 'due_date', type: 'date' },
+                { label: 'Reference', key: 'reference', type: 'text' },
+                { label: 'Currency', key: 'currency', type: 'text' },
+                { label: 'Notes', key: 'notes', type: 'text' },
+              ].map(f => (
+                <div key={f.key}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>{f.label}</div>
+                  <input type={f.type} value={(newForm as any)[f.key]} onChange={e => setNewForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowNewModal(false)} style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button onClick={async () => {
+                setCreating(true)
+                try {
+                  await portalApi.createBill({ entity_id: entityId, ...newForm, line_items: [] })
+                  setShowNewModal(false)
+                  setNewForm({ vendor_name: '', bill_date: new Date().toISOString().slice(0,10), due_date: '', reference: '', currency: currency, notes: '' })
+                  setLoading(true)
+                  portalApi.getBills(entityId, activeTab === 'All' ? undefined : activeTab).then(r => setBills(r.data?.data || [])).finally(() => setLoading(false))
+                } catch { /* ignore */ } finally { setCreating(false) }
+              }} disabled={creating} className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all" style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
+                {creating ? 'Creating...' : 'Create Bill'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

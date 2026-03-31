@@ -48,7 +48,7 @@ export default function FinanceDashboard() {
   const currency = entities.find(e => e.id === selectedEntity)?.base_currency || 'SGD'
 
   return (
-    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

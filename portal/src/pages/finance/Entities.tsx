@@ -8,6 +8,10 @@ export default function Entities() {
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ code: '', name: '', entity_type: 'subsidiary', country_code: 'SG', base_currency: 'SGD', business_id: '', tax_id: '' })
   const [saving, setSaving] = useState(false)
+  const [viewEntity, setViewEntity] = useState<FinEntity | null>(null)
+  const [editEntity, setEditEntity] = useState<FinEntity | null>(null)
+  const [editForm, setEditForm] = useState({ code: '', name: '', entity_type: 'subsidiary', country_code: 'SG', base_currency: 'SGD', business_id: '', tax_id: '' })
+  const [editSaving, setEditSaving] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -35,7 +39,7 @@ export default function Entities() {
   const ENTITY_TYPES = ['subsidiary', 'holding', 'branch', 'group']
 
   return (
-    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Legal Entities</h1>
@@ -57,7 +61,7 @@ export default function Entities() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#374151' }}>
-                {['Code', 'Name', 'Type', 'Country', 'Currency', 'Business ID', 'Tax ID', 'Status'].map(h => (
+                {['Code', 'Name', 'Type', 'Country', 'Currency', 'Business ID', 'Tax ID', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#9CA3AF', fontWeight: 500 }}>{h}</th>
                 ))}
               </tr>
@@ -76,6 +80,20 @@ export default function Entities() {
                     <span style={{ background: e.is_active ? '#16a34a22' : '#6B728022', color: e.is_active ? '#16a34a' : '#9CA3AF', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
                       {e.is_active ? 'ACTIVE' : 'INACTIVE'}
                     </span>
+                  </td>
+                  <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                    <button onClick={() => setViewEntity(e)}
+                      style={{ background: '#3b82f622', color: '#3b82f6', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
+                      View
+                    </button>
+                    <button onClick={() => { setEditEntity(e); setEditForm({ code: e.code, name: e.name, entity_type: e.entity_type, country_code: e.country_code || 'SG', base_currency: e.base_currency, business_id: (e as any).business_id || '', tax_id: e.tax_id || '' }) }}
+                      style={{ background: '#f9731622', color: '#f97316', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
+                      Edit
+                    </button>
+                    <button onClick={async () => { if (!confirm('Delete this entity?')) return; await (portalApi as any).deleteFinanceEntity(e.id); load() }}
+                      style={{ background: '#dc262622', color: '#dc2626', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -121,6 +139,85 @@ export default function Entities() {
               <button onClick={() => setShowModal(false)} style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
               <button onClick={handleSave} disabled={saving} style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                 {saving ? 'Saving...' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewEntity && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#1F2937', borderRadius: 10, padding: 28, width: 480, border: '1px solid #374151' }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>Entity Details</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[
+                ['Code', viewEntity.code],
+                ['Name', viewEntity.name],
+                ['Entity Type', viewEntity.entity_type],
+                ['Country', viewEntity.country_code || '—'],
+                ['Base Currency', viewEntity.base_currency],
+                ['Business ID', (viewEntity as any).business_id || '—'],
+                ['Tax ID', viewEntity.tax_id || '—'],
+                ['Status', viewEntity.is_active ? 'Active' : 'Inactive'],
+                ['Created', viewEntity.created_at ? new Date(viewEntity.created_at).toLocaleDateString() : '—'],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', gap: 12 }}>
+                  <span style={{ color: '#9CA3AF', fontSize: 12, width: 110, flexShrink: 0 }}>{label}</span>
+                  <span style={{ fontSize: 13 }}>{value}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setViewEntity(null)} style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editEntity && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#1F2937', borderRadius: 10, padding: 28, width: 440, border: '1px solid #374151' }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>Edit Entity</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                { label: 'Code *', key: 'code' },
+                { label: 'Name *', key: 'name' },
+                { label: 'Business ID', key: 'business_id' },
+                { label: 'Tax ID', key: 'tax_id' },
+              ].map(f => (
+                <div key={f.key}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>{f.label}</div>
+                  <input value={(editForm as any)[f.key]} onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))} style={inputStyle} />
+                </div>
+              ))}
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Entity Type</div>
+                <select value={editForm.entity_type} onChange={e => setEditForm(p => ({ ...p, entity_type: e.target.value }))} style={inputStyle}>
+                  {ENTITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Country</div>
+                  <input value={editForm.country_code} onChange={e => setEditForm(p => ({ ...p, country_code: e.target.value }))} style={inputStyle} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Base Currency</div>
+                  <input value={editForm.base_currency} onChange={e => setEditForm(p => ({ ...p, base_currency: e.target.value }))} style={inputStyle} />
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+              <button onClick={() => setEditEntity(null)} style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button onClick={async () => {
+                setEditSaving(true)
+                try {
+                  await (portalApi as any).updateFinanceEntity(editEntity.id, editForm)
+                  setEditEntity(null)
+                  load()
+                } catch { /* ignore */ } finally { setEditSaving(false) }
+              }} disabled={editSaving} style={{ background: '#f97316', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                {editSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

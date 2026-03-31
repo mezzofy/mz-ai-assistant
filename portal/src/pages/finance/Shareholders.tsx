@@ -26,7 +26,7 @@ export default function Shareholders() {
   }, [entityId])
 
   return (
-    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Shareholders</h1>
         <select value={entityId} onChange={e => setEntityId(e.target.value)}

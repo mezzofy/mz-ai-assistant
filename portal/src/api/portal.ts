@@ -173,6 +173,10 @@ export const portalApi = {
     client.get('/api/finance/entities'),
   createFinanceEntity: (data: any) =>
     client.post('/api/finance/entities', data),
+  updateFinanceEntity: (id: string, data: any) =>
+    client.put(`/api/finance/entities/${id}`, data),
+  deleteFinanceEntity: (id: string) =>
+    client.delete(`/api/finance/entities/${id}`),
   getFinanceAccounts: (entityId: string) =>
     client.get(`/api/finance/accounts?entity_id=${entityId}`),
   createFinanceAccount: (data: any) =>

@@ -13,6 +13,10 @@ export default function JournalEntries() {
   const [entityId, setEntityId] = useState('')
   const [entities, setEntities] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [showNewModal, setShowNewModal] = useState(false)
+  const [newForm, setNewForm] = useState({ description: '', entry_date: new Date().toISOString().slice(0,10), reference: '', currency: 'SGD' })
+  const [lines, setLines] = useState([{ account_id: '', description: '', debit_amount: '', credit_amount: '' }, { account_id: '', description: '', debit_amount: '', credit_amount: '' }])
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     portalApi.getFinanceEntities().then(r => {
@@ -46,13 +50,20 @@ export default function JournalEntries() {
   const currency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
 
   return (
-    <div className="space-y-5" style={{ color: '#F9FAFB', padding: 24 }}>
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}>Journal Entries</h1>
-        <select value={entityId} onChange={e => setEntityId(e.target.value)}
-          style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
-          {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-        </select>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <select value={entityId} onChange={e => setEntityId(e.target.value)}
+            style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
+            {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <button onClick={() => setShowNewModal(true)}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+            style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
+            + New Entry
+          </button>
+        </div>
       </div>
 
       {/* Status tabs */}
@@ -112,6 +123,98 @@ export default function JournalEntries() {
           </table>
         )}
       </div>
+      {showNewModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#1F2937', borderRadius: 10, padding: 28, width: 600, border: '1px solid #374151', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>New Journal Entry</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 2 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Description *</div>
+                  <input value={newForm.description} onChange={e => setNewForm(p => ({ ...p, description: e.target.value }))}
+                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Date *</div>
+                  <input type="date" value={newForm.entry_date} onChange={e => setNewForm(p => ({ ...p, entry_date: e.target.value }))}
+                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 2 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Reference</div>
+                  <input value={newForm.reference} onChange={e => setNewForm(p => ({ ...p, reference: e.target.value }))}
+                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Currency</div>
+                  <input value={newForm.currency} onChange={e => setNewForm(p => ({ ...p, currency: e.target.value }))}
+                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+                </div>
+              </div>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 8 }}>Journal Lines (min 2)</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#374151' }}>
+                      {['Account ID', 'Description', 'Debit', 'Credit', ''].map(h => (
+                        <th key={h} style={{ padding: '6px 8px', textAlign: 'left', color: '#9CA3AF', fontWeight: 500 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((line, i) => (
+                      <tr key={i}>
+                        {(['account_id', 'description', 'debit_amount', 'credit_amount'] as const).map(field => (
+                          <td key={field} style={{ padding: '4px 4px' }}>
+                            <input value={(line as any)[field]} onChange={e => setLines(prev => prev.map((l, j) => j === i ? { ...l, [field]: e.target.value } : l))}
+                              style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 4, padding: '5px 8px', fontSize: 12, width: '100%', boxSizing: 'border-box' as const }} />
+                          </td>
+                        ))}
+                        <td style={{ padding: '4px 4px' }}>
+                          {lines.length > 2 && (
+                            <button onClick={() => setLines(prev => prev.filter((_, j) => j !== i))}
+                              style={{ background: '#dc262622', color: '#dc2626', border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: 11 }}>✕</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button onClick={() => setLines(prev => [...prev, { account_id: '', description: '', debit_amount: '', credit_amount: '' }])}
+                  style={{ marginTop: 8, background: '#374151', color: '#9CA3AF', border: 'none', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>
+                  + Add Line
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowNewModal(false); setLines([{ account_id: '', description: '', debit_amount: '', credit_amount: '' }, { account_id: '', description: '', debit_amount: '', credit_amount: '' }]) }}
+                style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button onClick={async () => {
+                setCreating(true)
+                try {
+                  await portalApi.createJournalEntry({
+                    entity_id: entityId,
+                    entry_date: newForm.entry_date,
+                    description: newForm.description,
+                    reference: newForm.reference || undefined,
+                    currency: newForm.currency,
+                    lines: lines.map(l => ({ account_id: l.account_id, description: l.description, debit_amount: parseFloat(l.debit_amount) || 0, credit_amount: parseFloat(l.credit_amount) || 0 }))
+                  })
+                  setShowNewModal(false)
+                  setNewForm({ description: '', entry_date: new Date().toISOString().slice(0,10), reference: '', currency: currency })
+                  setLines([{ account_id: '', description: '', debit_amount: '', credit_amount: '' }, { account_id: '', description: '', debit_amount: '', credit_amount: '' }])
+                  // Reload
+                  setLoading(true)
+                  portalApi.getJournalEntries(entityId, activeTab === 'All' ? undefined : activeTab).then(r => setEntries(r.data?.data || [])).finally(() => setLoading(false))
+                } catch { /* ignore */ } finally { setCreating(false) }
+              }} disabled={creating} className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all" style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
+                {creating ? 'Creating...' : 'Create Entry'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
