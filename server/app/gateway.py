@@ -51,6 +51,7 @@ _BYPASS_PREFIXES = (
     "/admin/",       # Admin routes use require_role dependency directly
     "/chat/ws",      # WebSocket handles JWT auth inside the connection handler
     "/api/admin-portal/ws",    # admin portal real-time WebSocket (JWT via ?token= param)
+    "/contact",      # Public contact form — no JWT, accessible from mezzofy.com website
 )
 
 

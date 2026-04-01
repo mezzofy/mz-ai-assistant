@@ -295,8 +295,11 @@ logging:
 # CORS
 cors:
   allowed_origins:
-    - "http://localhost:8081"     # React Native Metro bundler
+    - "http://localhost:8081"           # React Native Metro bundler
     - "https://assistant.mezzofy.com"
+    - "https://mezzofy.com"             # Production website (contact form)
+    - "https://www.mezzofy.com"
+    - "https://mezzofy.github.io"       # GitHub Pages staging
 
 # Mission Control Admin Portal
 admin_portal:
