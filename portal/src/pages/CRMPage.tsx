@@ -32,12 +32,7 @@ export default function CRMPage() {
   const [searchInput, setSearchInput] = useState('')
   const [country, setCountry] = useState('')
   const [countryInput, setCountryInput] = useState('')
-  const [showNewModal, setShowNewModal] = useState(false)
   const [editLead, setEditLead] = useState<Lead | null>(null)
-  const [newForm, setNewForm] = useState({
-    company_name: '', contact_name: '', contact_email: '',
-    contact_phone: '', industry: '', location: '', source: 'manual', status: 'new', notes: '', lead_type: 'buyer',
-  })
 
   const qc = useQueryClient()
 
@@ -64,17 +59,6 @@ export default function CRMPage() {
     queryFn: () => portalApi.getUsers().then(r => r.data),
   })
   const users: User[] = usersData?.users || []
-
-  const createMutation = useMutation({
-    mutationFn: (data: typeof newForm) => portalApi.createLead(data as Record<string, unknown>),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['crm-leads'] })
-      qc.invalidateQueries({ queryKey: ['crm-countries'] })
-      qc.invalidateQueries({ queryKey: ['crm-pipeline'] })
-      setShowNewModal(false)
-      setNewForm({ company_name: '', contact_name: '', contact_email: '', contact_phone: '', industry: '', location: '', source: 'manual', status: 'new', notes: '', lead_type: 'buyer' })
-    },
-  })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => portalApi.updateLead(id, data),
@@ -108,7 +92,7 @@ export default function CRMPage() {
           </span>
         </div>
         <button
-          onClick={() => setShowNewModal(true)}
+          onClick={() => navigate('/mission-control/crm/leads/new')}
           className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
           style={{ background: '#f97316' }}
         >
@@ -286,101 +270,6 @@ export default function CRMPage() {
           </button>
         </div>
       </div>
-
-      {/* New Lead Modal */}
-      {showNewModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-3xl rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A', padding: '1em', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 className="text-base font-semibold text-white mb-4">New Lead</h3>
-            <div className="space-y-4">
-              {/* Row 1: Company / Industry / Location / Type */}
-              <div className="grid grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Company Name *</label>
-                  <input type="text" value={newForm.company_name} onChange={e => setNewForm(f => ({ ...f, company_name: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Industry</label>
-                  <input type="text" value={newForm.industry} onChange={e => setNewForm(f => ({ ...f, industry: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Location / Country</label>
-                  <input type="text" value={newForm.location} onChange={e => setNewForm(f => ({ ...f, location: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Type</label>
-                  <select value={newForm.lead_type} onChange={e => setNewForm(p => ({ ...p, lead_type: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }}>
-                    <option value="buyer">Buyer</option>
-                    <option value="merchant">Merchant</option>
-                    <option value="partner">Partner</option>
-                  </select>
-                </div>
-              </div>
-              {/* Row 2: Contact Name / Email / Phone / Source */}
-              <div className="grid grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Contact Name</label>
-                  <input type="text" value={newForm.contact_name} onChange={e => setNewForm(f => ({ ...f, contact_name: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Email</label>
-                  <input type="email" value={newForm.contact_email} onChange={e => setNewForm(f => ({ ...f, contact_email: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Phone</label>
-                  <input type="text" value={newForm.contact_phone} onChange={e => setNewForm(f => ({ ...f, contact_phone: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Source</label>
-                  <select value={newForm.source} onChange={e => setNewForm(f => ({ ...f, source: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }}>
-                    {['manual', 'linkedin', 'website', 'referral', 'event', 'email', 'web'].map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {/* Row 3: Status */}
-              <div className="grid grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Status</label>
-                  <select value={newForm.status} onChange={e => setNewForm(f => ({ ...f, status: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none" style={{ background: '#1E2A3A', borderColor: '#374151' }}>
-                    {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {/* Row 4: Notes */}
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Notes</label>
-                <textarea value={newForm.notes} onChange={e => setNewForm(f => ({ ...f, notes: e.target.value }))}
-                  rows={3} className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none resize-none"
-                  style={{ background: '#1E2A3A', borderColor: '#374151' }} />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => setShowNewModal(false)} className="px-4 py-2 rounded-lg text-sm text-gray-400">Cancel</button>
-              <button
-                onClick={() => createMutation.mutate(newForm)}
-                disabled={createMutation.isPending || !newForm.company_name.trim()}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: '#f97316' }}
-              >
-                {createMutation.isPending ? 'Creating...' : 'Create Lead'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Edit Lead Modal */}
       {editLead && (
