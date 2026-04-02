@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { portalApi } from '../api/portal'
 import type { FileRecord, FolderGroup } from '../types'
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function FileTypeAvatar({ type }: { type: string }) {
   const label = (type || 'file').slice(0, 3).toUpperCase()
   return (
@@ -22,37 +24,47 @@ function formatBytes(bytes: number | null) {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`
 }
 
-function folderLabel(g: FolderGroup) {
+function groupLabel(g: FolderGroup) {
   const dept = g.department ? g.department.toUpperCase() : null
-  if (g.scope === 'company') return 'COMPANY'
+  if (g.scope === 'company') return 'Company'
   if (g.scope === 'department' && dept) return dept
-  if (g.scope === 'shared' && dept) return `${dept} / SHARED`
-  if (g.scope === 'shared') return 'SHARED'
-  if (g.scope === 'personal' && g.owner_email) {
-    return `PERSONAL / ${g.owner_email.split('@')[0].toUpperCase()}`
-  }
-  return dept || g.scope.toUpperCase()
+  if (g.scope === 'shared' && dept) return `${dept} / Shared`
+  if (g.scope === 'shared') return 'Shared'
+  if (g.scope === 'personal' && g.owner_email)
+    return `${g.owner_email.split('@')[0].toUpperCase()}`
+  return dept || g.scope
 }
 
-const DEPT_ORDER = ['company', 'management', 'finance', 'hr', 'sales', 'marketing', 'support']
-
-interface FlatFile extends FileRecord {
-  folderLabel: string
-  subfolderLabel: string | null
+function groupIcon(g: FolderGroup) {
+  if (g.scope === 'company') return '🏢'
+  if (g.scope === 'personal') return '👤'
+  return '📁'
 }
+
+const SCOPE_ORDER = ['company', 'department', 'shared']
+const DEPT_ORDER = ['management', 'finance', 'hr', 'sales', 'marketing', 'support']
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type NavView =
+  | { type: 'root' }
+  | { type: 'group'; group: FolderGroup; label: string }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function FilesPage() {
   const qc = useQueryClient()
+  const [view, setView] = useState<NavView>({ type: 'root' })
   const [searchQuery, setSearchQuery] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<FileRecord | null>(null)
   const [renamingFile, setRenamingFile] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [uploadDept, setUploadDept] = useState('')
-  const [uploadScope, setUploadScope] = useState('shared')
+  const [uploadScope, setUploadScope] = useState('company')
   const [showUpload, setShowUpload] = useState(false)
   const uploadRef = useRef<HTMLInputElement>(null)
 
-  const { data: folderData } = useQuery({
+  const { data: folderData, isLoading } = useQuery({
     queryKey: ['folder-tree'],
     queryFn: () => portalApi.getFolderTree().then((r) => r.data),
   })
@@ -73,11 +85,11 @@ export default function FilesPage() {
     },
   })
 
-  const folders: FolderGroup[] = (folderData?.folders || [])
-    .filter((g: FolderGroup) => g.scope !== 'personal')
-    .sort((a: FolderGroup, b: FolderGroup) => {
-      if (a.scope === 'company' && b.scope !== 'company') return -1
-      if (b.scope === 'company' && a.scope !== 'company') return 1
+  const groups: FolderGroup[] = ((folderData?.folders || []) as FolderGroup[])
+    .filter((g) => g.scope !== 'personal')
+    .sort((a, b) => {
+      const si = SCOPE_ORDER.indexOf(a.scope) - SCOPE_ORDER.indexOf(b.scope)
+      if (si !== 0) return si
       const ai = DEPT_ORDER.indexOf((a.department || '').toLowerCase())
       const bi = DEPT_ORDER.indexOf((b.department || '').toLowerCase())
       if (ai === -1 && bi === -1) return 0
@@ -86,19 +98,7 @@ export default function FilesPage() {
       return ai - bi
     })
 
-  const allFiles: FlatFile[] = folders.flatMap((g) =>
-    g.files.map((f) => ({
-      ...f,
-      folderLabel: folderLabel(g),
-      subfolderLabel: f.subfolder ? f.subfolder.toUpperCase() : null,
-    }))
-  )
-
-  const displayed: FlatFile[] = searchQuery.trim()
-    ? allFiles.filter((f) =>
-        f.filename.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : allFiles
+  const totalFiles = groups.reduce((n, g) => n + g.files.length, 0)
 
   const handleRename = (file: FileRecord) => {
     setRenamingFile(file.id)
@@ -123,22 +123,168 @@ export default function FilesPage() {
     }
   }
 
+  // ── Root view ────────────────────────────────────────────────────────────────
+
+  if (view.type === 'root') {
+    return (
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              Files
+            </h1>
+            <p className="text-xs mt-1" style={{ color: '#6B7280' }}>
+              {isLoading ? 'Loading...' : `${totalFiles} file${totalFiles !== 1 ? 's' : ''} across ${groups.length} folder${groups.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
+          <button
+            onClick={() => { setUploadDept(''); setUploadScope('company'); setShowUpload(true) }}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all flex-shrink-0"
+            style={{ background: '#f97316' }}
+          >
+            + Upload File
+          </button>
+        </div>
+
+        {/* Folder cards */}
+        {isLoading ? (
+          <div className="py-12 text-center text-xs" style={{ color: '#6B7280' }}>Loading folders...</div>
+        ) : groups.length === 0 ? (
+          <div className="py-12 text-center text-xs" style={{ color: '#6B7280' }}>No folders yet.</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {groups.map((g, i) => {
+              const label = groupLabel(g)
+              return (
+                <button
+                  key={i}
+                  onClick={() => { setView({ type: 'group', group: g, label }); setSearchQuery('') }}
+                  className="text-left p-5 rounded-xl border transition-all hover:bg-white/5"
+                  style={{ background: '#111827', borderColor: '#1E2A3A' }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-3xl">{groupIcon(g)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-white">{label}</div>
+                      <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
+                        {g.scope === 'company' ? 'Shared company files' : `${label} department files`}
+                      </div>
+                      <div className="flex gap-3 mt-2">
+                        <span className="text-xs" style={{ color: '#f97316' }}>
+                          {g.files.length} file{g.files.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Upload Modal */}
+        {showUpload && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+            <div className="w-full max-w-sm p-6 rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+              <h3 className="text-base font-semibold text-white mb-4">Upload File</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Department (optional)</label>
+                  <input
+                    type="text"
+                    value={uploadDept}
+                    onChange={(e) => setUploadDept(e.target.value)}
+                    placeholder="e.g. finance"
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Scope</label>
+                  <select
+                    value={uploadScope}
+                    onChange={(e) => setUploadScope(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
+                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                  >
+                    <option value="company">company</option>
+                    <option value="shared">shared</option>
+                    <option value="department">department</option>
+                  </select>
+                </div>
+                <div>
+                  <input
+                    type="file"
+                    ref={uploadRef}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleUploadFile(file)
+                      e.target.value = ''
+                    }}
+                  />
+                  <button
+                    onClick={() => uploadRef.current?.click()}
+                    className="w-full py-2 rounded-lg text-sm font-medium text-white transition-all"
+                    style={{ background: '#f97316' }}
+                  >
+                    Choose File & Upload
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => setShowUpload(false)}
+                  className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Group (folder detail) view ────────────────────────────────────────────────
+
+  const currentGroup = view.group
+  const currentLabel = view.label
+
+  const displayed = searchQuery.trim()
+    ? currentGroup.files.filter((f) => f.filename.toLowerCase().includes(searchQuery.toLowerCase()))
+    : currentGroup.files
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-white flex-shrink-0" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Breadcrumb */}
+          <button
+            onClick={() => setView({ type: 'root' })}
+            className="text-sm hover:text-white transition-colors"
+            style={{ color: '#6B7280' }}
+          >
             Files
-          </h1>
-          <span className="text-sm" style={{ color: '#6B7280' }}>
-            {searchQuery.trim()
-              ? `${displayed.length} result${displayed.length !== 1 ? 's' : ''}`
-              : `${allFiles.length} file${allFiles.length !== 1 ? 's' : ''}`}
+          </button>
+          <span style={{ color: '#374151' }}>/</span>
+          <span className="text-sm font-medium text-white">{currentLabel}</span>
+          <span className="text-xs ml-1" style={{ color: '#6B7280' }}>
+            {`${displayed.length} file${displayed.length !== 1 ? 's' : ''}`}
           </span>
         </div>
         <button
-          onClick={() => setShowUpload(true)}
+          onClick={() => {
+            setUploadDept(currentGroup.department || '')
+            setUploadScope(currentGroup.scope)
+            setShowUpload(true)
+          }}
           className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all flex-shrink-0"
           style={{ background: '#f97316' }}
         >
@@ -172,27 +318,16 @@ export default function FilesPage() {
       <div className="rounded-xl border overflow-hidden" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
         {displayed.length === 0 ? (
           <div className="py-12 text-center text-xs" style={{ color: '#6B7280' }}>
-            {searchQuery.trim() ? 'No files match your search.' : 'No files.'}
+            {searchQuery.trim() ? 'No files match your search.' : 'No files in this folder.'}
           </div>
         ) : (
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b text-left" style={{ color: '#6B7280', borderColor: '#1E2A3A' }}>
-                <th className="px-4 py-3">
-                  Name
-                </th>
-                <th className="py-3">
-                  Folder
-                </th>
-                <th className="py-3">
-                  Size
-                </th>
-                <th className="py-3">
-                  Date
-                </th>
-                <th className="py-3 pr-4">
-                  Actions
-                </th>
+                <th className="px-4 py-3">Name</th>
+                <th className="py-3">Size</th>
+                <th className="py-3">Date</th>
+                <th className="py-3 pr-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -219,18 +354,8 @@ export default function FilesPage() {
                       )}
                     </div>
                   </td>
-                  <td className="py-3">
-                    <span
-                      className="px-2 py-0.5 rounded text-xs font-mono font-medium"
-                      style={{ background: '#1E2A3A', color: '#f97316' }}
-                    >
-                      {f.subfolderLabel ? `${f.folderLabel} > ${f.subfolderLabel}` : f.folderLabel}
-                    </span>
-                  </td>
-                  <td className="py-3 text-xs font-mono" style={{ color: '#6B7280' }}>
-                    {formatBytes(f.size_bytes)}
-                  </td>
-                  <td className="py-3 text-xs" style={{ color: '#6B7280' }}>
+                  <td className="py-3 font-mono" style={{ color: '#6B7280' }}>{formatBytes(f.size_bytes)}</td>
+                  <td className="py-3" style={{ color: '#6B7280' }}>
                     {f.created_at ? new Date(f.created_at).toLocaleDateString() : '\u2014'}
                   </td>
                   <td className="py-3 pr-4">
@@ -284,7 +409,10 @@ export default function FilesPage() {
       {showUpload && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="w-full max-w-sm p-6 rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
-            <h3 className="text-base font-semibold text-white mb-4">Upload File</h3>
+            <h3 className="text-base font-semibold text-white mb-1">Upload File</h3>
+            <p className="text-xs mb-4" style={{ color: '#6B7280' }}>
+              Uploading to <span style={{ color: '#f97316' }}>{currentLabel}</span>
+            </p>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Department (optional)</label>
@@ -305,8 +433,8 @@ export default function FilesPage() {
                   className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
                   style={{ background: '#1E2A3A', borderColor: '#374151' }}
                 >
+                  <option value="company">company</option>
                   <option value="shared">shared</option>
-                  <option value="personal">personal</option>
                   <option value="department">department</option>
                 </select>
               </div>
