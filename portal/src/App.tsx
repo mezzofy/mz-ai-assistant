@@ -38,6 +38,9 @@ import Periods from './pages/finance/Periods'
 import TaxCodes from './pages/finance/TaxCodes'
 import Quotes from './pages/finance/Quotes'
 import DeptFilesPage from './pages/DeptFilesPage'
+import SalesCustomersPage from './pages/sales/SalesCustomersPage'
+import SalesCustomerDetailPage from './pages/sales/SalesCustomerDetailPage'
+import SalesQuotesPage from './pages/sales/SalesQuotesPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,7 +79,7 @@ export default function App() {
             <Route path="finance/invoices" element={<FinanceRoute><Invoices /></FinanceRoute>} />
             <Route path="finance/bills" element={<FinanceRoute><Bills /></FinanceRoute>} />
             <Route path="finance/payments" element={<FinanceRoute><Payments /></FinanceRoute>} />
-            <Route path="finance/customers" element={<FinanceRoute><Customers /></FinanceRoute>} />
+            <Route path="finance/customers" element={<Navigate to="/mission-control/sales/customers" replace />} />
             <Route path="finance/vendors" element={<FinanceRoute><Vendors /></FinanceRoute>} />
             <Route path="finance/expenses" element={<FinanceRoute><Expenses /></FinanceRoute>} />
             <Route path="finance/reports" element={<FinanceRoute><Reports /></FinanceRoute>} />
@@ -85,8 +88,11 @@ export default function App() {
             <Route path="finance/entities" element={<FinanceRoute><Entities /></FinanceRoute>} />
             <Route path="finance/periods" element={<FinanceRoute><Periods /></FinanceRoute>} />
             <Route path="finance/tax" element={<FinanceRoute><TaxCodes /></FinanceRoute>} />
-            <Route path="finance/quotes" element={<FinanceRoute><Quotes /></FinanceRoute>} />
+            <Route path="finance/quotes" element={<Navigate to="/mission-control/sales/quotes" replace />} />
             <Route path="finance/files" element={<FinanceRoute><DeptFilesPage department="finance" sectionTitle="Finance" /></FinanceRoute>} />
+            <Route path="sales/customers" element={<SalesRoute><SalesCustomersPage /></SalesRoute>} />
+            <Route path="sales/customers/:id" element={<SalesRoute><SalesCustomerDetailPage /></SalesRoute>} />
+            <Route path="sales/quotes" element={<SalesRoute><SalesQuotesPage /></SalesRoute>} />
             <Route path="sales/files" element={<SalesRoute><DeptFilesPage department="sales" sectionTitle="Sales" /></SalesRoute>} />
             <Route path="hr" element={<HRRoute><Outlet /></HRRoute>}>
               <Route path="employees" element={<HREmployeesPage />} />
