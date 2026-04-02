@@ -22,6 +22,7 @@ const FINANCE_NAV_ITEMS = [
   { path: '/mission-control/finance/expenses', label: 'Expenses', icon: Receipt },
   { path: '/mission-control/finance/reports', label: 'Reports', icon: PieChart },
   { path: '/mission-control/finance/entities', label: 'Settings', icon: Settings },
+  { path: '/mission-control/finance/files', label: 'Files', icon: FolderOpen },
 ]
 
 const NAV_ITEMS = [
@@ -35,11 +36,13 @@ const NAV_ITEMS = [
 
 const SALES_NAV_ITEMS = [
   { path: '/mission-control/crm', label: 'Leads', icon: TrendingUp },
+  { path: '/mission-control/sales/files', label: 'Files', icon: FolderOpen },
 ]
 
 const HR_NAV_ITEMS = [
   { path: '/mission-control/hr/employees', label: 'Employees', icon: Users2 },
   { path: '/mission-control/hr/leave', label: 'Leave', icon: CalendarRange },
+  { path: '/mission-control/hr/files', label: 'Files', icon: FolderOpen },
 ]
 
 const BOTTOM_NAV_ITEMS = [
@@ -54,8 +57,11 @@ export default function Sidebar() {
   const showFinance = user?.role ? FINANCE_ROLES.includes(user.role) : false
   const showSales = user?.role ? SALES_ROLES.includes(user.role) : false
   const showUsers = user?.role === 'admin'
+  const CORE_ROLES = ['admin', 'executive']
+  const showCore = user?.role ? CORE_ROLES.includes(user.role) : false
 
   useEffect(() => {
+    if (!showCore) return
     let cancelled = false
     const fetchStats = async () => {
       try {
@@ -73,7 +79,7 @@ export default function Sidebar() {
       cancelled = true
       clearInterval(interval)
     }
-  }, [])
+  }, [showCore])
 
   return (
     <aside
@@ -102,7 +108,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => (
+        {showCore && NAV_ITEMS.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}

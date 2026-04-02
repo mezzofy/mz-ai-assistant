@@ -37,6 +37,7 @@ import Entities from './pages/finance/Entities'
 import Periods from './pages/finance/Periods'
 import TaxCodes from './pages/finance/TaxCodes'
 import Quotes from './pages/finance/Quotes'
+import DeptFilesPage from './pages/DeptFilesPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,12 +86,15 @@ export default function App() {
             <Route path="finance/periods" element={<FinanceRoute><Periods /></FinanceRoute>} />
             <Route path="finance/tax" element={<FinanceRoute><TaxCodes /></FinanceRoute>} />
             <Route path="finance/quotes" element={<FinanceRoute><Quotes /></FinanceRoute>} />
+            <Route path="finance/files" element={<FinanceRoute><DeptFilesPage department="finance" sectionTitle="Finance" /></FinanceRoute>} />
+            <Route path="sales/files" element={<SalesRoute><DeptFilesPage department="sales" sectionTitle="Sales" /></SalesRoute>} />
             <Route path="hr" element={<HRRoute><Outlet /></HRRoute>}>
               <Route path="employees" element={<HREmployeesPage />} />
               <Route path="employees/new" element={<HREmployeeFormPage />} />
               <Route path="employees/:id" element={<HREmployeeProfilePage />} />
               <Route path="employees/:id/edit" element={<HREmployeeFormPage />} />
               <Route path="leave" element={<HRLeaveManagementPage />} />
+              <Route path="files" element={<DeptFilesPage department="hr" sectionTitle="HR" />} />
             </Route>
           </Route>
 

@@ -111,6 +111,21 @@ export const portalApi = {
     URL.revokeObjectURL(url)
   },
 
+  getDeptFiles: (scope: 'company' | 'department', dept?: string) =>
+    client.get('/files/', { params: { scope, ...(dept ? { dept } : {}) } }),
+
+  downloadDeptFile: async (fileId: string, filename: string): Promise<void> => {
+    const res = await client.get(`/files/${fileId}`, { responseType: 'blob' })
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  },
+
   // CRM
   getCrmLeads: (page = 1, status?: string, search?: string, country?: string) =>
     client.get('/api/admin-portal/crm/leads', { params: { page, per_page: 20, ...(status ? { status } : {}), ...(search ? { search } : {}), ...(country ? { country } : {}) } }),
