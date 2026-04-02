@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { Download } from 'lucide-react'
 import { portalApi } from '../api/portal'
 import type { FileRecord } from '../types'
 
@@ -16,10 +15,14 @@ function FileTypeAvatar({ type }: { type: string }) {
 }
 
 function formatBytes(bytes: number | null) {
-  if (!bytes) return '—'
+  if (!bytes) return '\u2014'
   if (bytes < 1024) return `${bytes}B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`
+}
+
+interface FlatFile extends FileRecord {
+  folderLabel: string
 }
 
 interface Props {
@@ -28,10 +31,10 @@ interface Props {
 }
 
 export default function DeptFilesPage({ department, sectionTitle }: Props) {
-  const [companyFiles, setCompanyFiles] = useState<FileRecord[]>([])
-  const [deptFiles, setDeptFiles] = useState<FileRecord[]>([])
+  const [allFiles, setAllFiles] = useState<FlatFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -48,87 +51,133 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
             return (d as { data: FileRecord[] }).data
           return []
         }
-        setCompanyFiles(extractFiles(companyRes))
-        setDeptFiles(extractFiles(deptRes))
+        const companyFiles: FlatFile[] = extractFiles(companyRes).map((f) => ({
+          ...f,
+          folderLabel: 'COMPANY',
+        }))
+        const deptFiles: FlatFile[] = extractFiles(deptRes).map((f) => ({
+          ...f,
+          folderLabel: sectionTitle.toUpperCase(),
+        }))
+        setAllFiles([...companyFiles, ...deptFiles])
       })
       .catch(() => setError('Failed to load files. Please try again.'))
       .finally(() => setLoading(false))
-  }, [department])
+  }, [department, sectionTitle])
 
-  const handleDownload = (file: FileRecord) => {
-    portalApi.downloadDeptFile(file.id, file.filename)
-  }
-
-  const FileTable = ({ files, emptyText }: { files: FileRecord[]; emptyText: string }) => {
-    if (loading) {
-      return <p className="text-sm px-4 py-3" style={{ color: '#6B7280' }}>Loading files...</p>
-    }
-    if (error) {
-      return <p className="text-sm px-4 py-3 text-red-400">{error}</p>
-    }
-    if (files.length === 0) {
-      return <p className="text-sm px-4 py-3" style={{ color: '#6B7280' }}>{emptyText}</p>
-    }
-    return (
-      <table className="w-full text-sm">
-        <thead>
-          <tr style={{ borderBottom: '1px solid #1E2A3A' }}>
-            <th className="text-left px-4 py-2 font-medium" style={{ color: '#6B7280' }}>Name</th>
-            <th className="text-left py-2 font-medium" style={{ color: '#6B7280' }}>Size</th>
-            <th className="text-left py-2 font-medium" style={{ color: '#6B7280' }}>Date</th>
-            <th className="py-2" />
-          </tr>
-        </thead>
-        <tbody>
-          {files.map((file) => (
-            <tr key={file.id} style={{ borderBottom: '1px solid #1E2A3A' }}>
-              <td className="px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <FileTypeAvatar type={file.file_type} />
-                  <span className="text-white">{file.filename}</span>
-                </div>
-              </td>
-              <td className="py-2" style={{ color: '#6B7280' }}>{formatBytes(file.size_bytes)}</td>
-              <td className="py-2" style={{ color: '#6B7280' }}>
-                {file.created_at ? new Date(file.created_at).toLocaleDateString() : '—'}
-              </td>
-              <td className="py-2 pr-4 text-right">
-                <button
-                  onClick={() => handleDownload(file)}
-                  className="flex items-center gap-1 px-3 py-1 rounded text-xs transition-all"
-                  style={{ background: '#1E2A3A', color: '#f97316' }}
-                >
-                  <Download size={12} /> Download
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    )
-  }
+  const displayed = searchQuery.trim()
+    ? allFiles.filter((f) => f.filename.toLowerCase().includes(searchQuery.toLowerCase()))
+    : allFiles
 
   return (
-    <div className="p-6 space-y-6" style={{ background: '#0A0E1A', minHeight: '100vh' }}>
-      <div>
-        <h1 className="text-xl font-bold text-white">Files</h1>
-        <p className="text-sm mt-1" style={{ color: '#6B7280' }}>
-          Company and {sectionTitle} department files
-        </p>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white flex-shrink-0" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+            Files
+          </h1>
+          <span className="text-sm" style={{ color: '#6B7280' }}>
+            {loading
+              ? 'Loading...'
+              : searchQuery.trim()
+              ? `${displayed.length} result${displayed.length !== 1 ? 's' : ''}`
+              : `${allFiles.length} file${allFiles.length !== 1 ? 's' : ''}`}
+          </span>
+        </div>
       </div>
 
-      <div className="rounded-lg overflow-hidden" style={{ background: '#111827', border: '1px solid #1E2A3A' }}>
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid #1E2A3A' }}>
-          <h2 className="text-sm font-semibold text-white">🏢 Company Files</h2>
-        </div>
-        <FileTable files={companyFiles} emptyText="No company files found." />
+      {/* Search bar */}
+      <div className="flex gap-3">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search files..."
+          className="flex-1 px-3 py-2 rounded-lg text-sm text-white border outline-none transition-colors focus:border-orange-500"
+          style={{ background: '#111827', borderColor: '#1E2A3A' }}
+        />
+        {searchQuery.trim() && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="px-4 py-2 rounded-lg text-sm"
+            style={{ background: '#1E2A3A', color: '#6B7280' }}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      <div className="rounded-lg overflow-hidden" style={{ background: '#111827', border: '1px solid #1E2A3A' }}>
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid #1E2A3A' }}>
-          <h2 className="text-sm font-semibold text-white">📁 {sectionTitle} Files</h2>
-        </div>
-        <FileTable files={deptFiles} emptyText={`No ${sectionTitle} department files found.`} />
+      {/* Files Table */}
+      <div className="rounded-xl border overflow-hidden" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+        {loading ? (
+          <div className="py-12 text-center text-xs" style={{ color: '#6B7280' }}>
+            Loading files...
+          </div>
+        ) : error ? (
+          <div className="py-12 text-center text-xs text-red-400">{error}</div>
+        ) : displayed.length === 0 ? (
+          <div className="py-12 text-center text-xs" style={{ color: '#6B7280' }}>
+            {searchQuery.trim() ? 'No files match your search.' : 'No files.'}
+          </div>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b text-left" style={{ color: '#6B7280', borderColor: '#1E2A3A' }}>
+                <th className="px-4 py-3">Name</th>
+                <th className="py-3">Folder</th>
+                <th className="py-3">Size</th>
+                <th className="py-3">Date</th>
+                <th className="py-3 pr-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayed.map((f) => (
+                <tr
+                  key={f.id}
+                  className="border-t hover:bg-white/5 transition-colors"
+                  style={{ borderColor: '#1E2A3A' }}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <FileTypeAvatar type={f.file_type} />
+                      <span className="text-gray-200 truncate max-w-[260px]">{f.filename}</span>
+                    </div>
+                  </td>
+                  <td className="py-3">
+                    <span
+                      className="px-2 py-0.5 rounded text-xs font-mono font-medium"
+                      style={{ background: '#1E2A3A', color: '#f97316' }}
+                    >
+                      {f.folderLabel}
+                    </span>
+                  </td>
+                  <td className="py-3 text-xs font-mono" style={{ color: '#6B7280' }}>
+                    {formatBytes(f.size_bytes)}
+                  </td>
+                  <td className="py-3 text-xs" style={{ color: '#6B7280' }}>
+                    {f.created_at ? new Date(f.created_at).toLocaleDateString() : '\u2014'}
+                  </td>
+                  <td className="py-3 pr-4">
+                    <button
+                      onClick={() => portalApi.downloadDeptFile(f.id, f.filename)}
+                      title="Download"
+                      className="p-1.5 rounded transition-colors hover:bg-orange-500/10"
+                      style={{ color: '#f97316' }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
