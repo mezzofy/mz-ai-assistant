@@ -232,6 +232,8 @@ export const portalApi = {
     client.get(`/api/finance/customers?entity_id=${entityId}`),
   createFinanceCustomer: (data: any) =>
     client.post('/api/finance/customers', data),
+  updateFinanceCustomer: (id: string, data: any) =>
+    client.put(`/api/finance/customers/${id}`, data),
   getFinanceVendors: (entityId: string) =>
     client.get(`/api/finance/vendors?entity_id=${entityId}`),
   createFinanceVendor: (data: any) =>

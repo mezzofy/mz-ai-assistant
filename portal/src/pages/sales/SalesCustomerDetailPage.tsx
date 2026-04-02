@@ -103,10 +103,19 @@ export default function SalesCustomerDetailPage() {
             </span>
           </div>
         </div>
-        <select value={entityId} onChange={e => setEntityId(e.target.value)}
-          style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
-          {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-        </select>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(`/mission-control/sales/customers/${id}/edit`)}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+            style={{ background: '#f97316' }}
+          >
+            Edit
+          </button>
+          <select value={entityId} onChange={e => setEntityId(e.target.value)}
+            style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
+            {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+        </div>
       </div>
 
       {toast && (
