@@ -326,7 +326,7 @@ async def list_scheduler_jobs(
             SELECT
                 sj.id, sj.name, sj.schedule, sj.deliver_to,
                 sj.is_active, sj.last_run, sj.next_run,
-                sj.agent, sj.workflow_name, sj.created_at,
+                sj.agent, sj.message, sj.workflow_name, sj.created_at,
                 u.email AS user_email, u.name AS user_name
             FROM scheduled_jobs sj
             JOIN users u ON u.id = sj.user_id
@@ -345,6 +345,7 @@ async def list_scheduler_jobs(
             "last_run": r.last_run.isoformat() if r.last_run else None,
             "next_run": r.next_run.isoformat() if r.next_run else None,
             "agent": r.agent,
+            "message": r.message,
             "workflow_name": r.workflow_name,
             "created_at": r.created_at.isoformat() if r.created_at else None,
             "user_email": r.user_email,
@@ -1711,6 +1712,7 @@ class UpdateJobRequest(BaseModel):
     name: Optional[str] = None
     schedule: Optional[str] = None
     agent: Optional[str] = None
+    message: Optional[str] = None
     workflow_name: Optional[str] = None
     deliver_to: Optional[dict] = None
 
@@ -1745,6 +1747,8 @@ async def update_job(
         updates["name"] = body.name.strip()
     if body.agent is not None:
         updates["agent"] = body.agent.strip()
+    if body.message is not None:
+        updates["message"] = body.message.strip()
     if body.workflow_name is not None:
         updates["workflow_name"] = body.workflow_name.strip()
     if body.schedule is not None:
