@@ -287,6 +287,25 @@ def _row_to_beat_entry(row) -> dict | None:
     }
 
 
+def _normalize_dow(dow: str) -> str:
+    """
+    Normalise a cron day-of-week field for Celery's crontab (which uses 0–6,
+    where 0 = Sunday).  Standard cron also allows 7 as a Sunday alias; ranges
+    like '1-7' (Mon–Sun = every day) must be translated before passing to
+    Celery or it raises a ValueError.
+
+    Rules applied (in order):
+      '1-7' or '0-7'  → '*'   (every day of week)
+      standalone 7    → '0'   e.g. '7' → '0', '5,7' → '5,0'
+    """
+    import re
+    # Full-range aliases that mean "every day"
+    if dow in ('1-7', '0-7'):
+        return '*'
+    # Replace any remaining bare 7 with 0 (word-boundary safe)
+    return re.sub(r'(?<![0-9])7(?![0-9])', '0', dow)
+
+
 def _parse_cron(expr: str) -> crontab | None:
     """
     Parse a standard 5-field cron expression into a Celery crontab object.
@@ -301,6 +320,7 @@ def _parse_cron(expr: str) -> crontab | None:
         return None
 
     minute, hour, day_of_month, month_of_year, day_of_week = parts
+    day_of_week = _normalize_dow(day_of_week)
     try:
         return crontab(
             minute=minute,
