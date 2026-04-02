@@ -185,35 +185,30 @@ STATIC_BEAT_SCHEDULE = {
     "daily-overdue-invoice-check": {
         "task": "app.tasks.finance_tasks.check_overdue_invoices",
         "schedule": crontab(hour=0, minute=30),         # 8:30AM SGT = 00:30 UTC
-        "description": "Flag newly overdue invoices, post to #finance Teams channel",
     },
 
     # Weekly AR/AP summary — Monday 9AM SGT (01:00 UTC)
     "weekly-ar-ap-summary": {
         "task": "app.tasks.finance_tasks.ar_ap_weekly_summary",
         "schedule": crontab(day_of_week=1, hour=1, minute=0),  # Monday 9AM SGT = 01:00 UTC
-        "description": "AR aging + AP aging weekly summary to finance manager",
     },
 
     # Monthly financial close reminder — 25th of month 9AM SGT (01:00 UTC)
     "monthly-financial-close-reminder": {
         "task": "app.tasks.finance_tasks.month_close_reminder",
         "schedule": crontab(day_of_month=25, hour=1, minute=0),  # 9AM SGT = 01:00 UTC
-        "description": "Remind finance manager to close month-end on the 25th",
     },
 
     # Quarterly GST reminder — 15th of Jan, Apr, Jul, Oct at 9AM SGT (01:00 UTC)
     "quarterly-gst-reminder": {
         "task": "app.tasks.finance_tasks.gst_filing_reminder",
         "schedule": crontab(month_of_year="1,4,7,10", day_of_month=15, hour=1, minute=0),
-        "description": "GST F5 filing reminder — 15th of quarter-end months",
     },
 
     # Monthly financial statements — 2nd of month 9:30AM SGT (01:30 UTC)
     "monthly-financial-statements": {
         "task": "app.tasks.finance_tasks.generate_monthly_statements",
         "schedule": crontab(day_of_month=2, hour=1, minute=30),  # 9:30AM SGT = 01:30 UTC
-        "description": "Auto-generate P&L, BS, CF for previous month on the 2nd",
     },
 }
 
