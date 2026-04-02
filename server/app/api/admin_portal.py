@@ -1835,6 +1835,34 @@ async def delete_scheduler_job(
         raise HTTPException(status_code=500, detail="Failed to delete scheduled job")
 
 
+@router.post("/scheduler/restart-beat")
+async def restart_beat_service(
+    current_user: dict = AdminUser,
+):
+    """Restart the mezzofy-beat Celery Beat scheduler service (admin only)."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["sudo", "systemctl", "restart", "mezzofy-beat"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"systemctl restart failed: {result.stderr.strip()}",
+            )
+        return {"restarted": True, "message": "mezzofy-beat service restarted successfully"}
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="systemctl restart timed out")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to restart beat service: {e}")
+        raise HTTPException(status_code=500, detail="Failed to restart beat service")
+
+
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: str,

@@ -223,6 +223,12 @@ def load_db_jobs() -> dict:
     STATIC_BEAT_SCHEDULE. Only active jobs (is_active=True) are loaded.
     """
     try:
+        # Dispose the SQLAlchemy async engine's connection pool before creating
+        # a new event loop via asyncio.run().  Without this, repeated calls
+        # (e.g. the 60-second DB reload) raise "RuntimeError: Event loop is
+        # closed" because the pool holds references to the previous loop.
+        from app.core.database import engine
+        engine.sync_engine.dispose()
         return asyncio.run(_load_db_jobs_async())
     except Exception as e:
         logger.error(f"Failed to load DB scheduled jobs: {e}")

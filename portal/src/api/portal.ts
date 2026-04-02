@@ -43,6 +43,8 @@ export const portalApi = {
     client.post('/api/admin-portal/scheduler/jobs', data),
   deleteJob: (jobId: string) =>
     client.delete(`/api/admin-portal/scheduler/jobs/${jobId}`),
+  restartBeatService: () =>
+    client.post('/api/admin-portal/scheduler/restart-beat'),
 
   // Agents
   getAgents: () => client.get('/api/admin-portal/agents'),
