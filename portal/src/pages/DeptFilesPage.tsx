@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Building2, FolderOpen } from 'lucide-react'
 import { portalApi } from '../api/portal'
-import type { FileRecord, FolderRecord } from '../types'
+import type { FileRecord, FolderGroup, FolderRecord } from '../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -85,15 +85,21 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
 
   // Load root-level counts on mount
   useEffect(() => {
+    // Company counts: use admin folder-tree (same source as Core Files)
+    portalApi.getFolderTree().then((res) => {
+      const companyGroup = ((res.data?.folders || []) as FolderGroup[]).find((g) => g.scope === 'company')
+      const cf = companyGroup?.files || []
+      const folderCount = new Set(cf.filter((f) => f.folder_id).map((f) => f.folder_id)).size
+      setCompanyCounts({ files: cf.length, folders: folderCount })
+    }).catch(() => {})
+
+    // Dept counts: use public API
     Promise.all([
-      portalApi.getDeptFiles('company'),
       portalApi.getDeptFiles('department', department),
-      portalApi.getDeptFolders('company'),
-      portalApi.getDeptFolders('department'),
-    ]).then(([cf, df, cfo, dfo]) => {
-      setCompanyCounts({ files: extractFiles(cf).length, folders: extractFolders(cfo).length })
+      portalApi.getDeptFolders('department', department),
+    ]).then(([df, dfo]) => {
       setDeptCounts({ files: extractFiles(df).length, folders: extractFolders(dfo).length })
-    }).catch(() => {/* silently ignore count load errors */})
+    }).catch(() => {})
   }, [department])
 
   const loadView = useCallback((v: NavView) => {
@@ -103,24 +109,60 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
     if (v.type === 'root') return
 
     setLoading(true)
+
     if (v.type === 'scope') {
-      const dept = v.scope === 'department' ? department : undefined
-      Promise.all([
-        portalApi.getDeptFolders(v.scope, dept),
-        portalApi.getDeptFiles(v.scope, dept),
-      ])
-        .then(([fRes, fileRes]) => {
-          setFolders(extractFolders(fRes))
-          setFiles(extractFiles(fileRes))
-        })
-        .catch(() => setError('Failed to load contents.'))
-        .finally(() => setLoading(false))
+      if (v.scope === 'company') {
+        // Use admin folder-tree so company content matches Core Files exactly
+        portalApi.getFolderTree()
+          .then((res) => {
+            const companyGroup = ((res.data?.folders || []) as FolderGroup[]).find((g) => g.scope === 'company')
+            const cf = (companyGroup?.files || []) as FileRecord[]
+            const folderMap = new Map<string, FolderRecord>()
+            cf.forEach((f) => {
+              if (f.folder_id && !folderMap.has(f.folder_id)) {
+                folderMap.set(f.folder_id, {
+                  id: f.folder_id,
+                  name: f.subfolder || f.folder_id,
+                  scope: 'company',
+                  department: null,
+                  created_at: '',
+                })
+              }
+            })
+            setFolders(Array.from(folderMap.values()))
+            setFiles(cf)
+          })
+          .catch(() => setError('Failed to load company contents.'))
+          .finally(() => setLoading(false))
+      } else {
+        Promise.all([
+          portalApi.getDeptFolders('department', department),
+          portalApi.getDeptFiles('department', department),
+        ])
+          .then(([fRes, fileRes]) => {
+            setFolders(extractFolders(fRes))
+            setFiles(extractFiles(fileRes))
+          })
+          .catch(() => setError('Failed to load contents.'))
+          .finally(() => setLoading(false))
+      }
     } else if (v.type === 'folder') {
-      const dept = v.scope === 'department' ? department : undefined
-      portalApi.getDeptFiles(v.scope, dept, v.folder.id)
-        .then((res) => setFiles(extractFiles(res)))
-        .catch(() => setError('Failed to load folder contents.'))
-        .finally(() => setLoading(false))
+      if (v.scope === 'company') {
+        // Filter company files from folder-tree by folder_id
+        portalApi.getFolderTree()
+          .then((res) => {
+            const companyGroup = ((res.data?.folders || []) as FolderGroup[]).find((g) => g.scope === 'company')
+            const cf = (companyGroup?.files || []) as FileRecord[]
+            setFiles(cf.filter((f) => f.folder_id === v.folder.id))
+          })
+          .catch(() => setError('Failed to load folder contents.'))
+          .finally(() => setLoading(false))
+      } else {
+        portalApi.getDeptFiles('department', department, v.folder.id)
+          .then((res) => setFiles(extractFiles(res)))
+          .catch(() => setError('Failed to load folder contents.'))
+          .finally(() => setLoading(false))
+      }
     }
   }, [department])
 
