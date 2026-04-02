@@ -88,6 +88,13 @@ export default function CRMLeadDetailPage() {
   const [activityTitle, setActivityTitle] = useState('')
   const [activityBody, setActivityBody] = useState('')
 
+  const [showConvertModal, setShowConvertModal] = useState(false)
+  const [convertForm, setConvertForm] = useState({ name: '', company_name: '', email: '', phone: '', customer_type: 'buyer', currency: 'SGD', payment_terms: 30 })
+  const [convertEntityId, setConvertEntityId] = useState('')
+  const [convertEntities, setConvertEntities] = useState<any[]>([])
+  const [converting, setConverting] = useState(false)
+  const [convertToast, setConvertToast] = useState('')
+
   const { data: leadData, isLoading: leadLoading } = useQuery({
     queryKey: ['crm-lead-detail', id],
     queryFn: () => portalApi.getCrmLeadDetail(id!).then((r) => r.data),
@@ -113,6 +120,46 @@ export default function CRMLeadDetailPage() {
 
   const lead: Lead | null = leadData?.data?.lead || leadData?.lead || leadData?.data || (leadData?.id ? leadData as Lead : null)
   const activities: LeadActivity[] = activitiesData?.data?.activities || activitiesData?.activities || []
+
+  // Load entities when convert modal opens
+  React.useEffect(() => {
+    if (!showConvertModal) return
+    portalApi.getFinanceEntities().then(r => {
+      const ents = r.data?.data || []
+      setConvertEntities(ents)
+      if (ents.length > 0) setConvertEntityId(ents[0].id)
+    })
+  }, [showConvertModal])
+
+  // Pre-populate from lead data when lead loads
+  React.useEffect(() => {
+    if (lead) {
+      setConvertForm(f => ({
+        ...f,
+        name: (lead as any).contact_name || lead.company_name || '',
+        company_name: lead.company_name || '',
+        email: (lead as any).contact_email || (lead as any).email || '',
+        phone: (lead as any).contact_phone || (lead as any).phone || '',
+      }))
+    }
+  }, [lead])
+
+  async function handleConvertToCustomer() {
+    setConverting(true)
+    try {
+      const r = await portalApi.createFinanceCustomer({ entity_id: convertEntityId, ...convertForm })
+      const newId = r.data?.data?.id
+      setShowConvertModal(false)
+      setConvertToast('Customer created successfully')
+      setTimeout(() => setConvertToast(''), 4000)
+      if (newId) navigate(`/mission-control/sales/customers/${newId}`)
+    } catch {
+      setConvertToast('Failed to create customer')
+      setTimeout(() => setConvertToast(''), 4000)
+    } finally {
+      setConverting(false)
+    }
+  }
 
   if (leadLoading) {
     return (
@@ -158,7 +205,21 @@ export default function CRMLeadDetailPage() {
             {STATUS_LABELS[lead.status] || lead.status}
           </span>
         </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowConvertModal(true)}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+            style={{ background: '#16a34a22', color: '#16a34a', border: '1px solid #16a34a44' }}>
+            Convert to Customer
+          </button>
+        </div>
       </div>
+
+      {convertToast && (
+        <div className="px-4 py-2 rounded-lg text-sm"
+          style={{ background: 'rgba(0,212,170,0.15)', color: '#00D4AA', borderLeft: '3px solid #00D4AA' }}>
+          ✓ {convertToast}
+        </div>
+      )}
 
       {/* Lead Info Card */}
       <div className="rounded-xl border p-6" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
@@ -311,6 +372,59 @@ export default function CRMLeadDetailPage() {
           />
         </div>
       </div>
+
+      {showConvertModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ background: '#1F2937', borderRadius: 10, padding: 28, width: 440, border: '1px solid #374151' }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>Convert to Customer</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Entity</div>
+                <select value={convertEntityId} onChange={e => setConvertEntityId(e.target.value)}
+                  style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%' }}>
+                  {convertEntities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              </div>
+              {[
+                { label: 'Name *', key: 'name' },
+                { label: 'Company', key: 'company_name' },
+                { label: 'Email', key: 'email' },
+                { label: 'Phone', key: 'phone' },
+              ].map(f => (
+                <div key={f.key}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>{f.label}</div>
+                  <input value={(convertForm as any)[f.key]} onChange={e => setConvertForm(p => ({ ...p, [f.key]: e.target.value }))}
+                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Type</div>
+                  <select value={convertForm.customer_type} onChange={e => setConvertForm(p => ({ ...p, customer_type: e.target.value }))}
+                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%' }}>
+                    <option value="buyer">Buyer</option>
+                    <option value="merchant">Merchant</option>
+                    <option value="partner">Partner</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>Currency</div>
+                  <input value={convertForm.currency} onChange={e => setConvertForm(p => ({ ...p, currency: e.target.value }))}
+                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowConvertModal(false)}
+                style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button onClick={handleConvertToCustomer} disabled={converting}
+                style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                {converting ? 'Converting...' : 'Create Customer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

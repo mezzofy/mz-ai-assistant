@@ -13,10 +13,8 @@ const FINANCE_NAV_ITEMS = [
   { path: '/mission-control/finance', label: 'Dashboard', icon: BarChart3 },
   { path: '/mission-control/finance/journal', label: 'Journal Entries', icon: BookOpen },
   { path: '/mission-control/finance/invoices', label: 'Invoices', icon: FileText },
-  { path: '/mission-control/finance/quotes', label: 'Quotes', icon: MessageSquare },
   { path: '/mission-control/finance/bills', label: 'Bills', icon: Inbox },
   { path: '/mission-control/finance/payments', label: 'Payments', icon: CreditCard },
-  { path: '/mission-control/finance/customers', label: 'Customers', icon: UserCircle },
   { path: '/mission-control/finance/vendors', label: 'Vendors', icon: Building2 },
   { path: '/mission-control/finance/bank-accounts', label: 'Bank Accounts', icon: Landmark },
   { path: '/mission-control/finance/expenses', label: 'Expenses', icon: Receipt },
@@ -36,6 +34,8 @@ const NAV_ITEMS = [
 
 const SALES_NAV_ITEMS = [
   { path: '/mission-control/crm', label: 'Leads', icon: TrendingUp },
+  { path: '/mission-control/sales/customers', label: 'Customers', icon: UserCircle },
+  { path: '/mission-control/sales/quotes', label: 'Quotes', icon: MessageSquare },
   { path: '/mission-control/sales/files', label: 'Files', icon: FolderOpen },
 ]
 
