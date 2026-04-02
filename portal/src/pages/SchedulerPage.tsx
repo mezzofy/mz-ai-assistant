@@ -13,7 +13,7 @@ export default function SchedulerPage() {
   const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null)
   const [toast, setToast] = useState('')
   const [editMode, setEditMode] = useState(false)
-  const [editForm, setEditForm] = useState<{ name: string; schedule: string; agent: string; workflow_name: string }>({ name: '', schedule: '', agent: '', workflow_name: '' })
+  const [editForm, setEditForm] = useState<{ name: string; schedule: string; agent: string; message: string; workflow_name: string }>({ name: '', schedule: '', agent: '', message: '', workflow_name: '' })
 
   // Create job state
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -87,6 +87,7 @@ export default function SchedulerPage() {
         name: selectedJob.name,
         schedule: selectedJob.schedule,
         agent: selectedJob.agent || '',
+        message: selectedJob.message || '',
         workflow_name: selectedJob.workflow_name || '',
       })
       setEditMode(false)
@@ -424,6 +425,17 @@ export default function SchedulerPage() {
                       />
                     </div>
                     <div>
+                      <label className="block text-gray-400 mb-1">Message Prompt</label>
+                      <textarea
+                        rows={3}
+                        value={editForm.message}
+                        onChange={(e) => setEditForm(f => ({ ...f, message: e.target.value }))}
+                        placeholder="What should the agent do?"
+                        className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none resize-none"
+                        style={{ background: '#1E2A3A', borderColor: '#374151' }}
+                      />
+                    </div>
+                    <div>
                       <label className="block text-gray-400 mb-1">Workflow Name</label>
                       <input
                         value={editForm.workflow_name}
@@ -458,6 +470,10 @@ export default function SchedulerPage() {
                     <div>
                       <span className="text-gray-500">Agent</span>
                       <div className="text-gray-200">{selectedJob.agent || '\u2014'}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-gray-500">Message</span>
+                      <div className="text-gray-200 mt-0.5 whitespace-pre-wrap">{selectedJob.message || '\u2014'}</div>
                     </div>
                     <div>
                       <span className="text-gray-500">Workflow</span>

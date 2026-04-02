@@ -64,6 +64,7 @@ export interface ScheduledJob {
   last_run: string | null
   next_run: string | null
   agent: string
+  message: string
   workflow_name: string | null
   user_email: string
   user_name: string
