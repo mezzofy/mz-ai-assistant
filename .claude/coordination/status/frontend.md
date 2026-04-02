@@ -1,4 +1,37 @@
 # Context Checkpoint: Frontend Agent
+**Date:** 2026-04-02
+**Session:** 17 — Portal RBAC Access Fix (portal-rbac-access-fix-plan)
+
+## Completed This Session (Session 17)
+
+- ✅ `portal/src/components/AdminRoute.tsx` — replaced `role !== 'admin'` with PORTAL_ROLES list check (11 roles); updated error message to "You do not have permission to access this portal."
+- ✅ `portal/src/components/SalesRoute.tsx` (NEW) — created matching HRRoute/FinanceRoute pattern; SALES_ROLES: sales_manager, sales_rep, executive, admin; error: "Sales role required to access this section"
+- ✅ `portal/src/components/layout/Sidebar.tsx` — added SALES_ROLES constant + showSales flag; wrapped Sales section in `{showSales && (...)}` (was always shown); added showUsers flag (`role === 'admin'`); wrapped BOTTOM_NAV_ITEMS.map in `{showUsers && (...)}` to hide Users nav from non-admin
+- ✅ `portal/src/App.tsx` — imported SalesRoute; wrapped CRM routes (`crm` and `crm/leads/:id`) in `<SalesRoute>`
+- ✅ TypeScript: `npx tsc --noEmit` — 0 errors
+- ✅ Committed: `feat(portal): RBAC role-based access fix — finance/hr/sales/executive roles` (commit `05fc7dd`)
+
+## Files Modified (Session 17)
+- `portal/src/components/AdminRoute.tsx` (modified — PORTAL_ROLES list check replaces hard admin check)
+- `portal/src/components/SalesRoute.tsx` (new — SALES_ROLES guard, same pattern as HRRoute)
+- `portal/src/components/layout/Sidebar.tsx` (modified — SALES_ROLES constant, showSales + showUsers flags, conditional rendering)
+- `portal/src/App.tsx` (modified — SalesRoute import + CRM routes wrapped)
+
+## Role Access Matrix (Post-Fix)
+| Role | Portal | Finance | HR | Sales | Users |
+|------|--------|---------|-----|-------|-------|
+| admin | ✅ | ✅ | ✅ | ✅ | ✅ |
+| executive | ✅ | ✅ | ✅ | ✅ | ❌ |
+| finance_manager/viewer | ✅ | ✅ | ❌ | ❌ | ❌ |
+| hr_manager/staff/viewer | ✅ | ❌ | ✅ | ❌ | ❌ |
+| sales_manager/rep | ✅ | ❌ | ❌ | ✅ | ❌ |
+| cfo/ceo | ✅ | ✅ | ❌ | ❌ | ❌ |
+
+## Status: COMPLETE — All 4 tasks done, 0 TypeScript errors, committed
+
+---
+
+# Context Checkpoint: Frontend Agent
 **Date:** 2026-03-31
 **Session:** 16 — Finance Module Phase 7 (v1.58.0)
 
