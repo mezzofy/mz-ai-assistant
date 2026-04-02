@@ -223,6 +223,12 @@ def load_db_jobs() -> dict:
     STATIC_BEAT_SCHEDULE. Only active jobs (is_active=True) are loaded.
     """
     try:
+        # Invalidate the async engine's connection pool before creating a new
+        # event loop via asyncio.run().  close=False avoids calling async
+        # close() on existing connections (which raises MissingGreenlet);
+        # the connections are simply discarded and fresh ones are created.
+        from app.core.database import engine
+        engine.sync_engine.dispose(close=False)
         return asyncio.run(_load_db_jobs_async())
     except Exception as e:
         logger.error(f"Failed to load DB scheduled jobs: {e}")
@@ -287,6 +293,18 @@ def _row_to_beat_entry(row) -> dict | None:
     }
 
 
+def _normalize_dow(dow: str) -> str:
+    """
+    Normalise a cron day-of-week field for Celery's crontab (0–6, 0=Sunday).
+    Standard cron also allows 7 as a Sunday alias; ranges like '1-7' must be
+    translated or Celery raises a ValueError and silently skips the job.
+    """
+    import re
+    if dow in ('1-7', '0-7'):
+        return '*'
+    return re.sub(r'(?<![0-9])7(?![0-9])', '0', dow)
+
+
 def _parse_cron(expr: str) -> crontab | None:
     """
     Parse a standard 5-field cron expression into a Celery crontab object.
@@ -301,6 +319,7 @@ def _parse_cron(expr: str) -> crontab | None:
         return None
 
     minute, hour, day_of_month, month_of_year, day_of_week = parts
+    day_of_week = _normalize_dow(day_of_week)
     try:
         return crontab(
             minute=minute,

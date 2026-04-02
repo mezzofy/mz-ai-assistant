@@ -22,6 +22,7 @@ export default function SchedulerPage() {
 
   // Delete job state
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null)
+  const [restartingBeat, setRestartingBeat] = useState(false)
 
   const { data } = useQuery({
     queryKey: ['scheduler-jobs'],
@@ -117,13 +118,34 @@ export default function SchedulerPage() {
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
           Scheduler
         </h1>
-        <button
-          onClick={() => { setShowCreateForm(true); setDeletingJobId(null) }}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-          style={{ background: '#f97316' }}
-        >
-          + New Job
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              setRestartingBeat(true)
+              try {
+                await portalApi.restartBeatService()
+                setToast('Schedule service restarted successfully')
+              } catch {
+                setToast('Failed to restart schedule service')
+              } finally {
+                setRestartingBeat(false)
+                setTimeout(() => setToast(''), 4000)
+              }
+            }}
+            disabled={restartingBeat}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+            style={{ background: '#1E2A3A', color: restartingBeat ? '#6B7280' : '#f97316', border: '1px solid #374151' }}
+          >
+            {restartingBeat ? 'Restarting...' : '↺ Restart Schedule Service'}
+          </button>
+          <button
+            onClick={() => { setShowCreateForm(true); setDeletingJobId(null) }}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ background: '#f97316' }}
+          >
+            + New Job
+          </button>
+        </div>
       </div>
 
       {toast && (
