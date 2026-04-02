@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { Building2, FolderOpen } from 'lucide-react'
 import { portalApi } from '../api/portal'
 import type { FileRecord, FolderRecord } from '../types'
 
@@ -184,7 +185,9 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
             style={{ background: '#111827', borderColor: '#1E2A3A' }}
           >
             <div className="flex items-start gap-3">
-              <div className="text-3xl">🏢</div>
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0" style={{ background: '#1E2A3A' }}>
+                <Building2 size={28} style={{ color: '#f97316' }} />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-white">Company</div>
                 <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
@@ -212,7 +215,9 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
             style={{ background: '#111827', borderColor: '#1E2A3A' }}
           >
             <div className="flex items-start gap-3">
-              <div className="text-3xl">📁</div>
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0" style={{ background: '#1E2A3A' }}>
+                <FolderOpen size={28} style={{ color: '#f97316' }} />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-white">{sectionTitle}</div>
                 <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Building2, FolderOpen, Users } from 'lucide-react'
 import { portalApi } from '../api/portal'
 import type { FileRecord, FolderGroup } from '../types'
 
@@ -35,10 +36,10 @@ function groupLabel(g: FolderGroup) {
   return dept || g.scope
 }
 
-function groupIcon(g: FolderGroup) {
-  if (g.scope === 'company') return '🏢'
-  if (g.scope === 'personal') return '👤'
-  return '📁'
+function GroupIcon({ g }: { g: FolderGroup }) {
+  if (g.scope === 'company') return <Building2 size={28} style={{ color: '#f97316' }} />
+  if (g.scope === 'personal') return <Users size={28} style={{ color: '#f97316' }} />
+  return <FolderOpen size={28} style={{ color: '#f97316' }} />
 }
 
 const SCOPE_ORDER = ['company', 'department', 'shared']
@@ -164,7 +165,9 @@ export default function FilesPage() {
                   style={{ background: '#111827', borderColor: '#1E2A3A' }}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="text-3xl">{groupIcon(g)}</div>
+                    <div className="flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0" style={{ background: '#1E2A3A' }}>
+                      <GroupIcon g={g} />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-white">{label}</div>
                       <div className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
