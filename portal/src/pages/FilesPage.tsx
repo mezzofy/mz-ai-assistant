@@ -157,6 +157,7 @@ export default function FilesPage() {
           <div className="grid grid-cols-2 gap-4">
             {groups.map((g, i) => {
               const label = groupLabel(g)
+              const subfolderCount = new Set(g.files.map((f) => f.folder_id).filter(Boolean)).size
               return (
                 <button
                   key={i}
@@ -175,6 +176,9 @@ export default function FilesPage() {
                       </div>
                       <div className="flex gap-3 mt-2">
                         <span className="text-xs" style={{ color: '#f97316' }}>
+                          {subfolderCount} folder{subfolderCount !== 1 ? 's' : ''}
+                        </span>
+                        <span className="text-xs" style={{ color: '#6B7280' }}>
                           {g.files.length} file{g.files.length !== 1 ? 's' : ''}
                         </span>
                       </div>

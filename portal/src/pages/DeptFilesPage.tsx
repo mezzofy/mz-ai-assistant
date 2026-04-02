@@ -27,8 +27,11 @@ function formatBytes(bytes: number | null) {
 function extractFiles(res: { data: unknown }): FileRecord[] {
   const d = res.data
   if (Array.isArray(d)) return d as FileRecord[]
-  if (d && typeof d === 'object' && Array.isArray((d as { data?: unknown }).data))
-    return (d as { data: FileRecord[] }).data
+  if (d && typeof d === 'object') {
+    const obj = d as Record<string, unknown>
+    if (Array.isArray(obj.data)) return obj.data as FileRecord[]
+    if (Array.isArray(obj.files)) return obj.files as FileRecord[]
+  }
   return []
 }
 
