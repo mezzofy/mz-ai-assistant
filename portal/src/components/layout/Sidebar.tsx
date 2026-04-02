@@ -7,6 +7,7 @@ import { portalApi } from '../../api/portal'
 
 const HR_ROLES = ['hr_viewer', 'hr_staff', 'hr_manager', 'executive', 'admin']
 const FINANCE_ROLES = ['finance_viewer', 'finance_manager', 'executive', 'admin', 'cfo', 'ceo']
+const SALES_ROLES = ['sales_manager', 'sales_rep', 'executive', 'admin']
 
 const FINANCE_NAV_ITEMS = [
   { path: '/mission-control/finance', label: 'Dashboard', icon: BarChart3 },
@@ -51,6 +52,8 @@ export default function Sidebar() {
   const [activeBgCount, setActiveBgCount] = useState(0)
   const showHR = user?.role ? HR_ROLES.includes(user.role) : false
   const showFinance = user?.role ? FINANCE_ROLES.includes(user.role) : false
+  const showSales = user?.role ? SALES_ROLES.includes(user.role) : false
+  const showUsers = user?.role === 'admin'
 
   useEffect(() => {
     let cancelled = false
@@ -128,33 +131,35 @@ export default function Sidebar() {
           </NavLink>
         ))}
 
-        <>
-          <div className="pt-2 pb-1">
-            <div className="px-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#4B5563' }}>
-              Sales
+        {showSales && (
+          <>
+            <div className="pt-2 pb-1">
+              <div className="px-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#4B5563' }}>
+                Sales
+              </div>
             </div>
-          </div>
-          {SALES_NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
-                  isActive
-                    ? 'text-white font-medium'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                )
-              }
-              style={({ isActive }) =>
-                isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
-              }
-            >
-              <item.icon size={16} />
-              <span className="flex-1">{item.label}</span>
-            </NavLink>
-          ))}
-        </>
+            {SALES_NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  clsx(
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
+                    isActive
+                      ? 'text-white font-medium'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  )
+                }
+                style={({ isActive }) =>
+                  isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
+                }
+              >
+                <item.icon size={16} />
+                <span className="flex-1">{item.label}</span>
+              </NavLink>
+            ))}
+          </>
+        )}
 
         {showFinance && (
           <>
@@ -221,7 +226,7 @@ export default function Sidebar() {
           <div className="border-t" style={{ borderColor: '#1E2A3A' }} />
         </div>
 
-        {BOTTOM_NAV_ITEMS.map((item) => (
+        {showUsers && BOTTOM_NAV_ITEMS.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}

@@ -2,15 +2,9 @@ import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 
-const PORTAL_ROLES = [
-  'admin', 'executive',
-  'finance_manager', 'finance_viewer',
-  'hr_manager', 'hr_staff', 'hr_viewer',
-  'sales_manager', 'sales_rep',
-  'cfo', 'ceo',
-]
+const SALES_ROLES = ['sales_manager', 'sales_rep', 'executive', 'admin']
 
-export default function AdminRoute({ children }: { children: React.ReactNode }) {
+export default function SalesRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
 
@@ -18,13 +12,13 @@ export default function AdminRoute({ children }: { children: React.ReactNode }) 
     return <Navigate to="/mission-control/login" replace />
   }
 
-  if (!user?.role || !PORTAL_ROLES.includes(user.role)) {
+  if (!user?.role || !SALES_ROLES.includes(user.role)) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E1A' }}>
         <div className="text-center">
           <div className="text-4xl mb-4">🚫</div>
           <h1 className="text-xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-gray-400">You do not have permission to access this portal.</p>
+          <p className="text-gray-400">Sales role required to access this section</p>
         </div>
       </div>
     )

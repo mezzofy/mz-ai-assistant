@@ -6,6 +6,7 @@ import AppShell from './components/layout/AppShell'
 import AdminRoute from './components/AdminRoute'
 import HRRoute from './components/HRRoute'
 import FinanceRoute from './components/FinanceRoute'
+import SalesRoute from './components/SalesRoute'
 import LoginPage from './pages/LoginPage'
 import OtpPage from './pages/OtpPage'
 import DashboardPage from './pages/DashboardPage'
@@ -66,8 +67,8 @@ export default function App() {
             <Route path="agents" element={<AgentsPage />} />
             <Route path="files" element={<FilesPage />} />
             <Route path="users" element={<UsersPage />} />
-            <Route path="crm" element={<CRMPage />} />
-            <Route path="crm/leads/:id" element={<CRMLeadDetailPage />} />
+            <Route path="crm" element={<SalesRoute><CRMPage /></SalesRoute>} />
+            <Route path="crm/leads/:id" element={<SalesRoute><CRMLeadDetailPage /></SalesRoute>} />
             <Route path="background-tasks" element={<BackgroundTasksPage />} />
             <Route path="finance" element={<FinanceRoute><FinanceDashboard /></FinanceRoute>} />
             <Route path="finance/journal" element={<FinanceRoute><JournalEntries /></FinanceRoute>} />
