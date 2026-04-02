@@ -223,12 +223,12 @@ def load_db_jobs() -> dict:
     STATIC_BEAT_SCHEDULE. Only active jobs (is_active=True) are loaded.
     """
     try:
-        # Dispose the SQLAlchemy async engine's connection pool before creating
-        # a new event loop via asyncio.run().  Without this, repeated calls
-        # (e.g. the 60-second DB reload) raise "RuntimeError: Event loop is
-        # closed" because the pool holds references to the previous loop.
+        # Invalidate the async engine's connection pool before creating a new
+        # event loop via asyncio.run().  close=False avoids calling async
+        # close() on existing connections (which raises MissingGreenlet);
+        # the connections are simply discarded and fresh ones are created.
         from app.core.database import engine
-        engine.sync_engine.dispose()
+        engine.sync_engine.dispose(close=False)
         return asyncio.run(_load_db_jobs_async())
     except Exception as e:
         logger.error(f"Failed to load DB scheduled jobs: {e}")
@@ -295,20 +295,13 @@ def _row_to_beat_entry(row) -> dict | None:
 
 def _normalize_dow(dow: str) -> str:
     """
-    Normalise a cron day-of-week field for Celery's crontab (which uses 0–6,
-    where 0 = Sunday).  Standard cron also allows 7 as a Sunday alias; ranges
-    like '1-7' (Mon–Sun = every day) must be translated before passing to
-    Celery or it raises a ValueError.
-
-    Rules applied (in order):
-      '1-7' or '0-7'  → '*'   (every day of week)
-      standalone 7    → '0'   e.g. '7' → '0', '5,7' → '5,0'
+    Normalise a cron day-of-week field for Celery's crontab (0–6, 0=Sunday).
+    Standard cron also allows 7 as a Sunday alias; ranges like '1-7' must be
+    translated or Celery raises a ValueError and silently skips the job.
     """
     import re
-    # Full-range aliases that mean "every day"
     if dow in ('1-7', '0-7'):
         return '*'
-    # Replace any remaining bare 7 with 0 (word-boundary safe)
     return re.sub(r'(?<![0-9])7(?![0-9])', '0', dow)
 
 
