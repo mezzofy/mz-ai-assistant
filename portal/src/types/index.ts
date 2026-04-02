@@ -80,6 +80,15 @@ export interface FileRecord {
   created_at: string
   download_url: string
   subfolder?: string | null
+  folder_id?: string | null
+}
+
+export interface FolderRecord {
+  id: string
+  name: string
+  scope: string
+  department: string | null
+  created_at: string
 }
 
 export interface FolderGroup {

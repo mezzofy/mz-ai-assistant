@@ -111,13 +111,20 @@ export const portalApi = {
     URL.revokeObjectURL(url)
   },
 
-  getDeptFiles: (scope: 'company' | 'department', dept?: string) =>
-    client.get('/files/', { params: { scope, ...(dept ? { dept } : {}) } }),
+  getDeptFiles: (scope: 'company' | 'department', dept?: string, folderId?: string) =>
+    client.get('/files/', { params: { scope, ...(dept ? { dept } : {}), ...(folderId ? { folder_id: folderId } : {}) } }),
 
-  uploadDeptFile: (file: File) => {
+  getDeptFolders: (scope: 'company' | 'department', dept?: string) =>
+    client.get('/folders/', { params: { scope, ...(dept ? { dept } : {}) } }),
+
+  createDeptFolder: (name: string, scope: 'company' | 'department') =>
+    client.post('/folders/', { name, scope }),
+
+  uploadDeptFile: (file: File, folderId?: string) => {
     const form = new FormData()
     form.append('file', file)
     form.append('scope', 'department')
+    if (folderId) form.append('folder_id', folderId)
     return client.post('/files/upload', form, {
       headers: { 'Content-Type': undefined },
     })
