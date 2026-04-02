@@ -114,6 +114,15 @@ export const portalApi = {
   getDeptFiles: (scope: 'company' | 'department', dept?: string) =>
     client.get('/files/', { params: { scope, ...(dept ? { dept } : {}) } }),
 
+  uploadDeptFile: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('scope', 'department')
+    return client.post('/files/upload', form, {
+      headers: { 'Content-Type': undefined },
+    })
+  },
+
   downloadDeptFile: async (fileId: string, filename: string): Promise<void> => {
     const res = await client.get(`/files/${fileId}`, { responseType: 'blob' })
     const url = window.URL.createObjectURL(new Blob([res.data]))

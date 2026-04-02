@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { portalApi } from '../api/portal'
 import type { FileRecord } from '../types'
 
@@ -35,8 +35,12 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showUpload, setShowUpload] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const uploadRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
+  const loadFiles = useCallback(() => {
     setLoading(true)
     setError(null)
     Promise.all([
@@ -65,6 +69,24 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
       .finally(() => setLoading(false))
   }, [department, sectionTitle])
 
+  useEffect(() => {
+    loadFiles()
+  }, [loadFiles])
+
+  const handleUploadFile = async (file: File) => {
+    setUploading(true)
+    setUploadError(null)
+    try {
+      await portalApi.uploadDeptFile(file)
+      setShowUpload(false)
+      loadFiles()
+    } catch {
+      setUploadError('Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const displayed = searchQuery.trim()
     ? allFiles.filter((f) => f.filename.toLowerCase().includes(searchQuery.toLowerCase()))
     : allFiles
@@ -85,6 +107,13 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
               : `${allFiles.length} file${allFiles.length !== 1 ? 's' : ''}`}
           </span>
         </div>
+        <button
+          onClick={() => { setShowUpload(true); setUploadError(null) }}
+          className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all flex-shrink-0"
+          style={{ background: '#f97316' }}
+        >
+          + Upload File
+        </button>
       </div>
 
       {/* Search bar */}
@@ -179,6 +208,48 @@ export default function DeptFilesPage({ department, sectionTitle }: Props) {
           </table>
         )}
       </div>
+
+      {/* Upload Modal */}
+      {showUpload && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-full max-w-sm p-6 rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A' }}>
+            <h3 className="text-base font-semibold text-white mb-1">Upload File</h3>
+            <p className="text-xs mb-4" style={{ color: '#6B7280' }}>
+              File will be uploaded to the <span style={{ color: '#f97316' }}>{sectionTitle}</span> department folder.
+            </p>
+            <input
+              type="file"
+              ref={uploadRef}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) handleUploadFile(file)
+                e.target.value = ''
+              }}
+            />
+            {uploadError && (
+              <p className="text-xs text-red-400 mb-3">{uploadError}</p>
+            )}
+            <button
+              onClick={() => uploadRef.current?.click()}
+              disabled={uploading}
+              className="w-full py-2 rounded-lg text-sm font-medium text-white transition-all"
+              style={{ background: uploading ? '#6B7280' : '#f97316' }}
+            >
+              {uploading ? 'Uploading...' : 'Choose File & Upload'}
+            </button>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowUpload(false)}
+                disabled={uploading}
+                className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
