@@ -238,6 +238,8 @@ export const portalApi = {
     client.get(`/api/finance/vendors?entity_id=${entityId}`),
   createFinanceVendor: (data: any) =>
     client.post('/api/finance/vendors', data),
+  updateFinanceVendor: (id: string, data: any) =>
+    client.put(`/api/finance/vendors/${id}`, data),
   getInvoices: (entityId: string, status?: string) =>
     client.get(`/api/finance/invoices?entity_id=${entityId}${status ? `&status=${status}` : ''}`),
   createInvoice: (data: any) =>

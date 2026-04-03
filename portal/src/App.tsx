@@ -45,6 +45,11 @@ import SalesQuotesPage from './pages/sales/SalesQuotesPage'
 import SalesQuoteFormPage from './pages/sales/SalesQuoteFormPage'
 import CRMLeadFormPage from './pages/sales/CRMLeadFormPage'
 import InvoiceFormPage from './pages/finance/InvoiceFormPage'
+import BillFormPage from './pages/finance/BillFormPage'
+import PaymentFormPage from './pages/finance/PaymentFormPage'
+import VendorFormPage from './pages/finance/VendorFormPage'
+import BankAccountFormPage from './pages/finance/BankAccountFormPage'
+import ExpenseFormPage from './pages/finance/ExpenseFormPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,12 +90,18 @@ export default function App() {
             <Route path="finance/invoices" element={<FinanceRoute><Invoices /></FinanceRoute>} />
             <Route path="finance/invoices/new" element={<FinanceRoute><InvoiceFormPage /></FinanceRoute>} />
             <Route path="finance/bills" element={<FinanceRoute><Bills /></FinanceRoute>} />
+            <Route path="finance/bills/new" element={<FinanceRoute><BillFormPage /></FinanceRoute>} />
             <Route path="finance/payments" element={<FinanceRoute><Payments /></FinanceRoute>} />
+            <Route path="finance/payments/new" element={<FinanceRoute><PaymentFormPage /></FinanceRoute>} />
             <Route path="finance/customers" element={<Navigate to="/mission-control/sales/customers" replace />} />
             <Route path="finance/vendors" element={<FinanceRoute><Vendors /></FinanceRoute>} />
+            <Route path="finance/vendors/new" element={<FinanceRoute><VendorFormPage /></FinanceRoute>} />
+            <Route path="finance/vendors/:id/edit" element={<FinanceRoute><VendorFormPage /></FinanceRoute>} />
             <Route path="finance/expenses" element={<FinanceRoute><Expenses /></FinanceRoute>} />
+            <Route path="finance/expenses/new" element={<FinanceRoute><ExpenseFormPage /></FinanceRoute>} />
             <Route path="finance/reports" element={<FinanceRoute><Reports /></FinanceRoute>} />
             <Route path="finance/bank-accounts" element={<FinanceRoute><BankAccounts /></FinanceRoute>} />
+            <Route path="finance/bank-accounts/new" element={<FinanceRoute><BankAccountFormPage /></FinanceRoute>} />
             <Route path="finance/shareholders" element={<FinanceRoute><Shareholders /></FinanceRoute>} />
             <Route path="finance/entities" element={<FinanceRoute><Entities /></FinanceRoute>} />
             <Route path="finance/periods" element={<FinanceRoute><Periods /></FinanceRoute>} />
