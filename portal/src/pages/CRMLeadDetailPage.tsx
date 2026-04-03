@@ -206,6 +206,12 @@ export default function CRMLeadDetailPage() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate(`/mission-control/crm/leads/${id}/edit`)}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+            style={{ background: '#f9731622', color: '#f97316', border: '1px solid #f9731644' }}>
+            Edit Lead
+          </button>
           <button onClick={() => setShowConvertModal(true)}
             className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
             style={{ background: '#16a34a22', color: '#16a34a', border: '1px solid #16a34a44' }}>

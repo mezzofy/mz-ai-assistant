@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { portalApi } from '../../api/portal'
 
 type LineItem = {
@@ -42,6 +42,8 @@ const inputStyle = { background: '#1E2A3A', borderColor: '#374151' }
 
 export default function SalesQuoteFormPage() {
   const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
+  const isEdit = !!id
 
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [entityId, setEntityId] = useState('')
@@ -52,6 +54,7 @@ export default function SalesQuoteFormPage() {
   const [creatingCustomer, setCreatingCustomer] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(isEdit)
 
   useEffect(() => {
     portalApi.getFinanceEntities().then((r) => {
@@ -59,18 +62,53 @@ export default function SalesQuoteFormPage() {
       setEntities(ents)
       if (ents.length > 0) {
         setEntityId(ents[0].id)
-        const baseCurrency = ents[0].base_currency || 'SGD'
-        setForm((f) => ({ ...f, currency: baseCurrency }))
+        if (!isEdit) {
+          const baseCurrency = ents[0].base_currency || 'SGD'
+          setForm((f) => ({ ...f, currency: baseCurrency }))
+        }
       }
     }).catch(() => {})
-  }, [])
+  }, [isEdit])
 
   useEffect(() => {
     if (!entityId) return
     portalApi.getFinanceCustomers(entityId).then((r) => setCustomers(r.data?.data || [])).catch(() => {})
-    const ent = entities.find((e) => e.id === entityId)
-    if (ent?.base_currency) setForm((f) => ({ ...f, currency: ent.base_currency }))
-  }, [entityId])
+    if (!isEdit) {
+      const ent = entities.find((e) => e.id === entityId)
+      if (ent?.base_currency) setForm((f) => ({ ...f, currency: ent.base_currency }))
+    }
+  }, [entityId, isEdit])
+
+  // Load existing quote in edit mode — runs after entityId is set
+  useEffect(() => {
+    if (!isEdit || !entityId || !id) return
+    setLoading(true)
+    portalApi.getQuotes(entityId)
+      .then((r) => {
+        const quotes = r.data?.data || []
+        const quote = quotes.find((q: any) => q.id === id)
+        if (quote) {
+          setForm({
+            customer_id: quote.customer_id || '',
+            quote_date: quote.quote_date || new Date().toISOString().slice(0, 10),
+            expiry_date: quote.expiry_date || '',
+            currency: quote.currency || 'SGD',
+            notes: quote.notes || '',
+            line_items: (quote.line_items && quote.line_items.length > 0)
+              ? quote.line_items.map((li: any) => ({
+                  description: li.description || '',
+                  quantity: li.quantity ?? 1,
+                  unit_price: li.unit_price ?? 0,
+                }))
+              : [{ description: '', quantity: 1, unit_price: 0 }],
+          })
+        } else {
+          setError('Quote not found')
+        }
+      })
+      .catch(() => setError('Failed to load quote'))
+      .finally(() => setLoading(false))
+  }, [entityId, id, isEdit])
 
   async function handleCreateCustomer() {
     setCreatingCustomer(true)
@@ -109,16 +147,25 @@ export default function SalesQuoteFormPage() {
     setError(null)
     try {
       const subtotal = form.line_items.reduce((s, l) => s + l.quantity * l.unit_price, 0)
-      await portalApi.createQuote({ entity_id: entityId, ...form, subtotal, total_amount: subtotal })
-      navigate('/mission-control/sales/quotes')
+      if (isEdit) {
+        await portalApi.updateQuote(id!, { entity_id: entityId, ...form, subtotal, total_amount: subtotal })
+        navigate('/mission-control/sales/quotes')
+      } else {
+        await portalApi.createQuote({ entity_id: entityId, ...form, subtotal, total_amount: subtotal })
+        navigate('/mission-control/sales/quotes')
+      }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || 'Failed to create quote')
+      setError(err?.response?.data?.detail || err?.message || (isEdit ? 'Failed to update quote' : 'Failed to create quote'))
     } finally {
       setSaving(false)
     }
   }
 
   const subtotal = form.line_items.reduce((s, l) => s + l.quantity * l.unit_price, 0)
+
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center', color: '#6B7280' }}>Loading...</div>
+  }
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -132,7 +179,7 @@ export default function SalesQuoteFormPage() {
         </button>
         <span style={{ color: '#374151' }}>/</span>
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          New Quote
+          {isEdit ? 'Edit Quote' : 'New Quote'}
         </h1>
       </div>
 
@@ -174,16 +221,18 @@ export default function SalesQuoteFormPage() {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            <button
-              onClick={() => setShowNewCustomer((v) => !v)}
-              className="px-3 py-2 rounded-lg text-sm whitespace-nowrap"
-              style={{ background: '#1E2A3A', color: '#9CA3AF', border: '1px solid #374151' }}
-            >
-              + New
-            </button>
+            {!isEdit && (
+              <button
+                onClick={() => setShowNewCustomer((v) => !v)}
+                className="px-3 py-2 rounded-lg text-sm whitespace-nowrap"
+                style={{ background: '#1E2A3A', color: '#9CA3AF', border: '1px solid #374151' }}
+              >
+                + New
+              </button>
+            )}
           </div>
 
-          {showNewCustomer && (
+          {showNewCustomer && !isEdit && (
             <div className="rounded-lg p-4 border" style={{ background: '#0D1929', borderColor: '#374151' }}>
               <div className="text-xs text-gray-400 mb-3">Quick-create customer</div>
               <div className="grid grid-cols-2 gap-3 mb-3">
@@ -339,7 +388,7 @@ export default function SalesQuoteFormPage() {
             opacity: saving || !form.customer_id ? 0.6 : 1,
           }}
         >
-          {saving ? 'Creating...' : 'Create Quote'}
+          {saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Quote')}
         </button>
       </div>
     </div>

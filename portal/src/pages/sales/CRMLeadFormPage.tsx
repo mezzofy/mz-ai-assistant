@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { portalApi } from '../../api/portal'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -57,9 +57,38 @@ const inputStyle = { background: '#1E2A3A', borderColor: '#374151' }
 
 export default function CRMLeadFormPage() {
   const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>()
+  const isEdit = !!id
   const qc = useQueryClient()
   const [form, setForm] = useState<FormData>(EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(isEdit)
+
+  // Load existing lead data in edit mode
+  useEffect(() => {
+    if (!isEdit || !id) return
+    setLoading(true)
+    portalApi.getCrmLeadDetail(id)
+      .then((r) => {
+        const lead = r.data?.data?.lead || r.data?.lead || r.data?.data || (r.data?.id ? r.data : null)
+        if (lead) {
+          setForm({
+            company_name: lead.company_name || '',
+            contact_name: lead.contact_name || '',
+            contact_email: lead.contact_email || '',
+            contact_phone: lead.contact_phone || '',
+            industry: lead.industry || '',
+            location: lead.location || '',
+            source: lead.source || 'manual',
+            status: lead.status || 'new',
+            notes: lead.notes || '',
+            lead_type: lead.lead_type || 'buyer',
+          })
+        }
+      })
+      .catch(() => setError('Failed to load lead'))
+      .finally(() => setLoading(false))
+  }, [id, isEdit])
 
   const createMutation = useMutation({
     mutationFn: (data: FormData) => portalApi.createLead(data as Record<string, unknown>),
@@ -74,6 +103,20 @@ export default function CRMLeadFormPage() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: (data: FormData) => portalApi.updateLead(id!, data as Record<string, unknown>),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm-leads'] })
+      qc.invalidateQueries({ queryKey: ['crm-pipeline'] })
+      qc.invalidateQueries({ queryKey: ['crm-lead-detail', id] })
+      navigate(`/mission-control/crm/leads/${id}`)
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(msg || 'Failed to update lead')
+    },
+  })
+
   const set = (key: keyof FormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -81,24 +124,32 @@ export default function CRMLeadFormPage() {
 
   function handleSubmit() {
     setError(null)
-    createMutation.mutate(form)
+    if (isEdit) {
+      updateMutation.mutate(form)
+    } else {
+      createMutation.mutate(form)
+    }
   }
 
-  const isPending = createMutation.isPending
+  const isPending = createMutation.isPending || updateMutation.isPending
+
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center', color: '#6B7280' }}>Loading...</div>
+  }
 
   return (
     <div className="space-y-4 max-w-3xl">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/mission-control/crm')}
+          onClick={() => navigate(isEdit ? `/mission-control/crm/leads/${id}` : '/mission-control/crm')}
           className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
         >
           ← Back
         </button>
         <span style={{ color: '#374151' }}>/</span>
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-          New Lead
+          {isEdit ? 'Edit Lead' : 'New Lead'}
         </h1>
       </div>
 
@@ -230,7 +281,7 @@ export default function CRMLeadFormPage() {
       {/* Footer Actions */}
       <div className="flex justify-end gap-3 pb-6">
         <button
-          onClick={() => navigate('/mission-control/crm')}
+          onClick={() => navigate(isEdit ? `/mission-control/crm/leads/${id}` : '/mission-control/crm')}
           className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-colors"
         >
           Cancel
@@ -244,7 +295,7 @@ export default function CRMLeadFormPage() {
             opacity: isPending || !form.company_name.trim() ? 0.6 : 1,
           }}
         >
-          {isPending ? 'Creating...' : 'Create Lead'}
+          {isPending ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Lead')}
         </button>
       </div>
     </div>

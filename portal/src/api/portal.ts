@@ -250,6 +250,8 @@ export const portalApi = {
     client.get(`/api/finance/quotes?entity_id=${entityId}`),
   createQuote: (data: any) =>
     client.post('/api/finance/quotes', data),
+  updateQuote: (id: string, data: any) =>
+    client.put(`/api/finance/quotes/${id}`, data),
   getBills: (entityId: string, status?: string) =>
     client.get(`/api/finance/bills?entity_id=${entityId}${status ? `&status=${status}` : ''}`),
   createBill: (data: any) =>

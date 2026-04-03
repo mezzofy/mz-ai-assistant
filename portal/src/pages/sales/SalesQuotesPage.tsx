@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { portalApi } from '../../api/portal'
 import { FinQuote } from '../../types'
-import { Send, ArrowRight } from 'lucide-react'
+import { Send, ArrowRight, Pencil } from 'lucide-react'
 
 const STATUS_TABS = ['All', 'draft', 'sent', 'accepted', 'declined', 'expired', 'converted']
 const STATUS_COLOR: Record<string, string> = {
@@ -144,9 +144,14 @@ export default function SalesQuotesPage() {
                       {q.status?.toUpperCase()}
                     </span>
                   </td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      onClick={() => navigate(`/mission-control/sales/quotes/${q.id}/edit`)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f9731622', color: '#f97316', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>
+                      <Pencil size={11} /> Edit
+                    </button>
                     {q.status === 'draft' && (
-                      <button style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#3b82f622', color: '#3b82f6', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12, marginRight: 6 }}>
+                      <button style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#3b82f622', color: '#3b82f6', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 12 }}>
                         <Send size={11} /> Send
                       </button>
                     )}

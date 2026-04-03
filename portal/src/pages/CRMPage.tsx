@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { portalApi } from '../api/portal'
-import type { Lead, User } from '../types'
+import type { Lead } from '../types'
 
 const STATUS_COLORS: Record<string, string> = {
   new: '#7A8FA6',
@@ -32,9 +32,6 @@ export default function CRMPage() {
   const [searchInput, setSearchInput] = useState('')
   const [country, setCountry] = useState('')
   const [countryInput, setCountryInput] = useState('')
-  const [editLead, setEditLead] = useState<Lead | null>(null)
-
-  const qc = useQueryClient()
 
   const { data: pipelineData } = useQuery({
     queryKey: ['crm-pipeline'],
@@ -53,21 +50,6 @@ export default function CRMPage() {
     queryFn: () => portalApi.getCrmCountries().then(r => r.data),
   })
   const countries: string[] = countriesData?.countries || []
-
-  const { data: usersData } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => portalApi.getUsers().then(r => r.data),
-  })
-  const users: User[] = usersData?.users || []
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => portalApi.updateLead(id, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['crm-leads'] })
-      qc.invalidateQueries({ queryKey: ['crm-countries'] })
-      setEditLead(null)
-    },
-  })
 
   const leads: Lead[] = data?.leads || []
   const totalPages = data?.total_pages || 1
@@ -236,7 +218,7 @@ export default function CRMPage() {
                 </td>
                 <td className="py-2.5 pr-4">
                   <button
-                    onClick={(e) => { e.stopPropagation(); setEditLead(lead) }}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/mission-control/crm/leads/${lead.id}/edit`) }}
                     title="Edit"
                     className="p-1.5 rounded transition-colors hover:bg-orange-500/10"
                     style={{ color: '#f97316' }}
@@ -271,159 +253,6 @@ export default function CRMPage() {
         </div>
       </div>
 
-      {/* Edit Lead Modal */}
-      {editLead && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-3xl rounded-xl border" style={{ background: '#111827', borderColor: '#1E2A3A', padding: '1em', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 className="text-base font-semibold text-white mb-4">Edit Lead</h3>
-            <div className="space-y-4">
-              {/* Row 1: Company / Type / Industry / Location */}
-              <div className="grid grid-cols-4 gap-3">
-                {(['company_name', 'industry', 'location'] as const).map((key) => (
-                  <div key={key}>
-                    <label className="block text-xs text-gray-400 mb-1">
-                      {key === 'company_name' ? 'Company Name' : key === 'industry' ? 'Industry' : 'Location / Country'}
-                    </label>
-                    <input
-                      type="text"
-                      value={(editLead[key] as string) || ''}
-                      onChange={e => setEditLead(l => l ? { ...l, [key]: e.target.value } : l)}
-                      className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
-                      style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                    />
-                  </div>
-                ))}
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Type</label>
-                  <select
-                    value={(editLead as any).lead_type || 'buyer'}
-                    onChange={e => setEditLead(prev => prev ? { ...prev, lead_type: e.target.value } as any : null)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
-                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                  >
-                    <option value="buyer">Buyer</option>
-                    <option value="merchant">Merchant</option>
-                    <option value="partner">Partner</option>
-                  </select>
-                </div>
-              </div>
-              {/* Row 2: Contact Name / Email / Phone / Source */}
-              <div className="grid grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Contact Name</label>
-                  <input
-                    type="text"
-                    value={editLead.contact_name || ''}
-                    onChange={e => setEditLead(l => l ? { ...l, contact_name: e.target.value } : l)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
-                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={editLead.contact_email || ''}
-                    onChange={e => setEditLead(l => l ? { ...l, contact_email: e.target.value } : l)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
-                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Phone</label>
-                  <input
-                    type="text"
-                    value={editLead.contact_phone || ''}
-                    onChange={e => setEditLead(l => l ? { ...l, contact_phone: e.target.value } : l)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
-                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Source</label>
-                  <select
-                    value={editLead.source || 'manual'}
-                    onChange={e => setEditLead(l => l ? { ...l, source: e.target.value } : l)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
-                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                  >
-                    {['manual', 'linkedin', 'website', 'referral', 'event', 'email', 'web'].map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {/* Row 3: Status / Assigned To */}
-              <div className="grid grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Status</label>
-                  <select
-                    value={editLead.status}
-                    onChange={e => setEditLead(l => l ? { ...l, status: e.target.value } : l)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
-                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                  >
-                    {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs text-gray-400 mb-1">Assigned To</label>
-                  <select
-                    value={editLead.assigned_to || ''}
-                    onChange={e => setEditLead(l => l ? { ...l, assigned_to: e.target.value || null } : l)}
-                    className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none"
-                    style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                  >
-                    <option value="">— Unassigned —</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {/* Row 4: Notes */}
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Notes</label>
-                <textarea
-                  value={editLead.notes || ''}
-                  onChange={e => setEditLead(l => l ? { ...l, notes: e.target.value } : l)}
-                  rows={4}
-                  className="w-full px-3 py-2 rounded-lg text-sm text-white border outline-none resize-none"
-                  style={{ background: '#1E2A3A', borderColor: '#374151' }}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => setEditLead(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400">Cancel</button>
-              <button
-                onClick={() => updateMutation.mutate({
-                  id: editLead.id,
-                  data: {
-                    company_name: editLead.company_name,
-                    contact_name: editLead.contact_name,
-                    contact_email: editLead.contact_email,
-                    contact_phone: editLead.contact_phone || undefined,
-                    industry: editLead.industry || undefined,
-                    location: editLead.location || undefined,
-                    source: editLead.source,
-                    status: editLead.status,
-                    lead_type: (editLead as any).lead_type || 'buyer',
-                    notes: editLead.notes || undefined,
-                    assigned_to: editLead.assigned_to || undefined,
-                  },
-                })}
-                disabled={updateMutation.isPending}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: '#f97316' }}
-              >
-                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
