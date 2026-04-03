@@ -45,6 +45,12 @@ export default function VendorFormPage() {
     }).catch(() => {})
   }, [])
 
+  const entityCurrency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
+
+  useEffect(() => {
+    if (entityCurrency) setForm(f => ({ ...f, currency: f.currency || entityCurrency }))
+  }, [entityCurrency])
+
   // Load vendor for edit mode
   useEffect(() => {
     if (!isEdit || !id) return

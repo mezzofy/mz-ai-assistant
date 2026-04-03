@@ -12,7 +12,6 @@ type FormData = {
   customer_id: string
   quote_date: string
   expiry_date: string
-  currency: string
   notes: string
   line_items: LineItem[]
 }
@@ -21,7 +20,6 @@ const EMPTY_FORM: FormData = {
   customer_id: '',
   quote_date: new Date().toISOString().slice(0, 10),
   expiry_date: '',
-  currency: 'SGD',
   notes: '',
   line_items: [{ description: '', quantity: 1, unit_price: 0 }],
 }
@@ -60,23 +58,15 @@ export default function SalesQuoteFormPage() {
     portalApi.getFinanceEntities().then((r) => {
       const ents = r.data?.data || []
       setEntities(ents)
-      if (ents.length > 0) {
-        setEntityId(ents[0].id)
-        if (!isEdit) {
-          const baseCurrency = ents[0].base_currency || 'SGD'
-          setForm((f) => ({ ...f, currency: baseCurrency }))
-        }
-      }
+      if (ents.length > 0) setEntityId(ents[0].id)
     }).catch(() => {})
   }, [isEdit])
+
+  const entityCurrency = entities.find((e) => e.id === entityId)?.base_currency || 'SGD'
 
   useEffect(() => {
     if (!entityId) return
     portalApi.getFinanceCustomers(entityId).then((r) => setCustomers(r.data?.data || [])).catch(() => {})
-    if (!isEdit) {
-      const ent = entities.find((e) => e.id === entityId)
-      if (ent?.base_currency) setForm((f) => ({ ...f, currency: ent.base_currency }))
-    }
   }, [entityId, isEdit])
 
   // Load existing quote in edit mode — runs after entityId is set
@@ -92,7 +82,6 @@ export default function SalesQuoteFormPage() {
             customer_id: quote.customer_id || '',
             quote_date: quote.quote_date || new Date().toISOString().slice(0, 10),
             expiry_date: quote.expiry_date || '',
-            currency: quote.currency || 'SGD',
             notes: quote.notes || '',
             line_items: (quote.line_items && quote.line_items.length > 0)
               ? quote.line_items.map((li: any) => ({
@@ -148,10 +137,10 @@ export default function SalesQuoteFormPage() {
     try {
       const subtotal = form.line_items.reduce((s, l) => s + l.quantity * l.unit_price, 0)
       if (isEdit) {
-        await portalApi.updateQuote(id!, { entity_id: entityId, ...form, subtotal, total_amount: subtotal })
+        await portalApi.updateQuote(id!, { entity_id: entityId, ...form, currency: entityCurrency, subtotal, total_amount: subtotal })
         navigate('/mission-control/sales/quotes')
       } else {
-        await portalApi.createQuote({ entity_id: entityId, ...form, subtotal, total_amount: subtotal })
+        await portalApi.createQuote({ entity_id: entityId, ...form, currency: entityCurrency, subtotal, total_amount: subtotal })
         navigate('/mission-control/sales/quotes')
       }
     } catch (err: any) {
@@ -284,15 +273,13 @@ export default function SalesQuoteFormPage() {
                 onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))}
               />
             </FormField>
-            <FormField label="Currency">
-              <input
-                className={inputClass}
-                style={inputStyle}
-                value={form.currency}
-                onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                placeholder="SGD"
-              />
-            </FormField>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#9CA3AF' }}>Currency</label>
+              <div className="w-full px-3 py-2 rounded-lg text-sm border"
+                style={{ background: '#0F172A', borderColor: '#374151', color: '#9CA3AF' }}>
+                {entityCurrency}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -351,7 +338,7 @@ export default function SalesQuoteFormPage() {
               + Add Line
             </button>
             <div className="text-sm font-semibold" style={{ color: '#F9FAFB' }}>
-              Subtotal: {form.currency} {subtotal.toLocaleString('en-SG', { minimumFractionDigits: 2 })}
+              Subtotal: {entityCurrency} {subtotal.toLocaleString('en-SG', { minimumFractionDigits: 2 })}
             </div>
           </div>
         </div>

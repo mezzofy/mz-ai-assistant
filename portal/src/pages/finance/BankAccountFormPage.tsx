@@ -27,7 +27,6 @@ export default function BankAccountFormPage() {
     account_name: '',
     account_number: '',
     swift_code: '',
-    currency: 'SGD',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +39,8 @@ export default function BankAccountFormPage() {
     }).catch(() => {})
   }, [])
 
+  const entityCurrency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
+
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [key]: e.target.value }))
 
@@ -47,7 +48,7 @@ export default function BankAccountFormPage() {
     setError(null)
     setSaving(true)
     try {
-      await portalApi.createBankAccount({ entity_id: entityId, ...form })
+      await portalApi.createBankAccount({ entity_id: entityId, ...form, currency: entityCurrency })
       navigate('/mission-control/finance/bank-accounts')
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Failed to create bank account')
@@ -94,9 +95,13 @@ export default function BankAccountFormPage() {
             <FormField label="Account Number">
               <input className={inputClass} style={inputStyle} value={form.account_number} onChange={set('account_number')} placeholder="1234-5678-9012" />
             </FormField>
-            <FormField label="Currency" required>
-              <input className={inputClass} style={inputStyle} value={form.currency} onChange={set('currency')} placeholder="SGD" />
-            </FormField>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#9CA3AF' }}>Currency <span style={{ color: '#f97316' }}>*</span></label>
+              <div className="w-full px-3 py-2 rounded-lg text-sm border"
+                style={{ background: '#0F172A', borderColor: '#374151', color: '#9CA3AF' }}>
+                {entityCurrency}
+              </div>
+            </div>
           </div>
         </div>
 

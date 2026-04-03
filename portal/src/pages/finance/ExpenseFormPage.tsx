@@ -36,7 +36,6 @@ export default function ExpenseFormPage() {
     category: '',
     description: '',
     vendor_id: '',
-    currency: 'SGD',
     amount: '',
     tax_amount: '',
   })
@@ -50,6 +49,8 @@ export default function ExpenseFormPage() {
       if (ents.length > 0) setEntityId(ents[0].id)
     }).catch(() => {})
   }, [])
+
+  const entityCurrency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
 
   useEffect(() => {
     if (!entityId) return
@@ -77,7 +78,7 @@ export default function ExpenseFormPage() {
         category: form.category,
         description: form.description,
         vendor_id: form.vendor_id || undefined,
-        currency: form.currency,
+        currency: entityCurrency,
         amount: parseFloat(form.amount) || 0,
         tax_amount: parseFloat(form.tax_amount) || 0,
       })
@@ -178,9 +179,13 @@ export default function ExpenseFormPage() {
         <div className="border-t pt-5" style={{ borderColor: '#1E2A3A' }}>
           <div className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: '#4B5563' }}>Amount</div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField label="Currency">
-              <input className={inputClass} style={inputStyle} value={form.currency} onChange={set('currency')} placeholder="SGD" />
-            </FormField>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#9CA3AF' }}>Currency</label>
+              <div className="w-full px-3 py-2 rounded-lg text-sm border"
+                style={{ background: '#0F172A', borderColor: '#374151', color: '#9CA3AF' }}>
+                {entityCurrency}
+              </div>
+            </div>
             <FormField label="Amount" required>
               <input type="number" className={inputClass} style={inputStyle} value={form.amount} onChange={set('amount')} placeholder="0.00" min="0" />
             </FormField>
@@ -192,7 +197,7 @@ export default function ExpenseFormPage() {
                 <div>
                   <div className="text-xs mb-1" style={{ color: '#6B7280' }}>Total</div>
                   <div className="text-lg font-semibold text-white">
-                    {form.currency} {((parseFloat(form.amount) || 0) + (parseFloat(form.tax_amount) || 0)).toFixed(2)}
+                    {entityCurrency} {((parseFloat(form.amount) || 0) + (parseFloat(form.tax_amount) || 0)).toFixed(2)}
                   </div>
                 </div>
               </div>

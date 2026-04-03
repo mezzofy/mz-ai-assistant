@@ -30,7 +30,6 @@ export default function BillFormPage() {
     bill_date: new Date().toISOString().slice(0, 10),
     due_date: '',
     reference: '',
-    currency: 'SGD',
     tax_amount: '',
     notes: '',
   })
@@ -45,6 +44,8 @@ export default function BillFormPage() {
       if (ents.length > 0) setEntityId(ents[0].id)
     }).catch(() => {})
   }, [])
+
+  const entityCurrency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
 
   useEffect(() => {
     if (!entityId) return
@@ -74,7 +75,7 @@ export default function BillFormPage() {
         bill_date: form.bill_date,
         due_date: form.due_date || undefined,
         reference: form.reference || undefined,
-        currency: form.currency,
+        currency: entityCurrency,
         subtotal,
         tax_amount: taxAmt,
         total_amount: totalAmount,
@@ -132,9 +133,13 @@ export default function BillFormPage() {
             <FormField label="Due Date">
               <input type="date" className={inputClass} style={inputStyle} value={form.due_date} onChange={set('due_date')} />
             </FormField>
-            <FormField label="Currency">
-              <input className={inputClass} style={inputStyle} value={form.currency} onChange={set('currency')} placeholder="SGD" />
-            </FormField>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#9CA3AF' }}>Currency</label>
+              <div className="w-full px-3 py-2 rounded-lg text-sm border"
+                style={{ background: '#0F172A', borderColor: '#374151', color: '#9CA3AF' }}>
+                {entityCurrency}
+              </div>
+            </div>
             <FormField label="Reference">
               <input className={inputClass} style={inputStyle} value={form.reference} onChange={set('reference')} placeholder="PO-001" />
             </FormField>
@@ -212,7 +217,7 @@ export default function BillFormPage() {
           <div className="mt-4 space-y-2" style={{ maxWidth: 280, marginLeft: 'auto' }}>
             <div className="flex justify-between text-sm">
               <span style={{ color: '#9CA3AF' }}>Subtotal</span>
-              <span className="text-white">{form.currency} {subtotal.toFixed(2)}</span>
+              <span className="text-white">{entityCurrency} {subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm items-center">
               <span style={{ color: '#9CA3AF' }}>Tax</span>
@@ -228,7 +233,7 @@ export default function BillFormPage() {
             </div>
             <div className="flex justify-between text-sm font-semibold border-t pt-2" style={{ borderColor: '#374151' }}>
               <span style={{ color: '#9CA3AF' }}>Total</span>
-              <span className="text-white">{form.currency} {totalAmount.toFixed(2)}</span>
+              <span className="text-white">{entityCurrency} {totalAmount.toFixed(2)}</span>
             </div>
           </div>
         </div>
