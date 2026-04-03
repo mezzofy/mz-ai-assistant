@@ -64,6 +64,12 @@ export default function SalesCustomerFormPage() {
     }).catch(() => {})
   }, [])
 
+  const entityCurrency = entities.find((e) => e.id === entityId)?.base_currency || 'SGD'
+
+  useEffect(() => {
+    if (!isEdit && entityCurrency) setForm(f => ({ ...f, currency: f.currency || entityCurrency }))
+  }, [entityCurrency, isEdit])
+
   useEffect(() => {
     if (!isEdit || !entityId) return
     setLoading(true)

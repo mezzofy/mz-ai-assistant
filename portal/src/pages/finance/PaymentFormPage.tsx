@@ -27,7 +27,6 @@ export default function PaymentFormPage() {
   const [form, setForm] = useState({
     payment_type: 'receipt',
     payment_date: new Date().toISOString().slice(0, 10),
-    currency: 'SGD',
     amount: '',
     payment_method: '',
     reference: '',
@@ -46,6 +45,8 @@ export default function PaymentFormPage() {
     }).catch(() => {})
   }, [])
 
+  const entityCurrency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
+
   useEffect(() => {
     if (!entityId) return
     portalApi.getFinanceCustomers(entityId).then(r => setCustomers(r.data?.data || [])).catch(() => {})
@@ -63,7 +64,7 @@ export default function PaymentFormPage() {
         entity_id: entityId,
         payment_type: form.payment_type,
         payment_date: form.payment_date,
-        currency: form.currency,
+        currency: entityCurrency,
         amount: parseFloat(form.amount) || 0,
         payment_method: form.payment_method || undefined,
         reference: form.reference || undefined,
@@ -125,9 +126,13 @@ export default function PaymentFormPage() {
             <FormField label="Amount" required>
               <input type="number" className={inputClass} style={inputStyle} value={form.amount} onChange={set('amount')} placeholder="0.00" min="0" />
             </FormField>
-            <FormField label="Currency">
-              <input className={inputClass} style={inputStyle} value={form.currency} onChange={set('currency')} placeholder="SGD" />
-            </FormField>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#9CA3AF' }}>Currency</label>
+              <div className="w-full px-3 py-2 rounded-lg text-sm border"
+                style={{ background: '#0F172A', borderColor: '#374151', color: '#9CA3AF' }}>
+                {entityCurrency}
+              </div>
+            </div>
             <FormField label="Payment Method">
               <input className={inputClass} style={inputStyle} value={form.payment_method} onChange={set('payment_method')} placeholder="Bank Transfer, Cash, Cheque..." />
             </FormField>

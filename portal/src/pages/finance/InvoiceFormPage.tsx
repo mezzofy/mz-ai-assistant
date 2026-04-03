@@ -13,7 +13,6 @@ type FormData = {
   customer_id: string
   invoice_date: string
   due_date: string
-  currency: string
   notes: string
   line_items: LineItem[]
 }
@@ -22,7 +21,6 @@ const EMPTY_FORM: FormData = {
   customer_id: '',
   invoice_date: new Date().toISOString().slice(0, 10),
   due_date: '',
-  currency: 'SGD',
   notes: '',
   line_items: [{ description: '', quantity: 1, unit_price: 0, tax_rate: 0 }],
 }
@@ -58,19 +56,15 @@ export default function InvoiceFormPage() {
     portalApi.getFinanceEntities().then((r) => {
       const ents = r.data?.data || []
       setEntities(ents)
-      if (ents.length > 0) {
-        setEntityId(ents[0].id)
-        const baseCurrency = ents[0].base_currency || 'SGD'
-        setForm((f) => ({ ...f, currency: baseCurrency }))
-      }
+      if (ents.length > 0) setEntityId(ents[0].id)
     }).catch(() => {})
   }, [])
+
+  const entityCurrency = entities.find((e) => e.id === entityId)?.base_currency || 'SGD'
 
   useEffect(() => {
     if (!entityId) return
     portalApi.getFinanceCustomers(entityId).then((r) => setCustomers(r.data?.data || [])).catch(() => {})
-    const ent = entities.find((e) => e.id === entityId)
-    if (ent?.base_currency) setForm((f) => ({ ...f, currency: ent.base_currency }))
   }, [entityId])
 
   async function handleCreateCustomer() {
@@ -110,7 +104,7 @@ export default function InvoiceFormPage() {
     setError(null)
     try {
       const subtotal = form.line_items.reduce((s, l) => s + l.quantity * l.unit_price, 0)
-      await portalApi.createInvoice({ entity_id: entityId, ...form, subtotal, total_amount: subtotal })
+      await portalApi.createInvoice({ entity_id: entityId, ...form, currency: entityCurrency, subtotal, total_amount: subtotal })
       navigate('/mission-control/finance/invoices')
     } catch (err: any) {
       setError(err?.response?.data?.detail || err?.message || 'Failed to create invoice')
@@ -236,15 +230,13 @@ export default function InvoiceFormPage() {
                 onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))}
               />
             </FormField>
-            <FormField label="Currency">
-              <input
-                className={inputClass}
-                style={inputStyle}
-                value={form.currency}
-                onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                placeholder="SGD"
-              />
-            </FormField>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: '#9CA3AF' }}>Currency</label>
+              <div className="w-full px-3 py-2 rounded-lg text-sm border"
+                style={{ background: '#0F172A', borderColor: '#374151', color: '#9CA3AF' }}>
+                {entityCurrency}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -321,7 +313,7 @@ export default function InvoiceFormPage() {
               + Add Line
             </button>
             <div className="text-sm font-semibold" style={{ color: '#F9FAFB' }}>
-              Subtotal: {form.currency} {subtotal.toLocaleString('en-SG', { minimumFractionDigits: 2 })}
+              Subtotal: {entityCurrency} {subtotal.toLocaleString('en-SG', { minimumFractionDigits: 2 })}
             </div>
           </div>
         </div>
