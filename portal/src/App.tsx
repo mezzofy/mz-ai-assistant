@@ -77,6 +77,7 @@ export default function App() {
             <Route path="users" element={<UsersPage />} />
             <Route path="crm" element={<SalesRoute><CRMPage /></SalesRoute>} />
             <Route path="crm/leads/new" element={<SalesRoute><CRMLeadFormPage /></SalesRoute>} />
+            <Route path="crm/leads/:id/edit" element={<SalesRoute><CRMLeadFormPage /></SalesRoute>} />
             <Route path="crm/leads/:id" element={<SalesRoute><CRMLeadDetailPage /></SalesRoute>} />
             <Route path="background-tasks" element={<BackgroundTasksPage />} />
             <Route path="finance" element={<FinanceRoute><FinanceDashboard /></FinanceRoute>} />
@@ -102,6 +103,7 @@ export default function App() {
             <Route path="sales/customers/:id/edit" element={<SalesRoute><SalesCustomerFormPage /></SalesRoute>} />
             <Route path="sales/quotes" element={<SalesRoute><SalesQuotesPage /></SalesRoute>} />
             <Route path="sales/quotes/new" element={<SalesRoute><SalesQuoteFormPage /></SalesRoute>} />
+            <Route path="sales/quotes/:id/edit" element={<SalesRoute><SalesQuoteFormPage /></SalesRoute>} />
             <Route path="sales/files" element={<SalesRoute><DeptFilesPage department="sales" sectionTitle="Sales" /></SalesRoute>} />
             <Route path="hr" element={<HRRoute><Outlet /></HRRoute>}>
               <Route path="employees" element={<HREmployeesPage />} />
