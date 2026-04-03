@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { portalApi } from '../../api/portal'
 import { FinBankAccount } from '../../types'
 
 export default function BankAccounts() {
+  const navigate = useNavigate()
   const [accounts, setAccounts] = useState<FinBankAccount[]>([])
   const [entityId, setEntityId] = useState('')
   const [entities, setEntities] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [showNewModal, setShowNewModal] = useState(false)
-  const [newForm, setNewForm] = useState({ bank_name: '', account_name: '', account_number: '', swift_code: '', currency: 'SGD' })
-  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     portalApi.getFinanceEntities().then(r => {
@@ -28,8 +27,6 @@ export default function BankAccounts() {
       .finally(() => setLoading(false))
   }, [entityId])
 
-  const currency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
-
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -39,7 +36,7 @@ export default function BankAccounts() {
             style={{ background: '#1F2937', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
             {entities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
-          <button onClick={() => setShowNewModal(true)}
+          <button onClick={() => navigate('/mission-control/finance/bank-accounts/new')}
             className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
             style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
             + New Account
@@ -83,43 +80,6 @@ export default function BankAccounts() {
           </table>
         )}
       </div>
-      {showNewModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: '#1F2937', borderRadius: 10, padding: 28, width: 440, border: '1px solid #374151' }}>
-            <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>New Bank Account</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {[
-                { label: 'Bank Name *', key: 'bank_name' },
-                { label: 'Account Name *', key: 'account_name' },
-                { label: 'Account Number', key: 'account_number' },
-                { label: 'SWIFT Code', key: 'swift_code' },
-                { label: 'Currency *', key: 'currency' },
-              ].map(f => (
-                <div key={f.key}>
-                  <div style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 4 }}>{f.label}</div>
-                  <input value={(newForm as any)[f.key]} onChange={e => setNewForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    style={{ background: '#111827', color: '#F9FAFB', border: '1px solid #374151', borderRadius: 6, padding: '8px 12px', fontSize: 13, width: '100%', boxSizing: 'border-box' as const }} />
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowNewModal(false)} style={{ background: '#374151', color: '#F9FAFB', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
-              <button onClick={async () => {
-                setCreating(true)
-                try {
-                  await portalApi.createBankAccount({ entity_id: entityId, ...newForm })
-                  setShowNewModal(false)
-                  setNewForm({ bank_name: '', account_name: '', account_number: '', swift_code: '', currency: currency })
-                  setLoading(true)
-                  portalApi.getBankAccounts(entityId).then(r => setAccounts(r.data?.data || [])).finally(() => setLoading(false))
-                } catch { /* ignore */ } finally { setCreating(false) }
-              }} disabled={creating} className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all" style={{ background: '#f97316', border: 'none', cursor: 'pointer' }}>
-                {creating ? 'Creating...' : 'Create Account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
