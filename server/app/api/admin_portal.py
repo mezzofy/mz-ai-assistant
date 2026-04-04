@@ -497,13 +497,15 @@ async def trigger_job(
     # Enqueue via Celery
     try:
         from app.tasks.tasks import process_agent_task
-        task = process_agent_task.delay(
-            user_id=current_user.get("user_id"),
-            session_id=str(uuid.uuid4()),
-            department=job.agent,
-            message=job.message,
-            source="manual_admin_trigger",
-        )
+        task = process_agent_task.delay({
+            "user_id": current_user.get("user_id"),
+            "department": job.agent,
+            "agent": job.agent,
+            "message": job.message,
+            "source": "manual_admin_trigger",
+            "_job_id": str(job.id),
+            "_job_name": job.name,
+        })
         task_id = task.id
     except Exception as e:
         logger.error(f"Failed to enqueue job {job_id}: {e}")

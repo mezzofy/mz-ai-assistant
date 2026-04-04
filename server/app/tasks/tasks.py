@@ -387,8 +387,47 @@ async def _run_agent_task(task_data: dict) -> dict:
             "agent_used": "none",
         }
 
-    # Execute agent — update agent_tasks lifecycle if agent_task_id is present
+    # For scheduled jobs: create an agent_tasks row so run history is recorded.
+    # Beat does not pre-create a row; we do it here when _job_id is present.
     agent_task_id = task_data.get("agent_task_id")
+    job_id = task_data.get("_job_id")
+    if not agent_task_id and job_id:
+        import uuid as _uuid, json as _json
+        new_task_id = str(_uuid.uuid4())
+        _message = task_data.get("message", "")[:500]
+        _dept = task_data.get("department") or task_data.get("agent", "scheduler")
+        _uid_str = task_data.get("user_id") or None
+        try:
+            from app.core.database import AsyncSessionLocal
+            from sqlalchemy import text as _text
+            async with AsyncSessionLocal() as _db:
+                await _db.execute(
+                    _text(
+                        "INSERT INTO agent_tasks "
+                        "(id, task_ref, user_id, department, content, status, details, notify_on_done) "
+                        "VALUES (:id, :ref, :uid, :dept, :content, 'running', :details, false)"
+                    ),
+                    {
+                        "id": new_task_id,
+                        "ref": f"sched-{job_id[:8]}",
+                        "uid": _uid_str,
+                        "dept": _dept,
+                        "content": _message,
+                        "details": _json.dumps({
+                            "job_id": job_id,
+                            "job_name": task_data.get("_job_name", ""),
+                            "source": task_data.get("source", "scheduler"),
+                        }),
+                    },
+                )
+                await _db.commit()
+            agent_task_id = new_task_id
+            task_data["agent_task_id"] = new_task_id
+            logger.info(f"Created agent_tasks row {new_task_id} for scheduled job {job_id}")
+        except Exception as _e:
+            logger.warning(f"Could not create agent_tasks row for scheduled job {job_id}: {_e}")
+
+    # Execute agent — update agent_tasks lifecycle if agent_task_id is present
     if agent_task_id:
         await _update_agent_task_status(agent_task_id, "running")
 
