@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange, BarChart3, BookOpen, FileText, MessageSquare, Inbox, CreditCard, UserCircle, Building2, Landmark, Receipt, PieChart, Settings } from 'lucide-react'
+import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange, BarChart3, BookOpen, FileText, MessageSquare, Inbox, CreditCard, UserCircle, Building, Building2, Landmark, Receipt, PieChart, LayoutList, Tag } from 'lucide-react'
 import clsx from 'clsx'
 import { portalApi } from '../../api/portal'
 
@@ -9,18 +9,28 @@ const HR_ROLES = ['hr_viewer', 'hr_staff', 'hr_manager', 'executive', 'admin']
 const FINANCE_ROLES = ['finance_viewer', 'finance_manager', 'executive', 'admin', 'cfo', 'ceo']
 const SALES_ROLES = ['sales_manager', 'sales_rep', 'executive', 'admin']
 
-const FINANCE_NAV_ITEMS = [
-  { path: '/mission-control/finance', label: 'Dashboard', icon: BarChart3 },
-  { path: '/mission-control/finance/journal', label: 'Journal Entries', icon: BookOpen },
-  { path: '/mission-control/finance/invoices', label: 'Invoices', icon: FileText },
-  { path: '/mission-control/finance/bills', label: 'Bills', icon: Inbox },
-  { path: '/mission-control/finance/payments', label: 'Payments', icon: CreditCard },
-  { path: '/mission-control/finance/vendors', label: 'Vendors', icon: Building2 },
-  { path: '/mission-control/finance/bank-accounts', label: 'Bank Accounts', icon: Landmark },
-  { path: '/mission-control/finance/expenses', label: 'Expenses', icon: Receipt },
-  { path: '/mission-control/finance/reports', label: 'Reports', icon: PieChart },
-  { path: '/mission-control/finance/entities', label: 'Settings', icon: Settings },
-  { path: '/mission-control/finance/files', label: 'Files', icon: FolderOpen },
+type FinanceNavItem =
+  | { type: 'link'; path: string; label: string; icon: React.ComponentType<{ size?: number }> }
+  | { type: 'label'; label: string }
+
+const FINANCE_NAV_ITEMS: FinanceNavItem[] = [
+  { type: 'link', path: '/mission-control/finance', label: 'Dashboard', icon: BarChart3 },
+  { type: 'link', path: '/mission-control/finance/journal', label: 'Journal Entries', icon: BookOpen },
+  { type: 'label', label: 'Receivables' },
+  { type: 'link', path: '/mission-control/finance/invoices', label: 'Invoices', icon: FileText },
+  { type: 'label', label: 'Payables' },
+  { type: 'link', path: '/mission-control/finance/bills', label: 'Bills', icon: Inbox },
+  { type: 'link', path: '/mission-control/finance/expenses', label: 'Expenses', icon: Receipt },
+  { type: 'link', path: '/mission-control/finance/payments', label: 'Payments', icon: CreditCard },
+  { type: 'label', label: 'Reports' },
+  { type: 'link', path: '/mission-control/finance/reports', label: 'Reports', icon: PieChart },
+  { type: 'label', label: 'Settings' },
+  { type: 'link', path: '/mission-control/finance/entities', label: 'Legal Entities', icon: Building },
+  { type: 'link', path: '/mission-control/finance/accounts', label: 'Chart of Accounts', icon: LayoutList },
+  { type: 'link', path: '/mission-control/finance/bank-accounts', label: 'Bank Accounts', icon: Landmark },
+  { type: 'link', path: '/mission-control/finance/vendors', label: 'Vendors', icon: Building2 },
+  { type: 'link', path: '/mission-control/finance/tax-codes', label: 'Tax Codes', icon: Tag },
+  { type: 'link', path: '/mission-control/finance/files', label: 'Files', icon: FolderOpen },
 ]
 
 const NAV_ITEMS = [
@@ -174,27 +184,40 @@ export default function Sidebar() {
                 Finance
               </div>
             </div>
-            {FINANCE_NAV_ITEMS.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === '/mission-control/finance'}
-                className={({ isActive }) =>
-                  clsx(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
-                    isActive
-                      ? 'text-white font-medium'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                  )
-                }
-                style={({ isActive }) =>
-                  isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
-                }
-              >
-                <item.icon size={16} />
-                <span className="flex-1">{item.label}</span>
-              </NavLink>
-            ))}
+            {FINANCE_NAV_ITEMS.map((item, idx) => {
+              if (item.type === 'label') {
+                return (
+                  <div
+                    key={`label-${idx}`}
+                    className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: '#374151' }}
+                  >
+                    {item.label}
+                  </div>
+                )
+              }
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.path === '/mission-control/finance'}
+                  className={({ isActive }) =>
+                    clsx(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
+                      isActive
+                        ? 'text-white font-medium'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                    )
+                  }
+                  style={({ isActive }) =>
+                    isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
+                  }
+                >
+                  <item.icon size={16} />
+                  <span className="flex-1">{item.label}</span>
+                </NavLink>
+              )
+            })}
           </>
         )}
 

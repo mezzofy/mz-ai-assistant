@@ -50,6 +50,8 @@ import PaymentFormPage from './pages/finance/PaymentFormPage'
 import VendorFormPage from './pages/finance/VendorFormPage'
 import BankAccountFormPage from './pages/finance/BankAccountFormPage'
 import ExpenseFormPage from './pages/finance/ExpenseFormPage'
+import ChartOfAccountsPage from './pages/finance/ChartOfAccountsPage'
+import TaxCodesPage from './pages/finance/TaxCodesPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -106,6 +108,8 @@ export default function App() {
             <Route path="finance/entities" element={<FinanceRoute><Entities /></FinanceRoute>} />
             <Route path="finance/periods" element={<FinanceRoute><Periods /></FinanceRoute>} />
             <Route path="finance/tax" element={<FinanceRoute><TaxCodes /></FinanceRoute>} />
+            <Route path="finance/accounts" element={<FinanceRoute><ChartOfAccountsPage /></FinanceRoute>} />
+            <Route path="finance/tax-codes" element={<FinanceRoute><TaxCodesPage /></FinanceRoute>} />
             <Route path="finance/quotes" element={<Navigate to="/mission-control/sales/quotes" replace />} />
             <Route path="finance/files" element={<FinanceRoute><DeptFilesPage department="finance" sectionTitle="Finance" /></FinanceRoute>} />
             <Route path="sales/customers" element={<SalesRoute><SalesCustomersPage /></SalesRoute>} />
