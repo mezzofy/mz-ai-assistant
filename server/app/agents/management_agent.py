@@ -24,11 +24,15 @@ _TRIGGER_KEYWORDS = {
     "linkedin",
 }
 
-# Subset of keywords that indicate an explicit KPI/dashboard request in execute()
+# Subset of keywords that indicate an explicit KPI/dashboard request in execute().
+# Keep this list SPECIFIC — generic words like "summary", "report", "usage",
+# "weekly" must NOT appear here or they will intercept unrelated tasks (e.g.
+# "email summary", "expense report", "LLM usage stats") and wrongly trigger
+# the KPI dashboard workflow instead of _general_response.
 _KPI_KEYWORDS = {
-    "kpi", "dashboard", "report", "overview", "performance", "metrics", "executive",
-    "audit", "cost", "usage", "cross-department", "all departments", "company-wide",
-    "revenue", "summary", "weekly",
+    "kpi", "dashboard", "performance", "metrics", "executive",
+    "audit", "cross-department", "all departments", "company-wide",
+    "revenue",
 }
 
 
