@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange, BarChart3, BookOpen, FileText, MessageSquare, Inbox, CreditCard, UserCircle, Building, Building2, Landmark, Receipt, PieChart, LayoutList, Tag } from 'lucide-react'
+import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange, BarChart3, BookOpen, FileText, MessageSquare, Inbox, CreditCard, UserCircle, Building, Building2, Landmark, Receipt, PieChart, LayoutList, Tag, ChevronDown, Settings } from 'lucide-react'
 import clsx from 'clsx'
 import { portalApi } from '../../api/portal'
 
@@ -9,27 +9,39 @@ const HR_ROLES = ['hr_viewer', 'hr_staff', 'hr_manager', 'executive', 'admin']
 const FINANCE_ROLES = ['finance_viewer', 'finance_manager', 'executive', 'admin', 'cfo', 'ceo']
 const SALES_ROLES = ['sales_manager', 'sales_rep', 'executive', 'admin']
 
+type FinanceLeafItem = { path: string; label: string; icon: React.ComponentType<{ size?: number }> }
 type FinanceNavItem =
   | { type: 'link'; path: string; label: string; icon: React.ComponentType<{ size?: number }> }
-  | { type: 'label'; label: string }
+  | { type: 'group'; label: string; icon: React.ComponentType<{ size?: number }>; children: FinanceLeafItem[] }
 
 const FINANCE_NAV_ITEMS: FinanceNavItem[] = [
   { type: 'link', path: '/mission-control/finance', label: 'Dashboard', icon: BarChart3 },
   { type: 'link', path: '/mission-control/finance/journal', label: 'Journal Entries', icon: BookOpen },
-  { type: 'label', label: 'Receivables' },
-  { type: 'link', path: '/mission-control/finance/invoices', label: 'Invoices', icon: FileText },
-  { type: 'label', label: 'Payables' },
-  { type: 'link', path: '/mission-control/finance/bills', label: 'Bills', icon: Inbox },
-  { type: 'link', path: '/mission-control/finance/expenses', label: 'Expenses', icon: Receipt },
-  { type: 'link', path: '/mission-control/finance/payments', label: 'Payments', icon: CreditCard },
-  { type: 'label', label: 'Reports' },
+  {
+    type: 'group', label: 'Receivables', icon: FileText,
+    children: [
+      { path: '/mission-control/finance/invoices', label: 'Invoices', icon: FileText },
+    ]
+  },
+  {
+    type: 'group', label: 'Payables', icon: Inbox,
+    children: [
+      { path: '/mission-control/finance/bills', label: 'Bills', icon: Inbox },
+      { path: '/mission-control/finance/expenses', label: 'Expenses', icon: Receipt },
+      { path: '/mission-control/finance/payments', label: 'Payments', icon: CreditCard },
+    ]
+  },
   { type: 'link', path: '/mission-control/finance/reports', label: 'Reports', icon: PieChart },
-  { type: 'label', label: 'Settings' },
-  { type: 'link', path: '/mission-control/finance/entities', label: 'Legal Entities', icon: Building },
-  { type: 'link', path: '/mission-control/finance/accounts', label: 'Chart of Accounts', icon: LayoutList },
-  { type: 'link', path: '/mission-control/finance/bank-accounts', label: 'Bank Accounts', icon: Landmark },
-  { type: 'link', path: '/mission-control/finance/vendors', label: 'Vendors', icon: Building2 },
-  { type: 'link', path: '/mission-control/finance/tax-codes', label: 'Tax Codes', icon: Tag },
+  {
+    type: 'group', label: 'Settings', icon: Settings,
+    children: [
+      { path: '/mission-control/finance/entities', label: 'Legal Entities', icon: Building },
+      { path: '/mission-control/finance/accounts', label: 'Chart of Accounts', icon: LayoutList },
+      { path: '/mission-control/finance/bank-accounts', label: 'Bank Accounts', icon: Landmark },
+      { path: '/mission-control/finance/vendors', label: 'Vendors', icon: Building2 },
+      { path: '/mission-control/finance/tax-codes', label: 'Tax Codes', icon: Tag },
+    ]
+  },
   { type: 'link', path: '/mission-control/finance/files', label: 'Files', icon: FolderOpen },
 ]
 
@@ -62,7 +74,21 @@ const BOTTOM_NAV_ITEMS = [
 export default function Sidebar() {
   const clearAuth = useAuthStore((s) => s.clearAuth)
   const user = useAuthStore((s) => s.user)
+  const location = useLocation()
   const [activeBgCount, setActiveBgCount] = useState(0)
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {}
+    FINANCE_NAV_ITEMS.forEach(item => {
+      if (item.type === 'group') {
+        initial[item.label] = item.children.some(c => location.pathname.startsWith(c.path))
+      }
+    })
+    return initial
+  })
+
+  const toggleGroup = (label: string) =>
+    setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
   const showHR = user?.role ? HR_ROLES.includes(user.role) : false
   const showFinance = user?.role ? FINANCE_ROLES.includes(user.role) : false
   const showSales = user?.role ? SALES_ROLES.includes(user.role) : false
@@ -184,39 +210,65 @@ export default function Sidebar() {
                 Finance
               </div>
             </div>
-            {FINANCE_NAV_ITEMS.map((item, idx) => {
-              if (item.type === 'label') {
+            {FINANCE_NAV_ITEMS.map((item) => {
+              if (item.type === 'link') {
                 return (
-                  <div
-                    key={`label-${idx}`}
-                    className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider"
-                    style={{ color: '#374151' }}
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.path === '/mission-control/finance'}
+                    className={({ isActive }) =>
+                      clsx('flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
+                        isActive ? 'text-white font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5')
+                    }
+                    style={({ isActive }) => isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}}
                   >
-                    {item.label}
+                    <item.icon size={16} />
+                    <span className="flex-1">{item.label}</span>
+                  </NavLink>
+                )
+              }
+
+              if (item.type === 'group') {
+                const isOpen = openGroups[item.label] ?? false
+                return (
+                  <div key={`group-${item.label}`}>
+                    <button
+                      onClick={() => toggleGroup(item.label)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                    >
+                      <item.icon size={16} />
+                      <span className="flex-1 text-left">{item.label}</span>
+                      <ChevronDown
+                        size={14}
+                        className="transition-transform duration-200"
+                        style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                      />
+                    </button>
+
+                    {isOpen && (
+                      <div className="ml-3 pl-3 border-l" style={{ borderColor: '#1E2A3A' }}>
+                        {item.children.map(child => (
+                          <NavLink
+                            key={child.path}
+                            to={child.path}
+                            className={({ isActive }) =>
+                              clsx('flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm transition-all',
+                                isActive ? 'text-white font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5')
+                            }
+                            style={({ isActive }) => isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}}
+                          >
+                            <child.icon size={14} />
+                            <span className="flex-1">{child.label}</span>
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               }
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.path === '/mission-control/finance'}
-                  className={({ isActive }) =>
-                    clsx(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all',
-                      isActive
-                        ? 'text-white font-medium'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                    )
-                  }
-                  style={({ isActive }) =>
-                    isActive ? { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' } : {}
-                  }
-                >
-                  <item.icon size={16} />
-                  <span className="flex-1">{item.label}</span>
-                </NavLink>
-              )
+
+              return null
             })}
           </>
         )}
