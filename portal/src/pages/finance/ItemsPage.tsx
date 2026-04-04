@@ -9,14 +9,33 @@ interface FinEntity {
 
 interface TaxCode {
   id: string
-  entity_id: string
   code: string
   name: string
-  tax_type: string
-  rate: number
-  applies_to: string | null
-  country_code: string | null
+}
+
+interface Item {
+  id: string
+  entity_id: string
+  item_code: string
+  name: string
+  description: string | null
+  category: string
+  unit: string
+  unit_price: number
+  currency: string
+  tax_code_id: string | null
   is_active: boolean
+}
+
+const CATEGORY_COLORS: Record<string, { bg: string; color: string }> = {
+  product:      { bg: 'rgba(59,130,246,0.15)',  color: '#93C5FD' },
+  service:      { bg: 'rgba(34,197,94,0.15)',   color: '#86EFAC' },
+  subscription: { bg: 'rgba(139,92,246,0.15)',  color: '#C4B5FD' },
+  other:        { bg: 'rgba(107,114,128,0.15)', color: '#9CA3AF' },
+}
+
+function getCategoryBadge(category: string) {
+  return CATEGORY_COLORS[category?.toLowerCase()] ?? CATEGORY_COLORS.other
 }
 
 const selectStyle: React.CSSProperties = {
@@ -45,22 +64,24 @@ function FormField({ label, required, children }: { label: string; required?: bo
 }
 
 const defaultForm = {
-  code: '',
   name: '',
-  tax_type: 'gst',
-  rate: '',
-  applies_to: 'both',
-  country_code: '',
+  description: '',
+  category: 'service',
+  unit: 'each',
+  unit_price: '',
+  currency: 'SGD',
+  tax_code_id: '',
 }
 
-export default function TaxCodesPage() {
+export default function ItemsPage() {
   const [entities, setEntities] = useState<FinEntity[]>([])
   const [entityId, setEntityId] = useState<string>('')
+  const [items, setItems] = useState<Item[]>([])
   const [taxCodes, setTaxCodes] = useState<TaxCode[]>([])
   const [loadingEntities, setLoadingEntities] = useState(true)
-  const [loadingTaxCodes, setLoadingTaxCodes] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
-  const [editingTaxCode, setEditingTaxCode] = useState<TaxCode | null>(null)
+  const [editingItem, setEditingItem] = useState<Item | null>(null)
   const [form, setForm] = useState({ ...defaultForm })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -80,42 +101,48 @@ export default function TaxCodesPage() {
 
   useEffect(() => {
     if (!entityId) return
-    setLoadingTaxCodes(true)
-    portalApi.getTaxCodes(entityId)
-      .then(r => {
-        const data = r.data?.data ?? r.data ?? []
-        setTaxCodes(Array.isArray(data) ? data : [])
+    setLoading(true)
+    Promise.all([
+      portalApi.getItems(entityId),
+      portalApi.getTaxCodes(entityId),
+    ])
+      .then(([itemsRes, tcRes]) => {
+        const itemData = itemsRes.data?.data ?? itemsRes.data ?? []
+        setItems(Array.isArray(itemData) ? itemData : [])
+        const tcData = tcRes.data?.data ?? tcRes.data ?? []
+        setTaxCodes(Array.isArray(tcData) ? tcData : [])
       })
-      .catch(() => setTaxCodes([]))
-      .finally(() => setLoadingTaxCodes(false))
+      .catch(() => { setItems([]); setTaxCodes([]) })
+      .finally(() => setLoading(false))
   }, [entityId])
 
-  const reloadTaxCodes = () => {
+  const reloadItems = () => {
     if (!entityId) return
-    portalApi.getTaxCodes(entityId)
+    portalApi.getItems(entityId)
       .then(r => {
         const data = r.data?.data ?? r.data ?? []
-        setTaxCodes(Array.isArray(data) ? data : [])
+        setItems(Array.isArray(data) ? data : [])
       })
-      .catch(() => setTaxCodes([]))
+      .catch(() => setItems([]))
   }
 
   const openNew = () => {
-    setEditingTaxCode(null)
+    setEditingItem(null)
     setForm({ ...defaultForm })
     setError(null)
     setShowForm(true)
   }
 
-  const openEdit = (tc: TaxCode) => {
-    setEditingTaxCode(tc)
+  const openEdit = (item: Item) => {
+    setEditingItem(item)
     setForm({
-      code: tc.code,
-      name: tc.name,
-      tax_type: tc.tax_type,
-      rate: String(tc.rate),
-      applies_to: tc.applies_to || 'both',
-      country_code: tc.country_code || '',
+      name: item.name,
+      description: item.description || '',
+      category: item.category || 'service',
+      unit: item.unit || 'each',
+      unit_price: String(item.unit_price),
+      currency: item.currency,
+      tax_code_id: item.tax_code_id || '',
     })
     setError(null)
     setShowForm(true)
@@ -123,13 +150,13 @@ export default function TaxCodesPage() {
 
   const closeForm = () => {
     setShowForm(false)
-    setEditingTaxCode(null)
+    setEditingItem(null)
     setError(null)
   }
 
   const handleSubmit = async () => {
-    if (!form.code.trim() || !form.name.trim()) {
-      setError('Code and Name are required.')
+    if (!form.name.trim()) {
+      setError('Name is required.')
       return
     }
     setSaving(true)
@@ -137,27 +164,28 @@ export default function TaxCodesPage() {
     try {
       const payload = {
         entity_id: entityId,
-        code: form.code.trim(),
         name: form.name.trim(),
-        tax_type: form.tax_type,
-        rate: parseFloat(form.rate) || 0,
-        applies_to: form.applies_to,
-        country_code: form.country_code.trim().toUpperCase() || undefined,
+        description: form.description || undefined,
+        category: form.category,
+        unit: form.unit,
+        unit_price: parseFloat(form.unit_price) || 0,
+        currency: form.currency || 'SGD',
+        tax_code_id: form.tax_code_id || undefined,
       }
-      if (editingTaxCode) {
-        await portalApi.updateTaxCode(editingTaxCode.id, payload)
+      if (editingItem) {
+        await portalApi.updateItem(editingItem.id, payload)
       } else {
-        await portalApi.createTaxCode(payload)
+        await portalApi.createItem(payload)
       }
       closeForm()
-      reloadTaxCodes()
+      reloadItems()
     } catch (e: any) {
       const d = e?.response?.data
       const msg = typeof d?.detail === 'string'
         ? d.detail
         : Array.isArray(d?.detail)
           ? d.detail.map((x: any) => x.msg).join(', ')
-          : d?.message || d?.error || `Failed to save tax code (${e?.response?.status ?? 'network error'})`
+          : d?.message || d?.error || `Failed to save item (${e?.response?.status ?? 'network error'})`
       setError(msg)
     } finally {
       setSaving(false)
@@ -166,12 +194,22 @@ export default function TaxCodesPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await portalApi.deleteTaxCode(id, entityId)
+      await portalApi.deleteItem(id, entityId)
       setConfirmDeleteId(null)
-      reloadTaxCodes()
+      reloadItems()
     } catch {
       // silently ignore
     }
+  }
+
+  const formatPrice = (price: number, currency: string) => {
+    return `${currency} ${price.toFixed(2)}`
+  }
+
+  const getTaxCodeLabel = (taxCodeId: string | null) => {
+    if (!taxCodeId) return null
+    const tc = taxCodes.find(t => t.id === taxCodeId)
+    return tc ? tc.code : null
   }
 
   return (
@@ -183,10 +221,10 @@ export default function TaxCodesPage() {
             className="text-2xl font-bold text-white"
             style={{ fontFamily: 'Space Grotesk, sans-serif', margin: 0 }}
           >
-            Tax Codes
+            Items
           </h1>
           <p className="text-sm mt-1" style={{ color: '#6B7280' }}>
-            Manage tax codes by entity
+            Manage products, services and subscriptions by entity
           </p>
         </div>
 
@@ -213,7 +251,7 @@ export default function TaxCodesPage() {
               className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
               style={{ background: '#f97316' }}
             >
-              + New Tax Code
+              + New Item
             </button>
           )}
         </div>
@@ -227,7 +265,7 @@ export default function TaxCodesPage() {
         >
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-white">
-              {editingTaxCode ? 'Edit Tax Code' : 'New Tax Code'}
+              {editingItem ? 'Edit Item' : 'New Item'}
             </h2>
             <button
               onClick={closeForm}
@@ -245,77 +283,95 @@ export default function TaxCodesPage() {
           )}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField label="Code" required>
-              <input
-                className={inputClass}
-                style={inputStyle}
-                value={form.code}
-                onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
-                placeholder="e.g. GST9"
-              />
-            </FormField>
-
             <FormField label="Name" required>
               <input
                 className={inputClass}
                 style={inputStyle}
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. GST 9%"
+                placeholder="Item name"
               />
             </FormField>
 
-            <FormField label="Tax Type">
+            <FormField label="Category">
               <select
                 className={inputClass}
                 style={inputStyle}
-                value={form.tax_type}
-                onChange={e => setForm(f => ({ ...f, tax_type: e.target.value }))}
+                value={form.category}
+                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
               >
-                <option value="gst">GST</option>
-                <option value="vat">VAT</option>
-                <option value="withholding">Withholding</option>
-                <option value="corporate">Corporate</option>
+                <option value="product">Product</option>
+                <option value="service">Service</option>
+                <option value="subscription">Subscription</option>
+                <option value="other">Other</option>
               </select>
             </FormField>
 
-            <FormField label="Rate (%)">
+            <FormField label="Unit">
+              <select
+                className={inputClass}
+                style={inputStyle}
+                value={form.unit}
+                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+              >
+                <option value="each">Each</option>
+                <option value="hour">Hour</option>
+                <option value="day">Day</option>
+                <option value="kg">kg</option>
+                <option value="box">Box</option>
+                <option value="unit">Unit</option>
+              </select>
+            </FormField>
+
+            <FormField label="Unit Price">
               <input
                 type="number"
-                step="0.01"
+                step="0.0001"
                 min="0"
                 className={inputClass}
                 style={inputStyle}
-                value={form.rate}
-                onChange={e => setForm(f => ({ ...f, rate: e.target.value }))}
-                placeholder="e.g. 9"
+                value={form.unit_price}
+                onChange={e => setForm(f => ({ ...f, unit_price: e.target.value }))}
+                placeholder="0.00"
               />
             </FormField>
 
-            <FormField label="Applies To">
-              <select
-                className={inputClass}
-                style={inputStyle}
-                value={form.applies_to}
-                onChange={e => setForm(f => ({ ...f, applies_to: e.target.value }))}
-              >
-                <option value="sales">Sales</option>
-                <option value="purchases">Purchases</option>
-                <option value="both">Both</option>
-              </select>
-            </FormField>
-
-            <FormField label="Country Code">
+            <FormField label="Currency">
               <input
                 className={inputClass}
                 style={inputStyle}
-                value={form.country_code}
-                onChange={e => setForm(f => ({ ...f, country_code: e.target.value.slice(0, 3) }))}
-                placeholder="e.g. SGP"
-                maxLength={3}
+                value={form.currency}
+                onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
+                placeholder="SGD"
               />
             </FormField>
+
+            <FormField label="Tax Code">
+              <select
+                className={inputClass}
+                style={inputStyle}
+                value={form.tax_code_id}
+                onChange={e => setForm(f => ({ ...f, tax_code_id: e.target.value }))}
+              >
+                <option value="">— None —</option>
+                {taxCodes.map(tc => (
+                  <option key={tc.id} value={tc.id}>
+                    {tc.code} — {tc.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
           </div>
+
+          <FormField label="Description">
+            <textarea
+              className={inputClass}
+              style={{ ...inputStyle, resize: 'vertical', minHeight: 64 }}
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Optional description"
+            />
+          </FormField>
 
           <div className="flex justify-end gap-3 pt-2">
             <button
@@ -331,7 +387,7 @@ export default function TaxCodesPage() {
               className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-all"
               style={{ background: '#f97316', opacity: saving ? 0.6 : 1 }}
             >
-              {saving ? 'Saving...' : editingTaxCode ? 'Save Changes' : 'Create Tax Code'}
+              {saving ? 'Saving...' : editingItem ? 'Save Changes' : 'Create Item'}
             </button>
           </div>
         </div>
@@ -346,20 +402,20 @@ export default function TaxCodesPage() {
           overflow: 'hidden',
         }}
       >
-        {loadingEntities || loadingTaxCodes ? (
+        {loadingEntities || loading ? (
           <div style={{ padding: 48, textAlign: 'center', color: '#6B7280' }}>
             Loading...
           </div>
-        ) : taxCodes.length === 0 ? (
+        ) : items.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: '#6B7280' }}>
-            {entityId ? 'No tax codes found for this entity.' : 'Select an entity to view tax codes.'}
+            {entityId ? 'No items found for this entity.' : 'Select an entity to view items.'}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#1F2937', borderBottom: '1px solid #1E2A3A' }}>
-                  {['Code', 'Name', 'Tax Type', 'Rate (%)', 'Applies To', 'Country', 'Active', 'Actions'].map(col => (
+                  {['Item Code', 'Name', 'Category', 'Unit', 'Unit Price', 'Tax Code', 'Active', 'Actions'].map(col => (
                     <th
                       key={col}
                       style={{
@@ -379,11 +435,13 @@ export default function TaxCodesPage() {
                 </tr>
               </thead>
               <tbody>
-                {taxCodes.map((tc, idx) => {
-                  const isConfirmDelete = confirmDeleteId === tc.id
+                {items.map((item, idx) => {
+                  const badge = getCategoryBadge(item.category)
+                  const isConfirmDelete = confirmDeleteId === item.id
+                  const taxLabel = getTaxCodeLabel(item.tax_code_id)
                   return (
                     <tr
-                      key={tc.id}
+                      key={item.id}
                       style={{
                         borderBottom: '1px solid #1E2A3A',
                         background: idx % 2 === 0 ? 'transparent' : 'rgba(31,41,55,0.4)',
@@ -393,10 +451,13 @@ export default function TaxCodesPage() {
                       onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'rgba(31,41,55,0.4)')}
                     >
                       <td style={{ padding: '10px 16px', color: '#F9FAFB', fontSize: 13, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
-                        {tc.code}
+                        {item.item_code}
                       </td>
                       <td style={{ padding: '10px 16px', color: '#F9FAFB', fontSize: 13 }}>
-                        {tc.name}
+                        {item.name}
+                        {item.description && (
+                          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{item.description}</div>
+                        )}
                       </td>
                       <td style={{ padding: '10px 16px' }}>
                         <span
@@ -407,25 +468,41 @@ export default function TaxCodesPage() {
                             fontSize: 11,
                             fontWeight: 600,
                             textTransform: 'capitalize',
-                            background: 'rgba(249,115,22,0.12)',
-                            color: '#FDBA74',
+                            background: badge.bg,
+                            color: badge.color,
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          {tc.tax_type}
+                          {item.category}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 16px', color: '#F9FAFB', fontSize: 13 }}>
-                        {typeof tc.rate === 'number' ? tc.rate.toFixed(2) : tc.rate}%
-                      </td>
                       <td style={{ padding: '10px 16px', color: '#9CA3AF', fontSize: 13 }}>
-                        {tc.applies_to ?? <span style={{ color: '#4B5563' }}>—</span>}
+                        {item.unit}
                       </td>
-                      <td style={{ padding: '10px 16px', color: '#9CA3AF', fontSize: 13 }}>
-                        {tc.country_code ?? <span style={{ color: '#4B5563' }}>—</span>}
+                      <td style={{ padding: '10px 16px', color: '#F9FAFB', fontSize: 13, whiteSpace: 'nowrap' }}>
+                        {formatPrice(typeof item.unit_price === 'number' ? item.unit_price : parseFloat(String(item.unit_price)) || 0, item.currency)}
                       </td>
                       <td style={{ padding: '10px 16px', fontSize: 13 }}>
-                        {tc.is_active ? (
+                        {taxLabel ? (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: 12,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: 'rgba(249,115,22,0.12)',
+                              color: '#FDBA74',
+                            }}
+                          >
+                            {taxLabel}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#4B5563' }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px 16px', fontSize: 13 }}>
+                        {item.is_active ? (
                           <span style={{ color: '#86EFAC' }}>Active</span>
                         ) : (
                           <span style={{ color: '#6B7280' }}>Inactive</span>
@@ -436,7 +513,7 @@ export default function TaxCodesPage() {
                           <span className="flex items-center gap-2">
                             <span style={{ fontSize: 12, color: '#FCA5A5' }}>Delete?</span>
                             <button
-                              onClick={() => handleDelete(tc.id)}
+                              onClick={() => handleDelete(item.id)}
                               className="px-2 py-1 rounded text-xs font-medium"
                               style={{ background: 'rgba(239,68,68,0.2)', color: '#FCA5A5' }}
                             >
@@ -453,7 +530,7 @@ export default function TaxCodesPage() {
                         ) : (
                           <span className="flex items-center gap-2">
                             <button
-                              onClick={() => openEdit(tc)}
+                              onClick={() => openEdit(item)}
                               title="Edit"
                               className="p-1 rounded transition-colors"
                               style={{ color: '#6B7280' }}
@@ -463,7 +540,7 @@ export default function TaxCodesPage() {
                               <Pencil size={14} />
                             </button>
                             <button
-                              onClick={() => setConfirmDeleteId(tc.id)}
+                              onClick={() => setConfirmDeleteId(item.id)}
                               title="Delete"
                               className="p-1 rounded transition-colors"
                               style={{ color: '#6B7280' }}

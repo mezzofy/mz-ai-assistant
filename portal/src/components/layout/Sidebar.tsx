@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange, BarChart3, BookOpen, FileText, MessageSquare, Inbox, CreditCard, UserCircle, Building, Building2, Landmark, Receipt, PieChart, LayoutList, Tag, ChevronDown, Settings } from 'lucide-react'
+import { LayoutDashboard, ListTodo, CalendarClock, Bot, FolderOpen, Users, TrendingUp, LogOut, Activity, Users2, CalendarRange, BarChart3, BookOpen, FileText, MessageSquare, Inbox, CreditCard, UserCircle, Building, Building2, Landmark, Receipt, PieChart, LayoutList, Tag, ChevronDown, Settings, Package } from 'lucide-react'
 import clsx from 'clsx'
 import { portalApi } from '../../api/portal'
 
@@ -40,6 +40,7 @@ const FINANCE_NAV_ITEMS: FinanceNavItem[] = [
       { path: '/mission-control/finance/bank-accounts', label: 'Bank Accounts', icon: Landmark },
       { path: '/mission-control/finance/vendors', label: 'Vendors', icon: Building2 },
       { path: '/mission-control/finance/tax-codes', label: 'Tax Codes', icon: Tag },
+      { path: '/mission-control/finance/items', label: 'Items', icon: Package },
     ]
   },
   { type: 'link', path: '/mission-control/finance/files', label: 'Files', icon: FolderOpen },

@@ -42,6 +42,7 @@ from app.core.dependencies import get_current_user, require_permission
 from .schemas import (
     AccountCategoryCreate,
     AccountCreate,
+    AccountUpdate,
     BankAccountCreate,
     BillCreate,
     CurrencyCreate,
@@ -50,6 +51,8 @@ from .schemas import (
     ExpenseCreate,
     ExchangeRateCreate,
     InvoiceCreate,
+    ItemCreate,
+    ItemUpdate,
     JournalEntryCreate,
     PaymentCreate,
     PeriodCreate,
@@ -57,6 +60,7 @@ from .schemas import (
     ReportRequest,
     ShareholderCreate,
     TaxCodeCreate,
+    TaxCodeUpdate,
     TaxReturnCreate,
     VendorCreate,
 )
@@ -310,6 +314,55 @@ async def create_account(
     )
     await db.commit()
     return _ok({"id": str(acct_id), **body.model_dump()})
+
+
+@finance_router.put("/accounts/{account_id}")
+async def update_account(
+    account_id: UUID,
+    body: AccountUpdate,
+    current_user: dict = Depends(require_permission("finance_admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a GL account."""
+    await db.execute(
+        text("""
+            UPDATE fin_accounts
+            SET code = :code, name = :name, description = :desc,
+                currency = :curr, is_bank_account = :bank,
+                is_control = :ctrl, allow_direct_posting = :direct,
+                category_id = :cat
+            WHERE id = :id AND entity_id = :eid
+        """),
+        {
+            "id": str(account_id),
+            "eid": str(body.entity_id),
+            "cat": str(body.category_id),
+            "code": body.code,
+            "name": body.name,
+            "desc": body.description,
+            "curr": body.currency,
+            "bank": body.is_bank_account,
+            "ctrl": body.is_control,
+            "direct": body.allow_direct_posting,
+        },
+    )
+    await db.commit()
+    return _ok({"id": str(account_id), **body.model_dump()})
+
+
+@finance_router.delete("/accounts/{account_id}", status_code=204)
+async def delete_account(
+    account_id: UUID,
+    entity_id: UUID = Query(...),
+    current_user: dict = Depends(require_permission("finance_admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a GL account (set is_active = false)."""
+    await db.execute(
+        text("UPDATE fin_accounts SET is_active = false WHERE id = :id AND entity_id = :eid"),
+        {"id": str(account_id), "eid": str(entity_id)},
+    )
+    await db.commit()
 
 
 # ── Periods ───────────────────────────────────────────────────────────────────
@@ -1366,6 +1419,53 @@ async def create_tax_code(
     return _ok({"id": str(tc_id), **body.model_dump()})
 
 
+@finance_router.put("/tax-codes/{tc_id}")
+async def update_tax_code(
+    tc_id: UUID,
+    body: TaxCodeUpdate,
+    current_user: dict = Depends(require_permission("finance_admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a tax code."""
+    await db.execute(
+        text("""
+            UPDATE fin_tax_codes
+            SET code = :code, name = :name, tax_type = :type,
+                rate = :rate, country_code = :country,
+                applies_to = :applies, gl_account_id = :gl
+            WHERE id = :id AND entity_id = :eid
+        """),
+        {
+            "id": str(tc_id),
+            "eid": str(body.entity_id),
+            "code": body.code,
+            "name": body.name,
+            "type": body.tax_type,
+            "rate": str(body.rate),
+            "country": body.country_code,
+            "applies": body.applies_to,
+            "gl": str(body.gl_account_id) if body.gl_account_id else None,
+        },
+    )
+    await db.commit()
+    return _ok({"id": str(tc_id), **body.model_dump()})
+
+
+@finance_router.delete("/tax-codes/{tc_id}", status_code=204)
+async def delete_tax_code(
+    tc_id: UUID,
+    entity_id: UUID = Query(...),
+    current_user: dict = Depends(require_permission("finance_admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete a tax code."""
+    await db.execute(
+        text("UPDATE fin_tax_codes SET is_active = false WHERE id = :id AND entity_id = :eid"),
+        {"id": str(tc_id), "eid": str(entity_id)},
+    )
+    await db.commit()
+
+
 # ── Tax Returns ───────────────────────────────────────────────────────────────
 
 @finance_router.get("/tax-returns")
@@ -1532,6 +1632,113 @@ async def report_cash_flow(
         "period": {"start": str(start), "end": str(end)},
     }
     return _ok(data)
+
+
+# ── Items ─────────────────────────────────────────────────────────────────────
+
+@finance_router.get("/items")
+async def list_items(
+    entity_id: UUID = Query(...),
+    current_user: dict = Depends(require_permission("finance_read", "finance_admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all active items for an entity."""
+    result = await db.execute(
+        text("""
+            SELECT i.*, tc.code AS tax_code_code, tc.name AS tax_code_name, tc.rate AS tax_rate
+            FROM fin_items i
+            LEFT JOIN fin_tax_codes tc ON i.tax_code_id = tc.id
+            WHERE i.entity_id = :eid AND i.is_active = true
+            ORDER BY i.item_code
+        """),
+        {"eid": str(entity_id)},
+    )
+    return _ok([dict(r._mapping) for r in result.fetchall()])
+
+
+@finance_router.post("/items", status_code=201)
+async def create_item(
+    body: ItemCreate,
+    current_user: dict = Depends(require_permission("finance_admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new item with auto-generated item_code."""
+    item_id = uuid4()
+    svc = FinanceService(db)
+    item_code = await svc.next_number(
+        body.entity_id, "MZ-ITEM", "fin_items", "item_code"
+    )
+    await db.execute(
+        text("""
+            INSERT INTO fin_items
+                (id, entity_id, item_code, name, description,
+                 category, unit, unit_price, currency, tax_code_id)
+            VALUES
+                (:id, :eid, :code, :name, :desc,
+                 :cat, :unit, :price, :curr, :tc)
+        """),
+        {
+            "id": str(item_id),
+            "eid": str(body.entity_id),
+            "code": item_code,
+            "name": body.name,
+            "desc": body.description,
+            "cat": body.category,
+            "unit": body.unit,
+            "price": str(body.unit_price),
+            "curr": body.currency,
+            "tc": str(body.tax_code_id) if body.tax_code_id else None,
+        },
+    )
+    await db.commit()
+    return _ok({"id": str(item_id), "item_code": item_code, **body.model_dump()})
+
+
+@finance_router.put("/items/{item_id}")
+async def update_item(
+    item_id: UUID,
+    body: ItemUpdate,
+    current_user: dict = Depends(require_permission("finance_admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update an item."""
+    await db.execute(
+        text("""
+            UPDATE fin_items
+            SET name = :name, description = :desc, category = :cat,
+                unit = :unit, unit_price = :price, currency = :curr,
+                tax_code_id = :tc, updated_at = NOW()
+            WHERE id = :id AND entity_id = :eid
+        """),
+        {
+            "id": str(item_id),
+            "eid": str(body.entity_id),
+            "name": body.name,
+            "desc": body.description,
+            "cat": body.category,
+            "unit": body.unit,
+            "price": str(body.unit_price),
+            "curr": body.currency,
+            "tc": str(body.tax_code_id) if body.tax_code_id else None,
+        },
+    )
+    await db.commit()
+    return _ok({"id": str(item_id), **body.model_dump()})
+
+
+@finance_router.delete("/items/{item_id}", status_code=204)
+async def delete_item(
+    item_id: UUID,
+    entity_id: UUID = Query(...),
+    current_user: dict = Depends(require_permission("finance_admin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft-delete an item."""
+    await db.execute(
+        text("UPDATE fin_items SET is_active = false WHERE id = :id AND entity_id = :eid"),
+        {"id": str(item_id), "eid": str(entity_id)},
+    )
+    await db.commit()
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────

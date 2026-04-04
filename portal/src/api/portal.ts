@@ -278,6 +278,26 @@ export const portalApi = {
     client.post('/api/finance/shareholders', data),
   getTaxCodes: (entityId: string) =>
     client.get(`/api/finance/tax-codes?entity_id=${entityId}`),
+  createTaxCode: (data: any) =>
+    client.post('/api/finance/tax-codes', data),
+  updateTaxCode: (id: string, data: any) =>
+    client.put(`/api/finance/tax-codes/${id}`, data),
+  deleteTaxCode: (id: string, entityId: string) =>
+    client.delete(`/api/finance/tax-codes/${id}?entity_id=${entityId}`),
+  updateFinanceAccount: (id: string, data: any) =>
+    client.put(`/api/finance/accounts/${id}`, data),
+  deleteFinanceAccount: (id: string, entityId: string) =>
+    client.delete(`/api/finance/accounts/${id}?entity_id=${entityId}`),
+  getFinanceAccountCategories: (entityId: string) =>
+    client.get(`/api/finance/account-categories?entity_id=${entityId}`),
+  getItems: (entityId: string) =>
+    client.get(`/api/finance/items?entity_id=${entityId}`),
+  createItem: (data: any) =>
+    client.post('/api/finance/items', data),
+  updateItem: (id: string, data: any) =>
+    client.put(`/api/finance/items/${id}`, data),
+  deleteItem: (id: string, entityId: string) =>
+    client.delete(`/api/finance/items/${id}?entity_id=${entityId}`),
   getTaxReturns: (entityId: string) =>
     client.get(`/api/finance/tax-returns?entity_id=${entityId}`),
   getFinanceReport: (reportType: string, data: any) =>
