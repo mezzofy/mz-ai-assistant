@@ -504,6 +504,58 @@ class ReportRequest(BaseModel):
     consolidate_entities: bool = False
 
 
+# ── Account Update ────────────────────────────────────────────────────────────
+
+class AccountUpdate(BaseModel):
+    entity_id: UUID
+    category_id: UUID
+    code: str
+    name: str
+    description: Optional[str] = None
+    currency: str = "SGD"
+    is_bank_account: bool = False
+    is_control: bool = False
+    allow_direct_posting: bool = True
+
+
+# ── Tax Code Update ────────────────────────────────────────────────────────────
+
+class TaxCodeUpdate(BaseModel):
+    entity_id: UUID
+    code: str
+    name: str
+    tax_type: str  # gst | vat | withholding | corporate
+    rate: Decimal
+    country_code: Optional[str] = None
+    applies_to: str = "both"
+    gl_account_id: Optional[UUID] = None
+
+
+# ── Items ─────────────────────────────────────────────────────────────────────
+
+class ItemCreate(BaseModel):
+    entity_id: UUID
+    name: str
+    description: Optional[str] = None
+    category: str = "service"  # product | service | subscription | other
+    unit: str = "each"
+    unit_price: Decimal
+    currency: str = "SGD"
+    tax_code_id: Optional[UUID] = None
+
+
+class ItemUpdate(ItemCreate):
+    pass
+
+
+class ItemResponse(ItemCreate):
+    id: UUID
+    item_code: str
+    is_active: bool
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
 # ── Standard API Envelope ─────────────────────────────────────────────────────
 
 class FinanceResponse(BaseModel):
