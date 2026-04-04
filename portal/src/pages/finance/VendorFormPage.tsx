@@ -25,12 +25,10 @@ export default function VendorFormPage() {
   const [entityId, setEntityId] = useState('')
 
   const [form, setForm] = useState({
-    vendor_code: '',
     name: '',
     company_name: '',
     email: '',
     phone: '',
-    currency: 'SGD',
     payment_terms: '30',
   })
   const [loading, setLoading] = useState(isEdit)
@@ -46,10 +44,6 @@ export default function VendorFormPage() {
   }, [])
 
   const entityCurrency = entities.find(e => e.id === entityId)?.base_currency || 'SGD'
-
-  useEffect(() => {
-    if (entityCurrency) setForm(f => ({ ...f, currency: f.currency || entityCurrency }))
-  }, [entityCurrency])
 
   // Load vendor for edit mode
   useEffect(() => {
@@ -67,12 +61,11 @@ export default function VendorFormPage() {
     try {
       const payload = {
         entity_id: entityId,
-        vendor_code: form.vendor_code,
         name: form.name,
         company_name: form.company_name || undefined,
         email: form.email || undefined,
         phone: form.phone || undefined,
-        currency: form.currency,
+        currency: entityCurrency,
         payment_terms: parseInt(form.payment_terms) || 30,
       }
       if (isEdit && id) {
@@ -82,7 +75,13 @@ export default function VendorFormPage() {
       }
       navigate('/mission-control/finance/vendors')
     } catch (e: any) {
-      setError(e?.response?.data?.detail || `Failed to ${isEdit ? 'update' : 'create'} vendor`)
+      const d = e?.response?.data
+      const msg = typeof d?.detail === 'string'
+        ? d.detail
+        : Array.isArray(d?.detail)
+          ? d.detail.map((x: any) => x.msg).join(', ')
+          : d?.message || d?.error || `Failed to ${isEdit ? 'update' : 'create'} vendor (${e?.response?.status ?? 'network error'})`
+      setError(msg)
     } finally {
       setSaving(false)
     }
@@ -126,9 +125,6 @@ export default function VendorFormPage() {
         <div className="border-t pt-5" style={{ borderColor: '#1E2A3A' }}>
           <div className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: '#4B5563' }}>Vendor Info</div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField label="Vendor Code" required>
-              <input className={inputClass} style={inputStyle} value={form.vendor_code} onChange={set('vendor_code')} placeholder="VND-001" />
-            </FormField>
             <FormField label="Name" required>
               <input className={inputClass} style={inputStyle} value={form.name} onChange={set('name')} placeholder="Vendor Name" />
             </FormField>
@@ -156,7 +152,7 @@ export default function VendorFormPage() {
           <div className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: '#4B5563' }}>Payment Settings</div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Currency">
-              <input className={inputClass} style={inputStyle} value={form.currency} onChange={set('currency')} placeholder="SGD" />
+              <input className={inputClass} style={{ ...inputStyle, opacity: 0.6, cursor: 'not-allowed' }} value={entityCurrency} readOnly />
             </FormField>
             <FormField label="Payment Terms (days)">
               <input type="number" className={inputClass} style={inputStyle} value={form.payment_terms} onChange={set('payment_terms')} placeholder="30" min="0" />
@@ -175,9 +171,9 @@ export default function VendorFormPage() {
         </button>
         <button
           onClick={handleSubmit}
-          disabled={saving || !entityId || !form.vendor_code.trim() || !form.name.trim()}
+          disabled={saving || !entityId || !form.name.trim()}
           className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-all"
-          style={{ background: '#f97316', opacity: saving || !entityId || !form.vendor_code.trim() || !form.name.trim() ? 0.6 : 1 }}
+          style={{ background: '#f97316', opacity: saving || !entityId || !form.name.trim() ? 0.6 : 1 }}
         >
           {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Vendor'}
         </button>
