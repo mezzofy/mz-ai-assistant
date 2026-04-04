@@ -417,7 +417,7 @@ async def create_journal_entry(
                  description, reference, currency, exchange_rate, tags, created_by)
             VALUES
                 (:id, :eid, :pid, :num, :date,
-                 :desc, :ref, :curr, :rate, :tags::jsonb, :uid)
+                 :desc, :ref, :curr, :rate, CAST(:tags AS JSONB), :uid)
         """),
         {
             "id": str(entry_id),
@@ -603,7 +603,7 @@ async def create_customer(
                  industry, location, account_manager, customer_type, is_active)
             VALUES
                 (:id, :eid, :lid, :code, :name, :company,
-                 :email, :phone, :billing::jsonb, :shipping::jsonb,
+                 :email, :phone, CAST(:billing AS JSONB), CAST(:shipping AS JSONB),
                  :curr, :terms, :limit, :tax, :notes,
                  :industry, :location, :account_manager, :customer_type, :is_active)
         """),
@@ -690,8 +690,8 @@ async def create_vendor(
                  payment_terms, bank_details, tax_id)
             VALUES
                 (:id, :eid, :code, :name, :company,
-                 :email, :phone, :billing::jsonb, :curr,
-                 :terms, :bank::jsonb, :tax)
+                 :email, :phone, CAST(:billing AS JSONB), :curr,
+                 :terms, CAST(:bank AS JSONB), :tax)
         """),
         {
             "id": str(vendor_id),
@@ -775,7 +775,7 @@ async def create_quote(
                 (:id, :eid, :num, :cust, :lead,
                  :date, :expiry, :curr, :rate,
                  :sub, :tax, :total, 'draft',
-                 :items::jsonb, :terms, :notes)
+                 CAST(:items AS JSONB), :terms, :notes)
         """),
         {
             "id": str(quote_id),
@@ -848,7 +848,7 @@ async def create_invoice(
                 (:id, :eid, :num, :cust, :quote,
                  :date, :due, :curr, :rate,
                  :sub, :tax, :total, 'draft',
-                 :items::jsonb, :terms, :notes, :uid)
+                 CAST(:items AS JSONB), :terms, :notes, :uid)
         """),
         {
             "id": str(inv_id),
@@ -973,7 +973,7 @@ async def create_bill(
                 (:id, :eid, :num, :vend, :date,
                  :due, :ref, :curr, :rate,
                  :sub, :tax, :total, 'pending',
-                 :items::jsonb, :notes)
+                 CAST(:items AS JSONB), :notes)
         """),
         {
             "id": str(bill_id),
@@ -1290,7 +1290,7 @@ async def create_shareholder(
                  par_value, total_paid, ownership_pct, effective_date, notes)
             VALUES
                 (:id, :eid, :name, :type, :id_num,
-                 :nat, :addr::jsonb, :class, :shares,
+                 :nat, CAST(:addr AS JSONB), :class, :shares,
                  :par, :paid, :pct, :date, :notes)
         """),
         {
