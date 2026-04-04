@@ -404,16 +404,16 @@ async def _run_agent_task(task_data: dict) -> dict:
                 await _db.execute(
                     _text(
                         "INSERT INTO agent_tasks "
-                        "(id, task_ref, user_id, department, content, status, details, notify_on_done) "
-                        "VALUES (:id, :ref, :uid, :dept, :content, 'running', :details, false)"
+                        "(id, task_ref, user_id, department, content, status, result, notify_on_done) "
+                        "VALUES (:id, :ref, :uid, :dept, :content, 'running', :result, false)"
                     ),
                     {
                         "id": new_task_id,
-                        "ref": f"sched-{job_id[:8]}",
+                        "ref": f"sched-{job_id}",
                         "uid": _uid_str,
                         "dept": _dept,
                         "content": _message,
-                        "details": _json.dumps({
+                        "result": _json.dumps({
                             "job_id": job_id,
                             "job_name": task_data.get("_job_name", ""),
                             "source": task_data.get("source", "scheduler"),

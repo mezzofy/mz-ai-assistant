@@ -451,11 +451,11 @@ async def get_job_history(
                    EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 AS duration_ms,
                    current_step, error, created_at
             FROM agent_tasks
-            WHERE (details->>'job_id' = :job_id OR content ILIKE :pattern)
+            WHERE (result->>'job_id' = :job_id OR task_ref = :task_ref)
             ORDER BY created_at DESC
             LIMIT 50
         """),
-        {"job_id": job_id, "pattern": f"%{job_id}%"},
+        {"job_id": job_id, "task_ref": f"sched-{job_id}"},
     )
     rows = result.fetchall()
     history = []
