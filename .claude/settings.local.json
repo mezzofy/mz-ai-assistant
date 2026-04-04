@@ -95,7 +95,9 @@
       "Bash(do echo:*)",
       "Bash(GIT_TERMINAL_PROMPT=0 git push origin eric-design)",
       "Bash(powershell.exe -Command \":*)",
-      "Bash(git-credential-manager get:*)"
+      "Bash(git-credential-manager get:*)",
+      "Read(//tmp/**)",
+      "Bash(cp /tmp/backend_merged.md \"C:/Mezzofy/workspace/mz-ai-assistant/.claude/coordination/status/backend.md\")"
     ]
   }
 }

@@ -321,28 +321,34 @@ def process_agent_task(self, task_data: dict):
 
 async def _fetch_user_context(user_id: str) -> tuple:
     """
-    Fetch (email, role) for the given user_id from the users table.
+    Fetch (email, role, department) for the given user_id from the users table.
 
-    Returns ("", "user") when user_id is empty or the lookup fails.
+    Returns ("", "user", "") when user_id is empty or the lookup fails.
     Called by Celery task functions to restore user context that is lost
     when tasks cross the process boundary (ContextVars are not propagated).
+
+    The returned department is the user's own organisational department (e.g.
+    "management"), which may differ from the agent/task department used for
+    routing (e.g. "support"). Callers should use the real dept for
+    set_user_context so that artifact paths are placed in the user's own
+    folder regardless of which agent processed the task.
     """
     if not user_id:
-        return ("", "user")
+        return ("", "user", "")
     try:
         from app.core.database import AsyncSessionLocal
         from sqlalchemy import text
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                text("SELECT email, role FROM users WHERE id = :uid"),
+                text("SELECT email, role, department FROM users WHERE id = :uid"),
                 {"uid": user_id},
             )
             row = result.fetchone()
             if row:
-                return (row.email or "", row.role or "user")
+                return (row.email or "", row.role or "user", row.department or "")
     except Exception as e:
         logger.warning(f"_fetch_user_context failed for user_id={user_id!r}: {e}")
-    return ("", "user")
+    return ("", "user", "")
 
 
 async def _run_agent_task(task_data: dict) -> dict:
@@ -356,10 +362,13 @@ async def _run_agent_task(task_data: dict) -> dict:
     # Restore user context — ContextVars are not propagated across the Celery
     # process boundary, so get_user_dept() / get_user_email() return defaults
     # ("general" / "") inside Celery workers without this call.
+    # Use the user's own department from the DB so that artifact paths land in
+    # the user's folder regardless of which agent is handling the task.
     from app.core.user_context import set_user_context
-    _dept = task_data.get("department", "general")
+    _agent_dept = task_data.get("department", "general")
     _uid = task_data.get("user_id", "")
-    _email, _role = await _fetch_user_context(_uid)
+    _email, _role, _user_dept = await _fetch_user_context(_uid)
+    _dept = _user_dept or _agent_dept
     set_user_context(dept=_dept, email=_email, role=_role, user_id=_uid)
 
     # Ensure source is set (enables permission bypass for system tasks)
@@ -613,10 +622,13 @@ async def _run_chat_task(task_data: dict) -> dict:
     # Restore user context — ContextVars are not propagated across the Celery
     # process boundary, so get_user_dept() / get_user_email() return defaults
     # ("general" / "") inside Celery workers without this call.
+    # Use the user's own department from the DB so that artifact paths land in
+    # the user's folder regardless of which agent is handling the task.
     from app.core.user_context import set_user_context
-    _dept = task_data.get("department", "general")
+    _agent_dept_ctx = task_data.get("department", "general")
     _uid_ctx = task_data.get("user_id", "")
-    _email_ctx, _role_ctx = await _fetch_user_context(_uid_ctx)
+    _email_ctx, _role_ctx, _user_dept_ctx = await _fetch_user_context(_uid_ctx)
+    _dept = _user_dept_ctx or _agent_dept_ctx
     set_user_context(dept=_dept, email=_email_ctx, role=_role_ctx, user_id=_uid_ctx)
 
     user_id = task_data["user_id"]
@@ -1139,11 +1151,13 @@ async def _run_delegated_agent_task(
     if feedback:
         task_data["message"] = f"[Feedback from prior attempt]: {feedback}\n\n" + task_data.get("message", "")
 
-    # Restore user context
+    # Restore user context. Use the user's own department from the DB so that
+    # artifact paths land in the user's folder regardless of which agent runs.
     from app.core.user_context import set_user_context
     _uid = task_data.get("user_id", "")
-    _dept = task_data.get("department", "general")
-    _email, _role = await _fetch_user_context(_uid)
+    _agent_dept = task_data.get("department", "general")
+    _email, _role, _user_dept = await _fetch_user_context(_uid)
+    _dept = _user_dept or _agent_dept
     set_user_context(dept=_dept, email=_email, role=_role, user_id=_uid)
 
     # Update log: running
