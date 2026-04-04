@@ -1,5 +1,27 @@
 # Context Checkpoint: Backend Agent
-**Date:** 2026-03-31
+**Date:** 2026-04-05
+**Session:** BUG-artifact-dept-mismatch — COMPLETE
+
+## Completed This Session
+
+- ✅ Extended `_fetch_user_context` to return `(email, role, department)` — adds `department` to the users SELECT
+- ✅ Updated all 3 `set_user_context` call sites in `tasks.py` to use real user dept with agent dept as fallback
+- ✅ Committed `984b746`
+
+## Files Modified
+
+- `server/app/tasks/tasks.py` — `_fetch_user_context` (line ~322) + 3 call sites (lines ~362, ~627, ~1156)
+
+## Deploy
+
+```bash
+git pull && sudo systemctl restart mezzofy-celery.service
+```
+(API service restart not required — only Celery workers use `_fetch_user_context`)
+
+---
+
+
 **Phase:** Finance Module Phases 5+6+8 Complete — ALL FINANCE BACKEND DONE
 **Session:** Finance-3
 
